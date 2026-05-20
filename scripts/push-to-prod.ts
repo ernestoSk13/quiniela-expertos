@@ -4,7 +4,7 @@
  *
  * Requiere:
  *   1. Emuladores corriendo: npm run emulators
- *   2. service-account.json en la raíz del proyecto
+ *   2. Variable FIREBASE_SERVICE_ACCOUNT en .env.local con el JSON de la cuenta de servicio
  *
  * Uso:
  *   npm run push-to-prod
@@ -13,11 +13,8 @@
 
 import { cert, initializeApp } from 'firebase-admin/app'
 import { getFirestore, WriteBatch } from 'firebase-admin/firestore'
-import { readFileSync } from 'fs'
-import { resolve } from 'path'
 
 const PROJECT_ID = 'quinielaexpertos26'
-const SERVICE_ACCOUNT_PATH = resolve(process.cwd(), 'service-account.json')
 
 const ALL_COLLECTIONS = ['teams', 'matchdays', 'matches', 'allowedUsers']
 
@@ -33,12 +30,18 @@ const emulatorApp = initializeApp({ projectId: PROJECT_ID }, 'emulator')
 const emulatorDb = getFirestore(emulatorApp)
 emulatorDb.settings({ host: 'localhost:8080', ssl: false })
 
+if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+  console.error('❌ Falta la variable de entorno FIREBASE_SERVICE_ACCOUNT.')
+  console.error('   Agrégala en .env.local con el contenido JSON de la cuenta de servicio.')
+  console.error('   Descárgalo en: Firebase Console → Configuración → Cuentas de servicio')
+  process.exit(1)
+}
+
 let serviceAccount: object
 try {
-  serviceAccount = JSON.parse(readFileSync(SERVICE_ACCOUNT_PATH, 'utf-8'))
+  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
 } catch {
-  console.error('❌ No se encontró service-account.json en la raíz del proyecto.')
-  console.error('   Descárgalo en: Firebase Console → Configuración → Cuentas de servicio')
+  console.error('❌ FIREBASE_SERVICE_ACCOUNT no contiene un JSON válido.')
   process.exit(1)
 }
 

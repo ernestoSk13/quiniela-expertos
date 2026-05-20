@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "emulators": "firebase emulators:start",
     "seed": "FIRESTORE_EMULATOR_HOST=localhost:8080 tsx scripts/seed.ts",
-    "push-to-prod": "tsx scripts/push-to-prod.ts",
-    "pull-from-prod": "tsx scripts/pull-from-prod.ts"
+    "push-to-prod": "dotenv -e .env.local -- tsx scripts/push-to-prod.ts",
+    "pull-from-prod": "dotenv -e .env.local -- tsx scripts/pull-from-prod.ts"
   },
   "dependencies": {
     "firebase": "^11.0.0",
@@ -23,6 +23,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",
+    "dotenv-cli": "^11.0.0",
     "firebase-admin": "^13.10.0",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.22.3",
