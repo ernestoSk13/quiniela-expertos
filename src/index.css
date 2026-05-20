@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/* ── Theme variables (FIFA World Cup 2026 palette) ──────────────── */
+:root {
+  /* México — neon green + dark teal */
+  --accent:       #00C853;
+  --accent-hover: #00A844;
+  --accent-light: #69F0AE;
+  --accent-dim:   #0A3D2A;
+  --accent-muted: rgba(0,200,83,0.2);
+  --accent-deep:  rgba(10,61,42,0.4);
+  --bg-base:      #010a04;
+  --surface-nav:  #051510;
+  --surface-card: #0e2016;
+  --blob-a:       rgba(0,200,83,0.28);
+  --blob-b:       rgba(10,100,50,0.22);
+  --blob-c:       rgba(0,160,68,0.18);
+}
+
+.theme-canada {
+  /* Canadá — bright red + dark maroon */
+  --accent:       #E51414;
+  --accent-hover: #C41010;
+  --accent-light: #FF7070;
+  --accent-dim:   #6F1020;
+  --accent-muted: rgba(229,20,20,0.2);
+  --accent-deep:  rgba(111,16,32,0.4);
+  --bg-base:      #0a0101;
+  --surface-nav:  #180404;
+  --surface-card: #200d0d;
+  --blob-a:       rgba(229,20,20,0.28);
+  --blob-b:       rgba(111,16,32,0.22);
+  --blob-c:       rgba(180,12,12,0.18);
+}
+
+.theme-usa {
+  /* EUA — royal blue + dark navy */
+  --accent:       #2535F0;
+  --accent-hover: #1E2BD4;
+  --accent-light: #828DF8;
+  --accent-dim:   #1A2B6B;
+  --accent-muted: rgba(37,53,240,0.2);
+  --accent-deep:  rgba(26,43,107,0.4);
+  --bg-base:      #01020c;
+  --surface-nav:  #040618;
+  --surface-card: #0d1020;
+  --blob-a:       rgba(37,53,240,0.28);
+  --blob-b:       rgba(26,43,107,0.22);
+  --blob-c:       rgba(20,35,200,0.18);
+}
+
+/* ── Global base background ─────────────────────────────────────── */
+html, body {
+  background-color: var(--bg-base);
+}
+
+/* ── Utility classes ────────────────────────────────────────────── */
+
+/* Large blurry corner blobs — FIFA WC 2026 inspired */
+.app-bg {
+  background-color: var(--bg-base);
+  background-image:
+    radial-gradient(ellipse 65% 55% at -8%   0%,   var(--blob-a), transparent 65%),
+    radial-gradient(ellipse 50% 65% at 108%  5%,   var(--blob-b), transparent 60%),
+    radial-gradient(ellipse 55% 50% at 108%  98%,  var(--blob-a), transparent 60%),
+    radial-gradient(ellipse 45% 60% at -8%   95%,  var(--blob-c), transparent 65%),
+    radial-gradient(ellipse 40% 35% at 50%   50%,  var(--blob-c), transparent 70%);
+}
+
+.surface-nav {
+  background-color: var(--surface-nav);
+}
+
+.surface-card {
+  background-color: var(--surface-card);
+}

@@ -1,0 +1,67 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAllowedUser() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email));
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // El admin pre-registra correos; usuarios autenticados pueden leer su propio entry
+    match /allowedUsers/{email} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Cada usuario lee y edita solo su propio documento; admin puede leer todos
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Jornadas y partidos: solo lectura para usuarios permitidos; escritura solo admin
+    match /matchdays/{matchdayId} {
+      allow read: if isAllowedUser();
+      allow write: if isAdmin();
+    }
+
+    match /matches/{matchId} {
+      allow read: if isAllowedUser();
+      allow write: if isAdmin();
+    }
+
+    match /teams/{teamId} {
+      allow read: if isAllowedUser();
+      allow write: if isAdmin();
+    }
+
+    match /leaderboard/{docId} {
+      allow read: if isAllowedUser();
+      allow write: if isAdmin();
+    }
+
+    // Pronósticos: cada usuario lee y escribe solo los suyos; nunca se borran
+    match /predictions/{predictionId} {
+      allow read: if isAllowedUser() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow create, update: if isAllowedUser() &&
+        request.resource.data.userId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /surpriseChallenges/{challengeId} {
+      allow read: if isAllowedUser();
+      allow write: if isAdmin();
+    }
+  }
+}

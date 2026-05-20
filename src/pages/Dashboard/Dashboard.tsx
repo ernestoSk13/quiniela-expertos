@@ -1,0 +1,134 @@
+import { useNavigate } from 'react-router-dom'
+import { signOut } from 'firebase/auth'
+import { auth } from '@/lib/firebase'
+import { useAuth } from '@/context/AuthContext'
+import { useMatchdays } from '@/hooks/useMatchdays'
+import { useLeaderboard } from '@/hooks/useLeaderboard'
+import { useTeamsMap } from '@/hooks/useTeams'
+import { updateBonusPredictions } from '@/services/firestoreUsers'
+import Avatar from '@/components/Avatar'
+import StatusBadge from '@/components/StatusBadge'
+import ThemeSelector from '@/components/ThemeSelector'
+import LeaderboardTable from './LeaderboardTable'
+import BonusSummary from './BonusSummary'
+import type { BonusPredictions } from '@/types/User'
+
+function formatDeadline(ts: ReturnType<typeof Date.now> | any) {
+  return ts?.toDate().toLocaleString('es-MX', {
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+  }) ?? '—'
+}
+
+export default function Dashboard() {
+  const { user } = useAuth()
+  const { matchdays, loading: matchdaysLoading } = useMatchdays()
+  const { players, loading: leaderboardLoading } = useLeaderboard()
+  const { teamsMap } = useTeamsMap()
+  const navigate = useNavigate()
+
+  async function handleSignOut() {
+    await signOut(auth)
+    navigate('/login', { replace: true })
+  }
+
+  const nextMatchday = matchdays.find(md => md.status === 'open' || md.status === 'upcoming')
+  const teams = Object.values(teamsMap)
+
+  async function handleSaveBonus(bonus: BonusPredictions) {
+    if (!user) return
+    await updateBonusPredictions(user.uid, bonus)
+  }
+
+  return (
+    <div className="min-h-screen app-bg text-white">
+      {/* Nav */}
+      <header className="border-b border-gray-800 surface-nav sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+          <span className="font-bold text-white text-sm">Quiniela Expertos</span>
+
+          <div className="flex items-center gap-3">
+            <ThemeSelector />
+            <div className="flex items-center gap-2">
+              <Avatar
+                url={user?.avatarUrl ?? ''}
+                name={user?.displayName || '?'}
+                size="sm"
+              />
+              <span className="text-sm text-gray-300 hidden sm:block">{user?.displayName}</span>
+            </div>
+            <button
+              onClick={handleSignOut}
+              className="text-sm text-gray-500 hover:text-white transition-colors"
+            >
+              Salir
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Body */}
+      <main className="max-w-5xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* Leaderboard — takes 2/3 on desktop */}
+          <div className="lg:col-span-2">
+            <h2 className="text-lg font-bold mb-4">Tabla general</h2>
+            {leaderboardLoading ? (
+              <p className="text-gray-500 text-sm">Cargando tabla...</p>
+            ) : (
+              <LeaderboardTable players={players} currentUserId={user?.uid ?? ''} />
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-4">
+
+            {/* Next matchday */}
+            <div className="surface-card border border-gray-800 rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
+                Siguiente jornada
+              </h3>
+
+              {matchdaysLoading ? (
+                <p className="text-gray-500 text-sm">Cargando...</p>
+              ) : !nextMatchday ? (
+                <p className="text-gray-500 text-sm">No hay jornadas próximas.</p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{nextMatchday.name}</span>
+                    <StatusBadge status={nextMatchday.status} type="matchday" />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Deadline:{' '}
+                    <span className="text-gray-400">
+                      {formatDeadline(nextMatchday.predictionDeadline)}
+                    </span>
+                  </p>
+                  <button
+                    onClick={() => navigate(`/jornada/${nextMatchday.id}`)}
+                    disabled={nextMatchday.status !== 'open'}
+                    className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:bg-gray-800 disabled:text-gray-500 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+                  >
+                    {nextMatchday.status === 'open' ? 'Hacer pronósticos' : 'Aún no disponible'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Bonus predictions */}
+            {user?.bonusPredictions && (
+              <BonusSummary
+                bonus={user.bonusPredictions}
+                teams={teams}
+                teamsMap={teamsMap}
+                onSave={handleSaveBonus}
+              />
+            )}
+
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+}

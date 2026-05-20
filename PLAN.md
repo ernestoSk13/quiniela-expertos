@@ -1,0 +1,150 @@
+# Plan de Trabajo — Quiniela Expertos del Mundial 2026
+
+## Estado actual (Mayo 2026)
+
+- [x] Fases 1–8 completadas y desplegadas en producción
+- [x] Cloud Functions gen2 activas (`onMatchUpdated`, `evaluateBonusPredictions`)
+- [x] Sistema de temas con paleta FIFA WC 2026 (México / Canadá / EUA)
+- [x] Panel de admin completo: jornadas, resultados, jugadores, bonus, acceso
+
+---
+
+## Decisiones tomadas
+
+- **Tiempo extra y penales:** Los pronósticos se evalúan sobre el marcador al **final del tiempo regular (90')**. En fases eliminatorias, cuando un usuario pronostica empate, aparece una pregunta adicional: "¿Quién pasa a la siguiente ronda?". El campo `matches.winner` guarda el equipo que avanzó; `predictions.tieWinner` guarda el pronóstico del usuario.
+- **Scoring server-side:** Toda lógica de puntos vive en Cloud Functions. El cliente solo lee.
+- **Bonus de grupos:** +5pts automático al usuario(s) con más predicciones exactas en fase de grupos, una sola vez al terminar todos los partidos de grupos. Guard: `config/tournament.groupBonusAwarded`.
+- **Bonus onboarding:** Evaluación manual por el admin (4 preguntas × 5pts). No se puede deshacer.
+
+---
+
+## Fase 1 — Scaffolding
+**Estado:** Completada ✓
+
+- [x] Inicializar app React + TypeScript + Vite
+- [x] Instalar y configurar Tailwind CSS v4
+- [x] Configurar `.env` con variables de Firebase
+- [x] Configurar Firebase Emulator Suite (Auth, Firestore, Storage, UI)
+- [x] Conectar Firebase SDK con flag `VITE_USE_EMULATORS`
+- [x] Definir interfaces TypeScript en `src/types/`
+- [x] Alias `@/` → `src/` en Vite y TypeScript
+
+---
+
+## Fase 2 — Autenticación y Control de Acceso
+**Estado:** Completada ✓
+
+- [x] Colección `allowedUsers/{email}` — el admin pre-registra correos autorizados
+- [x] Pantalla de login (email/contraseña + Google), mobile-first
+- [x] Verificación de email en `allowedUsers` antes de permitir acceso
+- [x] `AuthContext` con listener en tiempo real al documento del usuario
+- [x] Guards de ruta: `GuestRoute`, `OnboardingRoute`, `ProtectedRoute`, `AdminRoute`
+- [x] Firestore security rules con `isAllowedUser()` e `isAdmin()`
+
+---
+
+## Fase 3 — Seed Data
+**Estado:** Completada ✓
+
+- [x] Script `scripts/seed.ts` con 48 equipos, grupos y banderas
+- [x] Jornadas y partidos de fase de grupos con fechas UTC
+- [x] IDs determinísticos para re-runs idempotentes
+- [x] `npm run seed` + `npm run pull-from-prod` para importar datos reales
+
+---
+
+## Fase 4 — Panel de Administración
+**Estado:** Completada ✓
+
+- [x] `AdminLayout` con nav (Jornadas / Jugadores / Bonus / Acceso) + tab bar en móvil
+- [x] `/admin` — lista de jornadas, cambio de estado
+- [x] `/admin/jornada/:id` — partidos con entrada inline de resultados; selector de ganador en eliminatorias
+- [x] `/admin/jugadores` — editar perfil, rol, avatar; ver estado de onboarding y conteo de pronósticos
+- [x] `/admin/bonus` — formulario para evaluar bonus predictions al final del torneo
+- [x] `/admin/usuarios` — gestión de correos permitidos
+- [x] `clearMatchResult` para corregir resultados mal ingresados
+- [x] Botón "Restaurar" para reset completo de datos (preserva admins)
+
+---
+
+## Fase 5 — Onboarding
+**Estado:** Completada ✓
+
+- [x] Flujo 2 pasos: perfil (nombre + avatar) → bonus predictions
+- [x] Subida de avatar a Firebase Storage
+- [x] Formulario de bonus con datos reales de `teams/` para campeón
+- [x] Escritura en Firestore con `onboardingCompleted: true` al finalizar
+
+---
+
+## Fase 6 — Dashboard
+**Estado:** Completada ✓
+
+- [x] Tabla de posiciones en tiempo real (`onSnapshot` sobre `users`)
+- [x] Tarjeta de siguiente jornada con acceso directo a pronósticos
+- [x] Resumen de bonus predictions con edición hasta el 11 jun 2026
+- [x] Selector de tema (México / Canadá / EUA) en el header
+
+---
+
+## Fase 7 — Pronósticos
+**Estado:** Completada ✓
+
+- [x] Vista de jornada con lista de partidos compacta
+- [x] Keypad numérico fijo en móvil
+- [x] Inputs directos + sidebar de progreso y cambios pendientes en desktop
+- [x] Validación de deadline antes de guardar (flag `readOnly`)
+- [x] Soporte de `tieWinner` en fases eliminatorias
+- [x] Edición de pronósticos mientras la jornada esté abierta
+
+---
+
+## Fase 7.5 — Sistema de Temas
+**Estado:** Completada ✓
+
+- [x] Paleta FIFA WC 2026 en CSS custom properties (`:root`, `.theme-canada`, `.theme-usa`)
+- [x] Fondo con blobs radiales estilo FIFA (clase `app-bg`)
+- [x] Superficies temáticas: `surface-nav` (header/tab bar) y `surface-card` (tarjetas)
+- [x] `ThemeContext` que aplica clase en `<html>` según preferencia del usuario
+- [x] Skill `/add-theme` para agregar nuevos países desde Claude Code
+
+---
+
+## Fase 8 — Scoring (Cloud Functions)
+**Estado:** Completada ✓
+
+- [x] `onMatchUpdated` — trigger gen2 que califica predicciones al guardar resultados
+- [x] Scoring de grupo: exacto (3pts) y resultado G/E/P (1pt)
+- [x] Scoring de eliminatorias: no-empate (score) y empate al 90' (score + tieWinner)
+- [x] Re-scoring: si cambia el resultado, recalcula y aplica solo el delta
+- [x] Reset: si se borra un resultado, revierte los puntos de los usuarios
+- [x] `checkAndAwardGroupBonus`: +5pts automático al mejor de grupos al terminar todos sus partidos
+- [x] `evaluateBonusPredictions` — callable HTTP (solo admins) para otorgar puntos de bonus
+
+---
+
+## Fase 9 — Historial por Jugador *(candidata)*
+
+Ideas para después de arrancar el torneo, una vez que haya datos reales que mostrar.
+
+- [ ] Vista personal de predicciones pasadas: partido a partido con resultado real, puntos obtenidos e ícono de exacto/correcto/fallado
+- [ ] Desglose de stats en el perfil: total de exactos, correctos, puntos por jornada
+- [ ] Gráfica sencilla de evolución de puntos jornada a jornada
+
+---
+
+## Fase 10 — Post-Jornada: Ver Predicciones de Otros *(candidata)*
+
+Una vez cerrado el deadline de una jornada, podría ser interesante revelar qué pronosticó cada quien.
+
+- [ ] Vista de jornada cerrada mostrando las predicciones de todos los jugadores
+- [ ] Indicador visual de quién acertó cada partido
+- [ ] Protección: solo visible para jornadas cuyo `predictionDeadline` ya pasó
+
+---
+
+## Fase 11 — Compartir y Notificaciones *(candidata, baja prioridad)*
+
+- [ ] Compartir resultado de la quiniela como imagen (screenshot + share API)
+- [ ] Recordatorio antes del deadline (web push o notificación in-app)
+- [ ] Enlace de invitación para nuevos jugadores (genera correo en `allowedUsers` con un solo clic)
