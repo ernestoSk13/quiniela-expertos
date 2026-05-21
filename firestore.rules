@@ -23,10 +23,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Cada usuario lee y edita solo su propio documento; admin puede leer todos
+    // Cualquier jugador permitido puede leer todos los perfiles (necesario para el leaderboard)
+    // Solo el propio usuario puede escribir su documento; el admin también puede (gestión de jugadores)
     match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow write: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAllowedUser();
+      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
     }
 
     // Jornadas y partidos: solo lectura para usuarios permitidos; escritura solo admin
@@ -50,10 +51,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Pronósticos: cada usuario lee y escribe solo los suyos; nunca se borran
+    // Pronósticos: cada usuario lee los suyos; todos pueden leer cuando la jornada está cerrada/finalizada
     match /predictions/{predictionId} {
-      allow read: if isAllowedUser() &&
-        (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if isAllowedUser() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin() ||
+        get(/databases/$(database)/documents/matchdays/$(resource.data.matchdayId)).data.status in ['closed', 'finished']
+      );
       allow create, update: if isAllowedUser() &&
         request.resource.data.userId == request.auth.uid;
       allow delete: if false;

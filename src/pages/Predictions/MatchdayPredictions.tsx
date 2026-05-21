@@ -9,6 +9,7 @@ import { savePredictions, type PredictionDraft } from '@/services/firestorePredi
 import CompactMatchRow from './CompactMatchRow'
 import NumericKeypad from './NumericKeypad'
 import PredictionsSidebar from './PredictionsSidebar'
+import PostMatchdayView from './PostMatchdayView'
 
 type SelectedCell = { matchId: string; side: 'home' | 'away' } | null
 type LocalScore = { home: number | null; away: number | null; tieWinner: string | null }
@@ -34,6 +35,7 @@ export default function MatchdayPredictions() {
   const [selectedCell, setSelectedCell] = useState<SelectedCell>(null)
   const [saving, setSaving] = useState(false)
   const [expandedForEdit, setExpandedForEdit] = useState<Set<string>>(new Set())
+  const [viewMode, setViewMode] = useState<'mine' | 'all'>('mine')
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : false
   )
@@ -43,6 +45,7 @@ export default function MatchdayPredictions() {
     ? new Date() > matchday.predictionDeadline.toDate()
     : false
   const readOnly = !isOpen || deadlinePassed
+  const canViewAll = matchday?.status === 'closed' || matchday?.status === 'finished'
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 768px)')
@@ -148,12 +151,15 @@ export default function MatchdayPredictions() {
   async function handleSave() {
     if (!user || readOnly) return
 
+    const now = new Date()
     const drafts: PredictionDraft[] = []
     for (const matchId of dirtyMatchIds) {
       const s = scores[matchId]
       if (s.home === null || s.away === null) continue
       const match = matches.find(m => m.id === matchId)
       if (!match) continue
+      // No guardar si el partido ya inició
+      if (match.scheduledAt && match.scheduledAt.toDate() <= now) continue
       const isKnockout = match.phase !== 'group_stage'
       const isDraw = s.home === s.away
       if (isKnockout && isDraw && !s.tieWinner) continue
@@ -230,8 +236,32 @@ export default function MatchdayPredictions() {
         </div>
       </header>
 
+      {/* View toggle — only for closed/finished matchdays */}
+      {canViewAll && (
+        <div className="border-b border-gray-800 surface-nav sticky top-14 z-10">
+          <div className="max-w-5xl mx-auto px-4 flex gap-1">
+            {(['mine', 'all'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`py-2.5 px-4 text-sm font-medium border-b-2 transition-colors ${
+                  viewMode === mode
+                    ? 'border-[var(--accent)] text-white'
+                    : 'border-transparent text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                {mode === 'mine' ? 'Mis pronósticos' : 'Ver todos'}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Body — single column on mobile, 2/3 + sidebar on desktop */}
       <div className="max-w-5xl mx-auto px-3 py-3 md:px-4 md:py-4">
+        {viewMode === 'all' ? (
+          <PostMatchdayView matchdayId={matchdayId} matches={matches} teamsMap={teamsMap} />
+        ) : (
         <div className="md:grid md:grid-cols-3 md:gap-6">
 
           {/* Match list */}
@@ -242,7 +272,11 @@ export default function MatchdayPredictions() {
             {matches.map(match => {
               const s = scores[match.id]
               const isSaved = savedMatchIds.includes(match.id)
-              const isCollapsed = isDesktop && isSaved && !expandedForEdit.has(match.id)
+              // Solo colapsar en modo edición (no en readOnly donde no hay sidebar para re-expandir)
+              const isCollapsed = !readOnly && isDesktop && isSaved && !expandedForEdit.has(match.id)
+              // Bloquear edición si el partido ya inició, independientemente del deadline de la jornada
+              const matchStarted = match.scheduledAt ? match.scheduledAt.toDate() <= new Date() : false
+              const matchReadOnly = readOnly || matchStarted
               const selectedSide = selectedCell?.matchId === match.id ? selectedCell.side : null
               const homeFlag = teamsMap[match.homeTeamCode]?.flag ?? '🏳️'
               const awayFlag = teamsMap[match.awayTeamCode]?.flag ?? '🏳️'
@@ -272,7 +306,7 @@ export default function MatchdayPredictions() {
                     saved={isSaved}
                     isKnockout={match.phase !== 'group_stage'}
                     tieWinner={s?.tieWinner ?? null}
-                    readOnly={readOnly}
+                    readOnly={matchReadOnly}
                     onSelectHome={() => setSelectedCell({ matchId: match.id, side: 'home' })}
                     onSelectAway={() => setSelectedCell({ matchId: match.id, side: 'away' })}
                     onDirectHomeChange={v => updateScore(match.id, 'home', v)}
@@ -304,6 +338,7 @@ export default function MatchdayPredictions() {
           )}
 
         </div>
+        )} {/* end viewMode === 'mine' */}
       </div>
 
       {/* Numeric keypad — hidden in read-only mode */}
