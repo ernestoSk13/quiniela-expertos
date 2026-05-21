@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useMatchday } from '@/hooks/useMatchdays'
@@ -30,16 +30,26 @@ export default function MatchdayPredictions() {
   const { predictions, loading: predsLoading, refresh: refreshPredictions } = usePredictions(user?.uid ?? '', matchdayId)
   const { teamsMap } = useTeamsMap()
 
-  // Local scores: matchId → { home, away, tieWinner }
   const [scores, setScores] = useState<Record<string, LocalScore>>({})
   const [selectedCell, setSelectedCell] = useState<SelectedCell>(null)
   const [saving, setSaving] = useState(false)
+  const [expandedForEdit, setExpandedForEdit] = useState<Set<string>>(new Set())
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : false
+  )
 
   const isOpen = matchday?.status === 'open'
   const deadlinePassed = matchday?.predictionDeadline
     ? new Date() > matchday.predictionDeadline.toDate()
     : false
   const readOnly = !isOpen || deadlinePassed
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)')
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
 
   // Initialize local scores from saved predictions once loaded
   useEffect(() => {
@@ -49,14 +59,24 @@ export default function MatchdayPredictions() {
       init[matchId] = { home: p.homeScore, away: p.awayScore, tieWinner: p.tieWinner }
     }
     setScores(init)
-    // Auto-select first match's home score
     if (!readOnly && matches.length > 0) {
-      setSelectedCell({ matchId: matches[0].id, side: 'home' })
+      const firstUnsaved = matches.find(m => !predictions[m.id])
+      setSelectedCell({ matchId: (firstUnsaved ?? matches[0]).id, side: 'home' })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [predsLoading])
 
-  // Current score for selected cell
+  // Mobile: auto-scroll to selected match above the keypad
+  useEffect(() => {
+    if (!selectedCell || isDesktop) return
+    const el = document.querySelector(`[data-match="${selectedCell.matchId}"]`) as HTMLElement | null
+    if (!el) return
+    const keypadHeight = 210
+    const rect = el.getBoundingClientRect()
+    const targetScrollTop = window.scrollY + rect.top - (window.innerHeight - keypadHeight - rect.height) / 2
+    window.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' })
+  }, [selectedCell?.matchId, isDesktop])
+
   function getScore(matchId: string, side: 'home' | 'away'): number | null {
     return scores[matchId]?.[side] ?? null
   }
@@ -97,7 +117,15 @@ export default function MatchdayPredictions() {
     }))
   }
 
-  // Matches with unsaved changes
+  const handleEditSaved = useCallback((matchId: string) => {
+    setExpandedForEdit(prev => new Set([...prev, matchId]))
+    setSelectedCell({ matchId, side: 'home' })
+    setTimeout(() => {
+      const el = document.querySelector(`[data-match="${matchId}"]`) as HTMLElement | null
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 50)
+  }, [])
+
   const dirtyMatchIds = useMemo(() => {
     return matches
       .filter(m => {
@@ -109,6 +137,13 @@ export default function MatchdayPredictions() {
       })
       .map(m => m.id)
   }, [scores, predictions, matches])
+
+  const savedMatchIds = useMemo(() =>
+    matches
+      .filter(m => predictions[m.id] && !dirtyMatchIds.includes(m.id))
+      .map(m => m.id),
+    [matches, predictions, dirtyMatchIds]
+  )
 
   async function handleSave() {
     if (!user || readOnly) return
@@ -136,6 +171,13 @@ export default function MatchdayPredictions() {
     try {
       await savePredictions(user.uid, drafts, predictions)
       await refreshPredictions()
+      // Collapse matches that were just saved
+      const justSaved = new Set(drafts.map(d => d.matchId))
+      setExpandedForEdit(prev => {
+        const next = new Set(prev)
+        for (const id of justSaved) next.delete(id)
+        return next
+      })
     } finally {
       setSaving(false)
     }
@@ -159,7 +201,6 @@ export default function MatchdayPredictions() {
     )
   }
 
-  // On mobile: extra padding for the fixed keypad panel. On md+: keypad is hidden.
   const bottomPadding = readOnly ? 'pb-6' : 'pb-72 md:pb-6'
 
   return (
@@ -191,42 +232,54 @@ export default function MatchdayPredictions() {
 
       {/* Body — single column on mobile, 2/3 + sidebar on desktop */}
       <div className="max-w-5xl mx-auto px-3 py-3 md:px-4 md:py-4">
-        <div className="md:grid md:grid-cols-3 md:gap-6 md:items-start">
+        <div className="md:grid md:grid-cols-3 md:gap-6">
 
           {/* Match list */}
-          <div className={`md:col-span-2 space-y-1.5 ${bottomPadding}`}>
+          <div className={`md:col-span-2 flex flex-col ${bottomPadding}`}>
             {matches.length === 0 && (
               <p className="text-gray-500 text-sm text-center py-8">No hay partidos en esta jornada.</p>
             )}
             {matches.map(match => {
               const s = scores[match.id]
-              const isSaved = !!predictions[match.id] && !dirtyMatchIds.includes(match.id)
+              const isSaved = savedMatchIds.includes(match.id)
+              const isCollapsed = isDesktop && isSaved && !expandedForEdit.has(match.id)
               const selectedSide = selectedCell?.matchId === match.id ? selectedCell.side : null
               const homeFlag = teamsMap[match.homeTeamCode]?.flag ?? '🏳️'
               const awayFlag = teamsMap[match.awayTeamCode]?.flag ?? '🏳️'
 
               return (
-                <CompactMatchRow
+                <div
                   key={match.id}
-                  homeTeam={match.homeTeam}
-                  awayTeam={match.awayTeam}
-                  homeCode={match.homeTeamCode}
-                  awayCode={match.awayTeamCode}
-                  homeFlag={homeFlag}
-                  awayFlag={awayFlag}
-                  homeScore={s?.home ?? null}
-                  awayScore={s?.away ?? null}
-                  selectedSide={selectedSide}
-                  saved={isSaved}
-                  isKnockout={match.phase !== 'group_stage'}
-                  tieWinner={s?.tieWinner ?? null}
-                  readOnly={readOnly}
-                  onSelectHome={() => setSelectedCell({ matchId: match.id, side: 'home' })}
-                  onSelectAway={() => setSelectedCell({ matchId: match.id, side: 'away' })}
-                  onDirectHomeChange={v => updateScore(match.id, 'home', v)}
-                  onDirectAwayChange={v => updateScore(match.id, 'away', v)}
-                  onSelectTieWinner={code => handleTieWinner(match.id, code)}
-                />
+                  data-match={match.id}
+                  className="overflow-hidden"
+                  style={{
+                    maxHeight: isCollapsed ? '0px' : '300px',
+                    opacity: isCollapsed ? 0 : 1,
+                    marginBottom: isCollapsed ? '0px' : '6px',
+                    transition: 'max-height 350ms ease, opacity 250ms ease, margin-bottom 350ms ease',
+                  }}
+                >
+                  <CompactMatchRow
+                    homeTeam={match.homeTeam}
+                    awayTeam={match.awayTeam}
+                    homeCode={match.homeTeamCode}
+                    awayCode={match.awayTeamCode}
+                    homeFlag={homeFlag}
+                    awayFlag={awayFlag}
+                    homeScore={s?.home ?? null}
+                    awayScore={s?.away ?? null}
+                    selectedSide={selectedSide}
+                    saved={isSaved}
+                    isKnockout={match.phase !== 'group_stage'}
+                    tieWinner={s?.tieWinner ?? null}
+                    readOnly={readOnly}
+                    onSelectHome={() => setSelectedCell({ matchId: match.id, side: 'home' })}
+                    onSelectAway={() => setSelectedCell({ matchId: match.id, side: 'away' })}
+                    onDirectHomeChange={v => updateScore(match.id, 'home', v)}
+                    onDirectAwayChange={v => updateScore(match.id, 'away', v)}
+                    onSelectTieWinner={code => handleTieWinner(match.id, code)}
+                  />
+                </div>
               )
             })}
           </div>
@@ -239,10 +292,12 @@ export default function MatchdayPredictions() {
                   matches={matches}
                   scores={scores}
                   dirtyMatchIds={dirtyMatchIds}
+                  savedMatchIds={savedMatchIds}
                   matchday={matchday}
                   teamsMap={teamsMap}
                   saving={saving}
                   onSave={handleSave}
+                  onEditSaved={handleEditSaved}
                 />
               </div>
             </div>
