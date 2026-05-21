@@ -123,23 +123,27 @@
 
 ---
 
-## Fase 9 — Historial por Jugador *(candidata)*
+## Fase 9 — Historial por Jugador
+**Estado:** Completada ✓
 
-Ideas para después de arrancar el torneo, una vez que haya datos reales que mostrar.
-
-- [ ] Vista personal de predicciones pasadas: partido a partido con resultado real, puntos obtenidos e ícono de exacto/correcto/fallado
-- [ ] Desglose de stats en el perfil: total de exactos, correctos, puntos por jornada
-- [ ] Gráfica sencilla de evolución de puntos jornada a jornada
+- [x] Modal al tocar cualquier fila del leaderboard — se abre un bottom-sheet (móvil) / modal centrado (desktop)
+- [x] Stats del jugador: total de puntos, exactos, correctos, predicciones enviadas
+- [x] Gráfica SVG de evolución de puntos acumulados jornada a jornada
+- [x] Acordeón por jornada: partido a partido con resultado real, pronóstico y badge (3pts/1pt/0pts)
+- [x] Historial detallado solo visible para el propio usuario; otros ven solo sus stats
+- [x] "Ver mi historial →" visible en el leaderboard + hint al pie de tabla
 
 ---
 
-## Fase 10 — Post-Jornada: Ver Predicciones de Otros *(candidata)*
+## Fase 10 — Post-Jornada: Ver Predicciones de Otros
+**Estado:** Completada ✓
 
-Una vez cerrado el deadline de una jornada, podría ser interesante revelar qué pronosticó cada quien.
-
-- [ ] Vista de jornada cerrada mostrando las predicciones de todos los jugadores
-- [ ] Indicador visual de quién acertó cada partido
-- [ ] Protección: solo visible para jornadas cuyo `predictionDeadline` ya pasó
+- [x] Reglas de Firestore actualizadas: se permiten leer pronósticos de jornadas con status `closed`/`finished`
+- [x] Toggle "Mis pronósticos" / "Ver todos" en la vista de jornada cuando el status es `closed` o `finished`
+- [x] Vista post-jornada: cada partido muestra resultado real + pronóstico y puntos de cada jugador
+- [x] Indicador visual por pronóstico: +3 verde (exacto), +1 amarillo (correcto), +0 gris (fallado)
+- [x] Sección "Jornadas anteriores" en el Dashboard para acceder a jornadas pasadas
+- [x] Protección: toggle solo aparece cuando `matchday.status` es `closed` o `finished`
 
 ---
 

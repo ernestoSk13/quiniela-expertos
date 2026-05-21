@@ -161,6 +161,32 @@ export default function Dashboard() {
 
           </div>
         </div>
+
+        {/* Past matchdays */}
+        {(() => {
+          const past = matchdays
+            .filter(md => md.status === 'closed' || md.status === 'finished')
+            .slice()
+            .reverse()
+          if (past.length === 0) return null
+          return (
+            <div className="mt-8">
+              <h2 className="text-lg font-bold mb-4">Jornadas anteriores</h2>
+              <div className="surface-card border border-gray-800 rounded-xl divide-y divide-gray-800/60 overflow-hidden">
+                {past.map(md => (
+                  <button
+                    key={md.id}
+                    onClick={() => navigate(`/jornada/${md.id}`)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-[var(--surface-card)] transition-colors text-left"
+                  >
+                    <span className="text-sm text-gray-300">{md.name}</span>
+                    <span className="text-xs text-[var(--accent)] shrink-0">Ver resultados →</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
       </main>
 
       {selectedPlayer && (
