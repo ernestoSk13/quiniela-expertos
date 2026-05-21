@@ -11,6 +11,7 @@ import StatusBadge from '@/components/StatusBadge'
 import ThemeSelector from '@/components/ThemeSelector'
 import LeaderboardTable from './LeaderboardTable'
 import BonusSummary from './BonusSummary'
+import TournamentCountdown from './TournamentCountdown'
 import type { BonusPredictions } from '@/types/User'
 
 function formatDeadline(ts: ReturnType<typeof Date.now> | any) {
@@ -68,6 +69,7 @@ export default function Dashboard() {
 
       {/* Body */}
       <main className="max-w-5xl mx-auto px-4 py-8">
+        <TournamentCountdown />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Leaderboard — takes 2/3 on desktop */}
