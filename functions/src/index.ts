@@ -217,9 +217,13 @@ async function checkAndAwardGroupBonus(): Promise<void> {
 }
 
 export const onMatchUpdated = onDocumentUpdated('matches/{matchId}', async event => {
-  const oldMatch = event.data?.before.data() as MatchData | undefined
-  const newMatch = event.data?.after.data() as MatchData | undefined
-  if (!oldMatch || !newMatch) return
+  const matchId = event.params.matchId
+  const beforeData = event.data?.before.data()
+  const afterData = event.data?.after.data()
+  if (!beforeData || !afterData) return
+
+  const oldMatch: MatchData = { ...(beforeData as Omit<MatchData, 'id'>), id: matchId }
+  const newMatch: MatchData = { ...(afterData as Omit<MatchData, 'id'>), id: matchId }
 
   const wasFinished = oldMatch.status === 'finished' &&
     oldMatch.homeScore != null && oldMatch.awayScore != null
