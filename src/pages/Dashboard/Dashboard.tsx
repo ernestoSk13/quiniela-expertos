@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useMatchdays } from '@/hooks/useMatchdays'
 import { useLeaderboard } from '@/hooks/useLeaderboard'
 import { useTeamsMap } from '@/hooks/useTeams'
+import { useMatchdayProgress } from '@/hooks/useMatchdayProgress'
 import { updateBonusPredictions } from '@/services/firestoreUsers'
 import Avatar from '@/components/Avatar'
 import StatusBadge from '@/components/StatusBadge'
@@ -38,6 +39,10 @@ export default function Dashboard() {
 
   const nextMatchday = matchdays.find(md => md.status === 'open' || md.status === 'upcoming')
   const teams = Object.values(teamsMap)
+  const { filled, total } = useMatchdayProgress(
+    nextMatchday?.status === 'open' ? (nextMatchday.id ?? '') : '',
+    user?.uid ?? '',
+  )
 
   async function handleSaveBonus(bonus: BonusPredictions) {
     if (!user) return
@@ -115,12 +120,30 @@ export default function Dashboard() {
                       {formatDeadline(nextMatchday.predictionDeadline)}
                     </span>
                   </p>
+                  {nextMatchday.status === 'open' && total > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-500">Mis pronósticos</span>
+                        <span className={`font-semibold tabular-nums ${filled === total ? 'text-[var(--accent-light)]' : 'text-gray-400'}`}>
+                          {filled} / {total}
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-[var(--accent)] rounded-full transition-all duration-300"
+                          style={{ width: `${Math.round((filled / total) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                   <button
                     onClick={() => navigate(`/jornada/${nextMatchday.id}`)}
                     disabled={nextMatchday.status !== 'open'}
                     className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:bg-gray-800 disabled:text-gray-500 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
                   >
-                    {nextMatchday.status === 'open' ? 'Hacer pronósticos' : 'Aún no disponible'}
+                    {nextMatchday.status === 'open'
+                      ? filled === 0 ? 'Hacer pronósticos' : filled < total ? 'Continuar pronósticos' : 'Ver pronósticos'
+                      : 'Aún no disponible'}
                   </button>
                 </div>
               )}

@@ -11,6 +11,8 @@
  *   npm run pull-from-prod -- --collections teams,matchdays   (solo esas colecciones)
  */
 
+import { readFileSync, existsSync } from 'fs'
+import { join } from 'path'
 import { cert, initializeApp } from 'firebase-admin/app'
 import { getFirestore, WriteBatch } from 'firebase-admin/firestore'
 
@@ -26,18 +28,30 @@ const COLLECTIONS = collectionsArg
 
 // ── Apps ────────────────────────────────────────────────────────────────────
 
-if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-  console.error('❌ Falta la variable de entorno FIREBASE_SERVICE_ACCOUNT.')
-  console.error('   Agrégala en .env.local con el contenido JSON de la cuenta de servicio.')
-  console.error('   Descárgalo en: Firebase Console → Configuración → Cuentas de servicio')
-  process.exit(1)
-}
-
 let serviceAccount: object
-try {
-  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-} catch {
-  console.error('❌ FIREBASE_SERVICE_ACCOUNT no contiene un JSON válido.')
+
+const SA_FILE = join(process.cwd(), 'service-account.json')
+
+if (existsSync(SA_FILE)) {
+  try {
+    serviceAccount = JSON.parse(readFileSync(SA_FILE, 'utf8'))
+    console.log('🔑 Usando service-account.json')
+  } catch {
+    console.error('❌ service-account.json no contiene un JSON válido.')
+    process.exit(1)
+  }
+} else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  try {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+  } catch {
+    console.error('❌ FIREBASE_SERVICE_ACCOUNT no contiene un JSON válido.')
+    console.error('   Tip: descarga el JSON desde Firebase Console y guárdalo como service-account.json')
+    process.exit(1)
+  }
+} else {
+  console.error('❌ No se encontró service-account.json ni FIREBASE_SERVICE_ACCOUNT.')
+  console.error('   Descarga el JSON en: Firebase Console → Configuración → Cuentas de servicio')
+  console.error('   y guárdalo como service-account.json en la raíz del proyecto.')
   process.exit(1)
 }
 

@@ -52,12 +52,21 @@ export default function LeaderboardTable({ players, currentUserId, onPlayerClick
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2.5">
                     <Avatar url={player.avatarUrl} name={player.displayName} size="sm" />
-                    <span className={`truncate ${isCurrent ? 'text-[var(--accent-light)] font-medium' : 'text-gray-200'}`}>
-                      {player.displayName}
-                    </span>
-                    {isCurrent && (
-                      <span className="text-xs text-[var(--accent)] shrink-0">tú</span>
-                    )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`truncate ${isCurrent ? 'text-[var(--accent-light)] font-medium' : 'text-gray-200'}`}>
+                          {player.displayName}
+                        </span>
+                        {isCurrent && (
+                          <span className="text-xs text-[var(--accent)] shrink-0">tú</span>
+                        )}
+                      </div>
+                      {isCurrent && (
+                        <span className="text-[11px] text-[var(--accent)] opacity-80">
+                          Ver mi historial →
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </td>
                 <td className="px-4 py-3 text-right font-bold text-white tabular-nums">
@@ -71,6 +80,9 @@ export default function LeaderboardTable({ players, currentUserId, onPlayerClick
           })}
         </tbody>
       </table>
+      <p className="text-center text-[11px] text-gray-600 py-2.5 border-t border-gray-800/60">
+        Toca cualquier fila para ver estadísticas
+      </p>
     </div>
   )
 }
