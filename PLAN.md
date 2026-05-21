@@ -2,10 +2,12 @@
 
 ## Estado actual (Mayo 2026)
 
-- [x] Fases 1–8 completadas y desplegadas en producción
+- [x] Fases 1–10 completadas y desplegadas en producción
 - [x] Cloud Functions gen2 activas (`onMatchUpdated`, `evaluateBonusPredictions`)
 - [x] Sistema de temas con paleta FIFA WC 2026 (México / Canadá / EUA)
 - [x] Panel de admin completo: jornadas, resultados, jugadores, bonus, acceso
+- [x] Historial personal por jugador con gráfica SVG de evolución de puntos
+- [x] Vista post-jornada: predicciones de todos los jugadores visibles al cerrar
 
 ---
 
@@ -15,6 +17,9 @@
 - **Scoring server-side:** Toda lógica de puntos vive en Cloud Functions. El cliente solo lee.
 - **Bonus de grupos:** +5pts automático al usuario(s) con más predicciones exactas en fase de grupos, una sola vez al terminar todos los partidos de grupos. Guard: `config/tournament.groupBonusAwarded`.
 - **Bonus onboarding:** Evaluación manual por el admin (4 preguntas × 5pts). No se puede deshacer.
+- **Bloqueo de predicciones por partido:** Además del `predictionDeadline` de la jornada, cada partido se bloquea individualmente en cuanto su `scheduledAt` pasa. Permite que en jornadas con partidos en días distintos los primeros se bloqueen automáticamente sin afectar los siguientes.
+- **Visibilidad de pronósticos ajenos:** Los pronósticos de otros jugadores solo son visibles cuando la jornada tiene `status: 'closed'` o `'finished'`. Está aplicado tanto en Firestore rules (servidor) como en el toggle de UI (cliente).
+- **Leaderboard como colección pública:** Todos los `isAllowedUser()` pueden leer la colección `users` completa — necesario para que el query de leaderboard funcione. La restricción de escritura sigue siendo individual (cada usuario solo escribe el suyo, admins pueden escribir cualquiera).
 
 ---
 

@@ -15,11 +15,13 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 - [x] Firebase configurado (Auth, Firestore, Storage, Hosting, Cloud Functions gen2)
 - [x] Autenticación — email/contraseña + Google, lista de correos permitidos
 - [x] Onboarding — display name, avatar, bonus predictions (2 pasos)
-- [x] Dashboard — tabla de posiciones en tiempo real, siguiente jornada, sección de bonus
-- [x] Pronósticos — keypad numérico en móvil, inputs directos en desktop, sidebar con progreso y cambios pendientes, soporte de fases eliminatorias (tieWinner)
+- [x] Dashboard — tabla de posiciones en tiempo real, siguiente jornada, sección de bonus, countdown al torneo, jornadas anteriores
+- [x] Pronósticos — keypad numérico en móvil (con scroll automático al partido activo), inputs directos + sidebar en desktop (partidos guardados colapsan con animación, sección "Guardados" con edición por lápiz); bloqueo por `scheduledAt` individual además del deadline de jornada
 - [x] Panel de Admin — jornadas, resultados de partidos, gestión de jugadores (con conteo de pronósticos y estado de onboarding), gestión de acceso, evaluación de bonus
 - [x] Temas por país — México / Canadá / EUA (paleta FIFA WC 2026), skill `/add-theme` para agregar nuevos
 - [x] Cloud Functions gen2 — scoring automático al actualizar resultados, evaluación manual de bonus predictions
+- [x] Historial por jugador — modal desde el leaderboard con stats, gráfica SVG de evolución y acordeón por jornada
+- [x] Post-jornada — toggle "Ver todos" en jornadas cerradas/finalizadas muestra predicciones de todos los jugadores partido a partido con badges de puntos
 
 ---
 
@@ -78,9 +80,12 @@ src/
 │   ├── AuthContext.tsx              # onSnapshot en tiempo real del user doc
 │   └── ThemeContext.tsx             # Aplica clase de tema en <html>
 ├── hooks/
+│   ├── useAllMatchdayPredictions.ts # getDocs lazy: todos los pronósticos de una jornada (Fase 10)
 │   ├── useLeaderboard.ts
+│   ├── useMatchdayProgress.ts       # Cuenta predicciones enviadas vs total para barra de progreso
 │   ├── useMatchdays.ts
 │   ├── useMatches.ts
+│   ├── usePlayerHistory.ts          # Historial de predicciones calificadas agrupadas por jornada
 │   ├── usePredictions.ts            # getDocs (no onSnapshot) por bug del emulador
 │   └── useTeams.ts
 ├── lib/
@@ -97,7 +102,9 @@ src/
 │   ├── Dashboard/
 │   │   ├── BonusSummary.tsx
 │   │   ├── Dashboard.tsx
-│   │   └── LeaderboardTable.tsx
+│   │   ├── LeaderboardTable.tsx
+│   │   ├── PlayerHistoryModal.tsx   # Bottom-sheet/modal con historial y gráfica SVG
+│   │   └── TournamentCountdown.tsx  # Countdown al 2026-06-11T13:00:00Z (se oculta al iniciar)
 │   ├── Login/Login.tsx
 │   ├── Onboarding/
 │   │   ├── Onboarding.tsx
@@ -107,13 +114,14 @@ src/
 │       ├── CompactMatchRow.tsx
 │       ├── MatchdayPredictions.tsx
 │       ├── NumericKeypad.tsx        # Keypad fijo en móvil
-│       └── PredictionsSidebar.tsx  # Sidebar de desktop (progreso, cambios pendientes, deadline)
+│       ├── PostMatchdayView.tsx     # Vista post-jornada: predicciones de todos × partido
+│       └── PredictionsSidebar.tsx  # Sidebar de desktop (progreso, cambios pendientes, guardados)
 ├── services/
 │   ├── cloudFunctions.ts           # Wrapper para callables (evaluateBonusPredictions)
 │   ├── firestoreAdmin.ts           # resetAllData()
 │   ├── firestoreMatchdays.ts
 │   ├── firestoreMatches.ts
-│   ├── firestorePredictions.ts     # savePredictions(), getPredictionCountsByUser()
+│   ├── firestorePredictions.ts     # savePredictions(), getUserPredictions(), getMatchdayAllPredictions()
 │   ├── firestoreUsers.ts           # ensureUserDoc(), updateUserTheme(), adminUpdateUser()
 │   ├── storageAvatars.ts
 │   └── storageMatchdayImages.ts
@@ -172,8 +180,8 @@ El campo `theme?: ThemeId` se guarda en el documento `users/{uid}` de Firestore.
 
 1. **Auth guard** — Sin auth → `/login`. Auth pero sin onboarding → `/onboarding`.
 2. **Onboarding** — Escribe `onboardingCompleted: true` **antes** de redirigir. `AuthContext` lo detecta via `onSnapshot` y `OnboardingRoute` redirige.
-3. **Predicciones** — Solo guardar si `matchday.status === 'open'` y `Date.now() < predictionDeadline`. Lógica en `MatchdayPredictions.tsx` → `readOnly` flag.
-4. **Leaderboard** — Lee la colección `users` filtrada por `onboardingCompleted === true`, ordenada por `stats.totalPoints` desc. Los puntos son escritos server-side por `onMatchUpdated`.
+3. **Predicciones** — Solo guardar si `matchday.status === 'open'` y `Date.now() < predictionDeadline`. Adicionalmente, cada partido se bloquea individualmente cuando `match.scheduledAt <= new Date()`, aunque la jornada siga abierta. Lógica en `MatchdayPredictions.tsx` → flags `readOnly` y `matchReadOnly` por partido.
+4. **Leaderboard** — Lee la colección `users` filtrada por `onboardingCompleted === true`, ordenada por `stats.totalPoints` desc. Los puntos son escritos server-side por `onMatchUpdated`. La regla de Firestore permite `read` a cualquier `isAllowedUser()` — sin este permiso el query de colección falla.
 5. **Scoring** — Siempre server-side (Cloud Functions). El cliente solo lee `stats` y `prediction.points`. Nunca calcular puntos en el cliente.
 
 ---
@@ -183,8 +191,9 @@ El campo `theme?: ThemeId` se guarda en el documento `users/{uid}` de Firestore.
 - Puntos se calculan **server-side** (Cloud Functions). El cliente solo lee; nunca calcula.
 - `bonusPredictions.pointsAwarded` evita doble puntuación de bonus.
 - Bonus editables hasta `2026-06-11T13:00:00Z` (hardcodeado en `BonusSummary.tsx`).
-- Predicciones de jornada: editables hasta el `predictionDeadline` de la jornada.
+- Predicciones de jornada: editables hasta el `predictionDeadline` de la jornada **y** hasta que el `scheduledAt` del partido individual pase — lo que ocurra primero.
 - En fases eliminatorias con empate al 90', se requiere `tieWinner` (equipo que avanza).
+- Pronósticos ajenos: solo visibles cuando `matchday.status` es `'closed'` o `'finished'`. Aplicado en Firestore rules (con `get()` al documento de jornada) y en el toggle de UI.
 - Zona horaria: **UTC**. "Lo que escribes es lo que ves". `toLocaleString` usa `timeZone: 'UTC'`.
 - `!= null` (desigualdad débil) para chequear `null | undefined`. Usar en lugar de `!== null` cuando un valor puede ser `undefined`.
 
@@ -215,7 +224,7 @@ npm run build            # Compilar TypeScript → lib/
 - No usar `onSnapshot` para queries con `where` + `orderBy` compuestas en el emulador — usar `getDocs`.
 - No hardcodear colores de acento (`emerald-*`, etc.) — usar variables CSS `var(--accent)`.
 - No hacer writes a Firestore sin verificar el estado de la jornada.
-- No exponer pronósticos de otros usuarios antes de que cierre la jornada.
+- No exponer pronósticos de otros usuarios si `matchday.status` no es `'closed'` ni `'finished'` — verificar tanto en Firestore rules como en UI.
 - No modificar `firestore.rules` sin actualizar tests de reglas.
 - No hacer commits con credenciales distintas al proyecto `quinielaexpertos26`.
 - No agregar features no solicitadas ("gold-plating").

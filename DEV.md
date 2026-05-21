@@ -108,8 +108,8 @@ npm run pull-from-prod -- --collections=teams       # Solo equipos
 |-----|-------|
 | `/login` | Login (email/contraseña o Google) |
 | `/onboarding` | Nombre, foto, bonus predictions |
-| `/dashboard` | Tabla general, siguiente jornada, bonus |
-| `/jornada/:id` | Pronósticos de una jornada |
+| `/dashboard` | Tabla general, siguiente jornada, bonus, jornadas anteriores |
+| `/jornada/:id` | Pronósticos de una jornada; en jornadas cerradas/finalizadas incluye toggle "Ver todos" |
 | `/admin` | Panel admin — jornadas |
 | `/admin/jornada/:id` | Detalle de jornada — partidos y resultados |
 | `/admin/jugadores` | Perfiles de jugadores (onboarding + conteo de pronósticos) |
@@ -121,9 +121,17 @@ npm run pull-from-prod -- --collections=teams       # Solo equipos
 ## Flujo de prueba de pronósticos
 
 1. En `/admin`, abre una jornada con el botón **"Abrir"**
-2. En `/dashboard` aparecerá el botón **"Hacer pronósticos"**
-3. En móvil: keypad numérico fijo en la parte inferior
-4. En desktop: inputs directos por partido + sidebar con progreso y cambios pendientes
+2. En `/dashboard` aparecerá el botón **"Hacer pronósticos"** con barra de progreso
+3. En móvil: keypad numérico fijo en la parte inferior; la vista hace scroll automático al partido activo
+4. En desktop: inputs directos por partido + sidebar con progreso, cambios pendientes y sección "Guardados"; los partidos ya guardados colapsan con animación
+5. Los partidos cuyo `scheduledAt` ya pasó se bloquean automáticamente (input deshabilitado) aunque la jornada siga abierta
+
+## Flujo de prueba de post-jornada (Fase 10)
+
+1. En `/admin/jornada/:id`, cambia el status a **"Cerrado"** o **"Finalizado"**
+2. En `/jornada/:id` aparecerá el toggle **"Mis pronósticos" / "Ver todos"**
+3. "Ver todos" muestra, por cada partido, el pronóstico de cada jugador con badge de puntos
+4. En el Dashboard aparecerá la jornada en la sección **"Jornadas anteriores"**
 
 ---
 
@@ -207,10 +215,14 @@ El skill pregunta el país, deriva los colores de la bandera con la energía vis
 
 - **No usar `<StrictMode>`** en `main.tsx` — causa errores de aserción en Firestore emulador con queries compuestas. Ver `src/main.tsx`.
 - **`usePredictions` usa `getDocs`** (no `onSnapshot`) para evitar el mismo bug con el emulador. Llamar a `refresh()` después de guardar para actualizar el estado.
+- **`useAllMatchdayPredictions` también usa `getDocs`** — mismo motivo. El fetch se dispara lazy solo cuando `enabled = true` (al activar el tab "Ver todos").
+- **Leaderboard requiere leer colección completa de `users`** — la regla de Firestore debe permitir `read` a `isAllowedUser()` sin restricción de `userId`. Una regla `request.auth.uid == userId` rompe el query de colección silenciosamente.
+- **Bloqueo por partido**: `MatchdayPredictions` calcula `matchReadOnly = readOnly || match.scheduledAt.toDate() <= new Date()` por cada partido. No confundir con `readOnly` que aplica a la jornada entera.
 - **Zona horaria UTC** — toda fecha/hora se almacena y muestra en UTC. `toLocaleString` usa `timeZone: 'UTC'`.
 - **Batch limit**: máximo 499 ops por batch (cliente) / 500 (admin SDK en functions).
 - **`!= null`** — usar desigualdad débil cuando un valor puede ser `null` o `undefined`. `!== null` no captura `undefined`.
 - **Functions hot-reload**: no existe. Hacer `cd functions && npm run build` antes de reiniciar el emulador para ver cambios.
+- **`pull-from-prod`**: lee `service-account.json` de la raíz si existe; si no, cae a la variable `FIREBASE_SERVICE_ACCOUNT`. No poner el JSON directamente en `.env.local` — la clave privada tiene saltos de línea que `dotenv` no maneja.
 
 ---
 
