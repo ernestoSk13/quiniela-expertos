@@ -74,3 +74,4 @@ dist
 
 # dataconnect generated files
 .dataconnect
+.DS_Store
