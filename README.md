@@ -22,8 +22,10 @@ Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios envían p
 ### Para jugadores
 - **Login** — correo/contraseña o Google; acceso solo para correos autorizados por el admin
 - **Onboarding** — configurar nombre, subir avatar y registrar predicciones de bonus (goleador, balón de oro, fase de México, campeón)
-- **Dashboard** — tabla de posiciones en tiempo real, tarjeta de siguiente jornada, resumen de bonus editables hasta el 11 jun 2026
-- **Pronósticos** — keypad numérico en móvil, inputs directos + sidebar de progreso en desktop; soporte de fase eliminatoria con selección de equipo que avanza en caso de empate
+- **Dashboard** — tabla de posiciones en tiempo real con historial personal por jugador; countdown al inicio del torneo; tarjeta de siguiente jornada con barra de progreso de pronósticos; acceso a jornadas anteriores; resumen de bonus editables hasta el 11 jun 2026
+- **Pronósticos** — keypad numérico en móvil con scroll automático al partido activo; inputs directos + sidebar en desktop (partidos guardados colapsan con animación, sección "Guardados" con edición rápida); soporte de fase eliminatoria con selección de equipo que avanza en caso de empate; bloqueo automático por partido en cuanto inicia (`scheduledAt`)
+- **Historial personal** — al tocar cualquier fila del leaderboard: stats del jugador (puntos, exactos, correctos), gráfica de evolución de puntos y desglose de pronósticos por jornada
+- **Ver predicciones post-jornada** — cuando una jornada cierra, toggle "Ver todos" muestra qué pronosticó cada jugador partido a partido con indicador de puntos obtenidos
 - **Temas por país sede** — México 🇲🇽, Canadá 🇨🇦, EUA 🇺🇸 — fondo, header, tarjetas y acentos cambian con la paleta FIFA WC 2026
 
 ### Para administradores
@@ -49,7 +51,8 @@ Al iniciar sesión por primera vez el usuario configura:
 
 ### Pronósticos por Jornada
 - El usuario predice el marcador exacto de cada partido
-- Se pueden editar hasta el `predictionDeadline` de la jornada
+- Se pueden editar hasta el `predictionDeadline` de la jornada **o** hasta que el partido inicie (`scheduledAt`), lo que ocurra primero
+- Una vez que una jornada cierra (`status: closed` o `finished`), los pronósticos de todos los jugadores se revelan
 - En fases eliminatorias con empate al 90', se debe indicar qué equipo avanza (`tieWinner`)
 
 ### Sistema de Puntos
