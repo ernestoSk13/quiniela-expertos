@@ -152,6 +152,27 @@
 
 ---
 
+## Fase 10.5 — Mejoras al Panel de Admin
+
+### Tabla general en el admin
+- [ ] Nueva pestaña "Tabla" en `AdminLayout` que muestra el leaderboard completo (reutiliza `LeaderboardTable`)
+- [ ] El admin puede ver posiciones, puntos, exactos y correctos de todos los jugadores sin salir del panel
+
+### Panel de configuración de puntos
+- [ ] Documento `config/scoring` en Firestore con los valores de puntos configurables:
+  - `exactScore` (default: 3) — marcador exacto
+  - `correctResult` (default: 1) — resultado correcto (G/E/P o ganador)
+  - `exactKnockoutWithTie` (default: 3) — marcador exacto + tieWinner en eliminatoria con empate al 90'
+  - `correctTieWinner` (default: 1) — solo tieWinner correcto en eliminatoria con empate al 90'
+  - `groupBonus` (default: 5) — bonus al jugador con más exactos en fase de grupos
+  - `bonusPrediction` (default: 5) — cada predicción de bonus acertada (goleador, balón de oro, etc.)
+- [ ] UI en admin (`/admin/config`) para editar y guardar estos valores con un formulario
+- [ ] Cloud Function `onMatchUpdated` lee la config desde Firestore en lugar de tener los valores hardcodeados
+- [ ] **Advertencia en la UI**: cambiar los puntos mid-torneo requiere re-calificar todas las predicciones ya puntuadas; mostrar un aviso claro antes de guardar
+- [ ] Considerar un botón "Re-calificar todo" en el panel para cuando se ajusten los valores
+
+---
+
 ## Fase 11 — Compartir y Notificaciones *(candidata, baja prioridad)*
 
 - [ ] Compartir resultado de la quiniela como imagen (screenshot + share API)
