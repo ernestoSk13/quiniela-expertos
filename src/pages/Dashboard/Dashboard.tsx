@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
@@ -5,13 +6,17 @@ import { useAuth } from '@/context/AuthContext'
 import { useMatchdays } from '@/hooks/useMatchdays'
 import { useLeaderboard } from '@/hooks/useLeaderboard'
 import { useTeamsMap } from '@/hooks/useTeams'
+import { useMatchdayProgress } from '@/hooks/useMatchdayProgress'
 import { updateBonusPredictions } from '@/services/firestoreUsers'
 import Avatar from '@/components/Avatar'
 import StatusBadge from '@/components/StatusBadge'
 import ThemeSelector from '@/components/ThemeSelector'
 import LeaderboardTable from './LeaderboardTable'
 import BonusSummary from './BonusSummary'
+import TournamentCountdown from './TournamentCountdown'
+import PlayerHistoryModal from './PlayerHistoryModal'
 import type { BonusPredictions } from '@/types/User'
+import type { User } from '@/types'
 
 function formatDeadline(ts: ReturnType<typeof Date.now> | any) {
   return ts?.toDate().toLocaleString('es-MX', {
@@ -25,6 +30,7 @@ export default function Dashboard() {
   const { players, loading: leaderboardLoading } = useLeaderboard()
   const { teamsMap } = useTeamsMap()
   const navigate = useNavigate()
+  const [selectedPlayer, setSelectedPlayer] = useState<User | null>(null)
 
   async function handleSignOut() {
     await signOut(auth)
@@ -33,6 +39,10 @@ export default function Dashboard() {
 
   const nextMatchday = matchdays.find(md => md.status === 'open' || md.status === 'upcoming')
   const teams = Object.values(teamsMap)
+  const { filled, total } = useMatchdayProgress(
+    nextMatchday?.status === 'open' ? (nextMatchday.id ?? '') : '',
+    user?.uid ?? '',
+  )
 
   async function handleSaveBonus(bonus: BonusPredictions) {
     if (!user) return
@@ -68,6 +78,7 @@ export default function Dashboard() {
 
       {/* Body */}
       <main className="max-w-5xl mx-auto px-4 py-8">
+        <TournamentCountdown />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Leaderboard — takes 2/3 on desktop */}
@@ -76,7 +87,11 @@ export default function Dashboard() {
             {leaderboardLoading ? (
               <p className="text-gray-500 text-sm">Cargando tabla...</p>
             ) : (
-              <LeaderboardTable players={players} currentUserId={user?.uid ?? ''} />
+              <LeaderboardTable
+                players={players}
+                currentUserId={user?.uid ?? ''}
+                onPlayerClick={setSelectedPlayer}
+              />
             )}
           </div>
 
@@ -105,12 +120,30 @@ export default function Dashboard() {
                       {formatDeadline(nextMatchday.predictionDeadline)}
                     </span>
                   </p>
+                  {nextMatchday.status === 'open' && total > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-500">Mis pronósticos</span>
+                        <span className={`font-semibold tabular-nums ${filled === total ? 'text-[var(--accent-light)]' : 'text-gray-400'}`}>
+                          {filled} / {total}
+                        </span>
+                      </div>
+                      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-[var(--accent)] rounded-full transition-all duration-300"
+                          style={{ width: `${Math.round((filled / total) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                   <button
                     onClick={() => navigate(`/jornada/${nextMatchday.id}`)}
                     disabled={nextMatchday.status !== 'open'}
                     className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:bg-gray-800 disabled:text-gray-500 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
                   >
-                    {nextMatchday.status === 'open' ? 'Hacer pronósticos' : 'Aún no disponible'}
+                    {nextMatchday.status === 'open'
+                      ? filled === 0 ? 'Hacer pronósticos' : filled < total ? 'Continuar pronósticos' : 'Ver pronósticos'
+                      : 'Aún no disponible'}
                   </button>
                 </div>
               )}
@@ -129,6 +162,15 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+
+      {selectedPlayer && (
+        <PlayerHistoryModal
+          player={selectedPlayer}
+          isOwnProfile={selectedPlayer.uid === user?.uid}
+          teamsMap={teamsMap}
+          onClose={() => setSelectedPlayer(null)}
+        />
+      )}
     </div>
   )
 }

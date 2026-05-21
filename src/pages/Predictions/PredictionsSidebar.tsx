@@ -6,10 +6,12 @@ interface Props {
   matches: Match[]
   scores: Record<string, LocalScore>
   dirtyMatchIds: string[]
+  savedMatchIds: string[]
   matchday: Matchday
   teamsMap: Record<string, Team>
   saving: boolean
   onSave: () => void
+  onEditSaved: (matchId: string) => void
 }
 
 function formatDeadline(ts: any) {
@@ -19,8 +21,17 @@ function formatDeadline(ts: any) {
   }) ?? '—'
 }
 
+function PencilIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </svg>
+  )
+}
+
 export default function PredictionsSidebar({
-  matches, scores, dirtyMatchIds, matchday, teamsMap, saving, onSave,
+  matches, scores, dirtyMatchIds, savedMatchIds, matchday, teamsMap, saving, onSave, onEditSaved,
 }: Props) {
   const completedCount = matches.filter(m => {
     const s = scores[m.id]
@@ -83,6 +94,41 @@ export default function PredictionsSidebar({
                   <span className="text-sm font-bold text-white shrink-0 tabular-nums">
                     {s.home ?? '·'} – {s.away ?? '·'}
                   </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Saved matches — desktop collapses these from the list; show here with edit option */}
+      {savedMatchIds.length > 0 && (
+        <div className="surface-card border border-gray-800 rounded-xl p-4">
+          <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Guardados</p>
+          <div className="space-y-2">
+            {savedMatchIds.map(matchId => {
+              const match = matches.find(m => m.id === matchId)
+              const s = scores[matchId]
+              if (!match || !s) return null
+              const hf = teamsMap[match.homeTeamCode]?.flag ?? '🏳️'
+              const af = teamsMap[match.awayTeamCode]?.flag ?? '🏳️'
+              return (
+                <div key={matchId} className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-gray-500 truncate">
+                    {hf} {match.homeTeamCode} — {match.awayTeamCode} {af}
+                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm font-bold text-[var(--accent-light)] tabular-nums">
+                      {s.home ?? '·'} – {s.away ?? '·'}
+                    </span>
+                    <button
+                      onClick={() => onEditSaved(matchId)}
+                      className="text-gray-500 hover:text-white transition-colors p-0.5"
+                      title="Editar pronóstico"
+                    >
+                      <PencilIcon />
+                    </button>
+                  </div>
                 </div>
               )
             })}

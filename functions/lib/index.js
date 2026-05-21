@@ -206,10 +206,13 @@ async function checkAndAwardGroupBonus() {
 }
 exports.onMatchUpdated = (0, firestore_1.onDocumentUpdated)('matches/{matchId}', async (event) => {
     var _a, _b;
-    const oldMatch = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
-    const newMatch = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
-    if (!oldMatch || !newMatch)
+    const matchId = event.params.matchId;
+    const beforeData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
+    const afterData = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
+    if (!beforeData || !afterData)
         return;
+    const oldMatch = Object.assign(Object.assign({}, beforeData), { id: matchId });
+    const newMatch = Object.assign(Object.assign({}, afterData), { id: matchId });
     const wasFinished = oldMatch.status === 'finished' &&
         oldMatch.homeScore != null && oldMatch.awayScore != null;
     const isFinished = newMatch.status === 'finished' &&

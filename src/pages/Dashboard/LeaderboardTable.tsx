@@ -6,9 +6,10 @@ const MEDALS = ['🥇', '🥈', '🥉']
 interface Props {
   players: User[]
   currentUserId: string
+  onPlayerClick: (player: User) => void
 }
 
-export default function LeaderboardTable({ players, currentUserId }: Props) {
+export default function LeaderboardTable({ players, currentUserId, onPlayerClick }: Props) {
   if (players.length === 0) {
     return (
       <p className="text-gray-500 text-sm text-center py-8">
@@ -34,9 +35,10 @@ export default function LeaderboardTable({ players, currentUserId }: Props) {
             return (
               <tr
                 key={player.uid}
-                className={`transition-colors ${
+                onClick={() => onPlayerClick(player)}
+                className={`transition-colors cursor-pointer ${
                   isCurrent
-                    ? 'bg-[var(--accent-deep)]'
+                    ? 'bg-[var(--accent-deep)] hover:bg-[var(--accent-muted)]'
                     : 'bg-[var(--surface-card)]/60 hover:bg-[var(--surface-card)]'
                 }`}
               >
@@ -50,12 +52,21 @@ export default function LeaderboardTable({ players, currentUserId }: Props) {
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2.5">
                     <Avatar url={player.avatarUrl} name={player.displayName} size="sm" />
-                    <span className={`truncate ${isCurrent ? 'text-[var(--accent-light)] font-medium' : 'text-gray-200'}`}>
-                      {player.displayName}
-                    </span>
-                    {isCurrent && (
-                      <span className="text-xs text-[var(--accent)] shrink-0">tú</span>
-                    )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`truncate ${isCurrent ? 'text-[var(--accent-light)] font-medium' : 'text-gray-200'}`}>
+                          {player.displayName}
+                        </span>
+                        {isCurrent && (
+                          <span className="text-xs text-[var(--accent)] shrink-0">tú</span>
+                        )}
+                      </div>
+                      {isCurrent && (
+                        <span className="text-[11px] text-[var(--accent)] opacity-80">
+                          Ver mi historial →
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </td>
                 <td className="px-4 py-3 text-right font-bold text-white tabular-nums">
@@ -69,6 +80,9 @@ export default function LeaderboardTable({ players, currentUserId }: Props) {
           })}
         </tbody>
       </table>
+      <p className="text-center text-[11px] text-gray-600 py-2.5 border-t border-gray-800/60">
+        Toca cualquier fila para ver estadísticas
+      </p>
     </div>
   )
 }
