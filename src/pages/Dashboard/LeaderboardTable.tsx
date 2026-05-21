@@ -6,9 +6,10 @@ const MEDALS = ['🥇', '🥈', '🥉']
 interface Props {
   players: User[]
   currentUserId: string
+  onPlayerClick: (player: User) => void
 }
 
-export default function LeaderboardTable({ players, currentUserId }: Props) {
+export default function LeaderboardTable({ players, currentUserId, onPlayerClick }: Props) {
   if (players.length === 0) {
     return (
       <p className="text-gray-500 text-sm text-center py-8">
@@ -34,9 +35,10 @@ export default function LeaderboardTable({ players, currentUserId }: Props) {
             return (
               <tr
                 key={player.uid}
-                className={`transition-colors ${
+                onClick={() => onPlayerClick(player)}
+                className={`transition-colors cursor-pointer ${
                   isCurrent
-                    ? 'bg-[var(--accent-deep)]'
+                    ? 'bg-[var(--accent-deep)] hover:bg-[var(--accent-muted)]'
                     : 'bg-[var(--surface-card)]/60 hover:bg-[var(--surface-card)]'
                 }`}
               >

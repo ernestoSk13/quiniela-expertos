@@ -1,5 +1,12 @@
-import { doc, updateDoc, Timestamp } from 'firebase/firestore'
+import { collection, doc, getDocs, query, updateDoc, where, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import type { Match } from '@/types'
+
+export async function getFinishedMatches(): Promise<Match[]> {
+  const q = query(collection(db, 'matches'), where('status', '==', 'finished'))
+  const snap = await getDocs(q)
+  return snap.docs.map(d => ({ ...d.data(), id: d.id }) as Match)
+}
 
 export async function saveMatchResult(
   matchId: string,

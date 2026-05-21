@@ -2,11 +2,19 @@ import {
   collection,
   doc,
   getDocs,
+  query,
   serverTimestamp,
+  where,
   writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import type { Prediction } from '@/types'
+
+export async function getUserPredictions(userId: string): Promise<Prediction[]> {
+  const q = query(collection(db, 'predictions'), where('userId', '==', userId))
+  const snap = await getDocs(q)
+  return snap.docs.map(d => d.data() as Prediction)
+}
 
 export async function getPredictionCountsByUser(): Promise<Record<string, number>> {
   const snap = await getDocs(collection(db, 'predictions'))

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
@@ -12,7 +13,9 @@ import ThemeSelector from '@/components/ThemeSelector'
 import LeaderboardTable from './LeaderboardTable'
 import BonusSummary from './BonusSummary'
 import TournamentCountdown from './TournamentCountdown'
+import PlayerHistoryModal from './PlayerHistoryModal'
 import type { BonusPredictions } from '@/types/User'
+import type { User } from '@/types'
 
 function formatDeadline(ts: ReturnType<typeof Date.now> | any) {
   return ts?.toDate().toLocaleString('es-MX', {
@@ -26,6 +29,7 @@ export default function Dashboard() {
   const { players, loading: leaderboardLoading } = useLeaderboard()
   const { teamsMap } = useTeamsMap()
   const navigate = useNavigate()
+  const [selectedPlayer, setSelectedPlayer] = useState<User | null>(null)
 
   async function handleSignOut() {
     await signOut(auth)
@@ -78,7 +82,11 @@ export default function Dashboard() {
             {leaderboardLoading ? (
               <p className="text-gray-500 text-sm">Cargando tabla...</p>
             ) : (
-              <LeaderboardTable players={players} currentUserId={user?.uid ?? ''} />
+              <LeaderboardTable
+                players={players}
+                currentUserId={user?.uid ?? ''}
+                onPlayerClick={setSelectedPlayer}
+              />
             )}
           </div>
 
@@ -131,6 +139,15 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+
+      {selectedPlayer && (
+        <PlayerHistoryModal
+          player={selectedPlayer}
+          isOwnProfile={selectedPlayer.uid === user?.uid}
+          teamsMap={teamsMap}
+          onClose={() => setSelectedPlayer(null)}
+        />
+      )}
     </div>
   )
 }
