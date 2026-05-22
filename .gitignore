@@ -76,3 +76,6 @@ dist
 .dataconnect
 .DS_Store
 IDEAS.md
+
+# Claude sessions notes (local-only)
+claude-sessions/
