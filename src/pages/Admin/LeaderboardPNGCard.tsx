@@ -1,20 +1,20 @@
 import { useRef, useState } from 'react'
 import { captureAndShare } from '@/hooks/useShareImage'
 import { useTheme } from '@/context/ThemeContext'
+import LeaderboardRow, { ROW_H, ROW_GAP } from '@/components/LeaderboardRow'
 import type { ThemeId } from '@/lib/themes'
 import type { User } from '@/types'
 
-// 9:16 — iPhone portrait (390×844)
-const CARD_W = 390
-const CARD_H = 844
+const CARD_W = 420
+const HEADER_H = 140
+const FOOTER_H = 52
+const MIN_CARD_H = 480
 
-const COLORS: Record<ThemeId, { bg: string; surface: string; accent: string; border: string; muted: string }> = {
-  mexico: { bg: '#010a04', surface: '#0c1f0f', accent: '#00C853', border: 'rgba(0,200,83,0.25)',   muted: 'rgba(0,200,83,0.08)' },
-  canada: { bg: '#0a0101', surface: '#1a0606', accent: '#E51414', border: 'rgba(229,20,20,0.25)',  muted: 'rgba(229,20,20,0.08)' },
-  usa:    { bg: '#01020c', surface: '#080b1e', accent: '#2535F0', border: 'rgba(37,53,240,0.25)',  muted: 'rgba(37,53,240,0.08)' },
+const THEME_BG: Record<ThemeId, { bg: string; surface: string; accent: string; border: string }> = {
+  mexico: { bg: '#010a04', surface: '#0c1f0f', accent: '#00C853', border: 'rgba(0,200,83,0.20)' },
+  canada: { bg: '#0a0101', surface: '#1a0606', accent: '#E51414', border: 'rgba(229,20,20,0.20)' },
+  usa:    { bg: '#01020c', surface: '#080b1e', accent: '#2535F0', border: 'rgba(37,53,240,0.20)' },
 }
-
-const MEDALS = ['🥇', '🥈', '🥉']
 
 function now() {
   return new Date().toLocaleDateString('es-MX', {
@@ -30,12 +30,25 @@ export default function LeaderboardPNGCard({ players }: Props) {
   const { themeId } = useTheme()
   const cardRef = useRef<HTMLDivElement>(null)
   const [sharing, setSharing] = useState(false)
-  const c = COLORS[themeId]
+  const c = THEME_BG[themeId]
+  const rowsTotalH = players.length * ROW_H + Math.max(0, players.length - 1) * ROW_GAP
+  const CARD_H = Math.max(
+    MIN_CARD_H,
+    HEADER_H + 16 + rowsTotalH + 16 + FOOTER_H,
+  )
 
   async function handleShare() {
     if (!cardRef.current) return
     setSharing(true)
     try {
+      const imgs = cardRef.current.querySelectorAll('img')
+      await Promise.all(Array.from(imgs).map(img => {
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve()
+        return new Promise<void>(resolve => {
+          img.onload = () => resolve()
+          img.onerror = () => resolve()
+        })
+      }))
       await captureAndShare(cardRef.current, 'quiniela-tabla-general', { forceDownload: true })
     } catch {
       // silencioso
@@ -46,7 +59,7 @@ export default function LeaderboardPNGCard({ players }: Props) {
 
   return (
     <>
-      {/* Card off-screen — 390×844 (9:16 mobile) */}
+      {/* Card off-screen */}
       <div
         ref={cardRef}
         style={{
@@ -58,136 +71,62 @@ export default function LeaderboardPNGCard({ players }: Props) {
           backgroundColor: c.bg,
           fontFamily: 'system-ui, -apple-system, sans-serif',
           boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
         }}
       >
         {/* Header */}
         <div style={{
-          padding: '28px 24px 20px',
+          height: HEADER_H,
+          boxSizing: 'border-box',
+          padding: '24px 24px 20px',
           borderBottom: `1px solid ${c.border}`,
           backgroundColor: c.surface,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <span style={{ fontSize: 24 }}>⚽</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <span style={{ fontSize: 26, lineHeight: 1 }}>⚽</span>
             <div>
-              <div style={{ color: c.accent, fontSize: 12, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              <div style={{ color: c.accent, fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', lineHeight: 1.4 }}>
                 Quiniela Expertos
               </div>
-              <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, letterSpacing: '0.05em' }}>
+              <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, letterSpacing: '0.05em', lineHeight: 1.4 }}>
                 Mundial 2026
               </div>
             </div>
           </div>
-          <div style={{ color: '#ffffff', fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em' }}>
+          <div style={{ color: '#ffffff', fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
             Tabla General
           </div>
-          <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, marginTop: 3 }}>
+          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4, lineHeight: 1.4 }}>
             {now()}
           </div>
         </div>
 
-        {/* Column headers */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '8px 20px',
-          backgroundColor: c.muted,
-          borderBottom: `1px solid ${c.border}`,
-        }}>
-          <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', width: 28 }}>#</span>
-          <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', flex: 1 }}>Jugador</span>
-          <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', width: 44, textAlign: 'right' }}>Pts</span>
-          <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', width: 44, textAlign: 'right' }}>Exactos</span>
-        </div>
-
         {/* Player rows */}
-        <div style={{ flex: 1, overflowY: 'hidden' }}>
-          {players.map((player, i) => {
-            const isTop3 = i < 3
-            const rowBg = isTop3
-              ? i === 0 ? 'rgba(255,215,0,0.06)'
-              : i === 1 ? 'rgba(192,192,192,0.04)'
-              : 'rgba(205,127,50,0.04)'
-              : i % 2 === 0 ? 'transparent' : c.muted
-
-            return (
-              <div
-                key={player.uid}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '0 20px',
-                  height: 48,
-                  backgroundColor: rowBg,
-                  borderBottom: `1px solid ${c.border}`,
-                }}
-              >
-                {/* Position */}
-                <div style={{ width: 28, flexShrink: 0 }}>
-                  {isTop3 ? (
-                    <span style={{ fontSize: 16 }}>{MEDALS[i]}</span>
-                  ) : (
-                    <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, fontWeight: 600 }}>{i + 1}</span>
-                  )}
-                </div>
-
-                {/* Name */}
-                <div style={{
-                  flex: 1,
-                  color: isTop3 ? '#ffffff' : 'rgba(255,255,255,0.8)',
-                  fontSize: 13,
-                  fontWeight: isTop3 ? 700 : 500,
-                  overflow: 'hidden',
-                  whiteSpace: 'nowrap',
-                  textOverflow: 'ellipsis',
-                  paddingRight: 8,
-                }}>
-                  {player.displayName}
-                </div>
-
-                {/* Points */}
-                <div style={{
-                  width: 44,
-                  textAlign: 'right',
-                  color: isTop3 ? c.accent : '#ffffff',
-                  fontSize: 14,
-                  fontWeight: 800,
-                  flexShrink: 0,
-                }}>
-                  {player.stats.totalPoints}
-                </div>
-
-                {/* Exactos */}
-                <div style={{
-                  width: 44,
-                  textAlign: 'right',
-                  color: 'rgba(255,255,255,0.4)',
-                  fontSize: 12,
-                  fontWeight: 500,
-                  flexShrink: 0,
-                }}>
-                  {player.stats.exactPredictions}
-                </div>
-              </div>
-            )
-          })}
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: ROW_GAP }}>
+          {players.map((player, i) => (
+            <LeaderboardRow
+              key={player.uid}
+              player={player}
+              position={i + 1}
+              themeId={themeId}
+            />
+          ))}
         </div>
 
         {/* Footer */}
         <div style={{
-          padding: '14px 24px',
+          height: FOOTER_H,
+          boxSizing: 'border-box',
+          padding: '0 24px',
           borderTop: `1px solid ${c.border}`,
           backgroundColor: c.surface,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}>
-          <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10 }}>
+          <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: 500, lineHeight: 1.4 }}>
             {players.length} participantes
           </span>
-          <span style={{ color: c.accent, fontSize: 10, fontWeight: 600 }}>
+          <span style={{ color: c.accent, fontSize: 12, fontWeight: 600, lineHeight: 1.4 }}>
             quinielaexpertos26.web.app
           </span>
         </div>
