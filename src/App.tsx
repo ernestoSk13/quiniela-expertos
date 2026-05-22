@@ -14,6 +14,7 @@ import UserProfiles from '@/pages/Admin/UserProfiles'
 import BonusEvaluation from '@/pages/Admin/BonusEvaluation'
 import AdminLeaderboard from '@/pages/Admin/AdminLeaderboard'
 import ScoringConfig from '@/pages/Admin/ScoringConfig'
+import InvitePage from '@/pages/Invite/InvitePage'
 
 export default function App() {
   return (
@@ -49,6 +50,9 @@ export default function App() {
               <Route path="config" element={<ScoringConfig />} />
             </Route>
           </Route>
+
+          {/* Pública — link de invitación (sin auth) */}
+          <Route path="/invite/:token" element={<InvitePage />} />
 
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />

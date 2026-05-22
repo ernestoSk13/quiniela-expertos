@@ -277,6 +277,21 @@ export const onMatchUpdated = onDocumentUpdated('matches/{matchId}', async event
   }
 })
 
+export const getInvite = onCall(async request => {
+  const { token } = request.data as { token?: string }
+  if (!token) throw new HttpsError('invalid-argument', 'Token requerido')
+
+  const snap = await db.collection('invites').doc(token).get()
+  if (!snap.exists) throw new HttpsError('not-found', 'Invitación no válida')
+
+  const data = snap.data()!
+  if ((data.expiresAt as admin.firestore.Timestamp).toDate() < new Date()) {
+    throw new HttpsError('deadline-exceeded', 'Invitación expirada')
+  }
+
+  return { email: data.email as string }
+})
+
 export const evaluateBonusPredictions = onCall(async request => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Not authenticated')
 

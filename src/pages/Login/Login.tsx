@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -10,7 +11,8 @@ import { auth } from '@/lib/firebase'
 import { isEmailAllowed } from '@/services/firestoreUsers'
 
 export default function Login() {
-  const [email, setEmail] = useState('')
+  const [searchParams] = useSearchParams()
+  const [email, setEmail] = useState(searchParams.get('email') ?? '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)

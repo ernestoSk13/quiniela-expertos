@@ -10,6 +10,12 @@ if (import.meta.env.VITE_USE_EMULATORS === 'true') {
   )
 }
 
+export async function getInvite(token: string): Promise<{ email: string }> {
+  const fn = httpsCallable<{ token: string }, { email: string }>(functions, 'getInvite')
+  const result = await fn({ token })
+  return result.data
+}
+
 export async function evaluateBonusPredictions(actual: {
   topScorer: string
   goldenBall: string

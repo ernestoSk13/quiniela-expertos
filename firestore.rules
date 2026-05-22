@@ -69,6 +69,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Invite tokens — admin writes them; reads go through Cloud Function (Admin SDK bypasses rules)
+    match /invites/{token} {
+      allow read: if false;
+      allow write: if isAdmin();
+    }
+
     match /surpriseChallenges/{challengeId} {
       allow read: if isAllowedUser();
       allow write: if isAdmin();

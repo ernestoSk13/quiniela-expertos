@@ -174,8 +174,20 @@
 
 ---
 
-## Fase 11 — Compartir y Notificaciones *(candidata, baja prioridad)*
+## Fase 11 — Compartir y Notificaciones
 
-- [ ] Compartir resultado de la quiniela como imagen (screenshot + share API)
-- [ ] Recordatorio antes del deadline (web push o notificación in-app)
-- [ ] Enlace de invitación para nuevos jugadores (genera correo en `allowedUsers` con un solo clic)
+### Link de invitación
+**Estado:** Completado ✓
+
+- [x] Cloud Function `getInvite(token)` — lee `invites/{token}` sin auth; valida expiración; devuelve `{ email }`
+- [x] `generateInviteLink(email)` — admin escribe `invites/{token}` (UUID) con TTL de 7 días; devuelve la URL
+- [x] Botón "Invitar" por correo en `/admin/usuarios` — genera token, copia link al portapapeles, confirma con "Copiado"
+- [x] Página pública `/invite/:token` — llama `getInvite`, muestra bienvenida personalizada con correo pre-cargado y botón a `/login`
+- [x] Login pre-llena el campo de correo desde `?email=` query param (viene del link de invitación)
+- [x] Firestore rules: `invites/{token}` — write: isAdmin; read: false (Admin SDK en Cloud Function omite reglas)
+
+### Compartir como imagen *(pendiente)*
+- [ ] Screenshot de posición / resumen de jornada con Web Share API + html2canvas
+
+### Notificaciones push *(pendiente)*
+- [ ] Recordatorio antes del predictionDeadline + aviso de resultados (service worker + FCM)

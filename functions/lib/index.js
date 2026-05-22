@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.evaluateBonusPredictions = exports.onMatchUpdated = void 0;
+exports.evaluateBonusPredictions = exports.getInvite = exports.onMatchUpdated = void 0;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
@@ -251,6 +251,19 @@ exports.onMatchUpdated = (0, firestore_1.onDocumentUpdated)('matches/{matchId}',
             await rescoreMatchPredictions(oldMatch, newMatch, cfg);
         }
     }
+});
+exports.getInvite = (0, https_1.onCall)(async (request) => {
+    const { token } = request.data;
+    if (!token)
+        throw new https_1.HttpsError('invalid-argument', 'Token requerido');
+    const snap = await db.collection('invites').doc(token).get();
+    if (!snap.exists)
+        throw new https_1.HttpsError('not-found', 'Invitación no válida');
+    const data = snap.data();
+    if (data.expiresAt.toDate() < new Date()) {
+        throw new https_1.HttpsError('deadline-exceeded', 'Invitación expirada');
+    }
+    return { email: data.email };
 });
 exports.evaluateBonusPredictions = (0, https_1.onCall)(async (request) => {
     var _a;
