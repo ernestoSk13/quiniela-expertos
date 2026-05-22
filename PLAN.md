@@ -210,5 +210,10 @@
 - [x] Aplicado en dashboard (con click → modal de historial y highlight de "tú"), en `/admin/tabla` y en el PNG card
 - [x] Inline styles en el componente para compatibilidad total con html2canvas
 
+### Rediseño del modal de historial *(pendiente)*
+- [ ] Rediseñar `PlayerHistoryModal` siguiendo el mock que el usuario va a proveer
+- [ ] Mantener: stats del jugador, gráfica de evolución de puntos, acordeón por jornada, bottom-sheet en móvil
+- [ ] Revisar consistencia visual con el nuevo leaderboard tipo carta FIFA
+
 ### Notificaciones push *(pendiente)*
 - [ ] Recordatorio antes del predictionDeadline + aviso de resultados (service worker + FCM)
