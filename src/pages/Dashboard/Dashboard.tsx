@@ -15,6 +15,8 @@ import LeaderboardTable from './LeaderboardTable'
 import BonusSummary from './BonusSummary'
 import TournamentCountdown from './TournamentCountdown'
 import PlayerHistoryModal from './PlayerHistoryModal'
+import LeaderboardShareCard from './LeaderboardShareCard'
+import { useTheme } from '@/context/ThemeContext'
 import type { BonusPredictions } from '@/types/User'
 import type { User } from '@/types'
 
@@ -26,6 +28,7 @@ function formatDeadline(ts: ReturnType<typeof Date.now> | any) {
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const { themeId } = useTheme()
   const { matchdays, loading: matchdaysLoading } = useMatchdays()
   const { players, loading: leaderboardLoading } = useLeaderboard()
   const { teamsMap } = useTeamsMap()
@@ -87,11 +90,19 @@ export default function Dashboard() {
             {leaderboardLoading ? (
               <p className="text-gray-500 text-sm">Cargando tabla...</p>
             ) : (
-              <LeaderboardTable
-                players={players}
-                currentUserId={user?.uid ?? ''}
-                onPlayerClick={setSelectedPlayer}
-              />
+              <>
+                <LeaderboardTable
+                  players={players}
+                  currentUserId={user?.uid ?? ''}
+                  onPlayerClick={setSelectedPlayer}
+                />
+                {user && (() => {
+                  const pos = players.findIndex(p => p.uid === user.uid) + 1
+                  return pos > 0 ? (
+                    <LeaderboardShareCard position={pos} player={user} themeId={themeId} />
+                  ) : null
+                })()}
+              </>
             )}
           </div>
 

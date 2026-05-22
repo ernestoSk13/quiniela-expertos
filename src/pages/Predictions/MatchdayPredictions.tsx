@@ -10,6 +10,8 @@ import CompactMatchRow from './CompactMatchRow'
 import NumericKeypad from './NumericKeypad'
 import PredictionsSidebar from './PredictionsSidebar'
 import PostMatchdayView from './PostMatchdayView'
+import JornadaShareCard from './JornadaShareCard'
+import { useTheme } from '@/context/ThemeContext'
 
 type SelectedCell = { matchId: string; side: 'home' | 'away' } | null
 type LocalScore = { home: number | null; away: number | null; tieWinner: string | null }
@@ -39,6 +41,8 @@ export default function MatchdayPredictions() {
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : false
   )
+
+  const { themeId } = useTheme()
 
   const isOpen = matchday?.status === 'open'
   const deadlinePassed = matchday?.predictionDeadline
@@ -239,20 +243,30 @@ export default function MatchdayPredictions() {
       {/* View toggle — only for closed/finished matchdays */}
       {canViewAll && (
         <div className="border-b border-gray-800 surface-nav sticky top-14 z-10">
-          <div className="max-w-5xl mx-auto px-4 flex gap-1">
-            {(['mine', 'all'] as const).map(mode => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className={`py-2.5 px-4 text-sm font-medium border-b-2 transition-colors ${
-                  viewMode === mode
-                    ? 'border-[var(--accent)] text-white'
-                    : 'border-transparent text-gray-500 hover:text-gray-300'
-                }`}
-              >
-                {mode === 'mine' ? 'Mis pronósticos' : 'Ver todos'}
-              </button>
-            ))}
+          <div className="max-w-5xl mx-auto px-4 flex items-center">
+            <div className="flex gap-1 flex-1">
+              {(['mine', 'all'] as const).map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`py-2.5 px-4 text-sm font-medium border-b-2 transition-colors ${
+                    viewMode === mode
+                      ? 'border-[var(--accent)] text-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  {mode === 'mine' ? 'Mis pronósticos' : 'Ver todos'}
+                </button>
+              ))}
+            </div>
+            {viewMode === 'mine' && (
+              <JornadaShareCard
+                matchdayName={matchday.name}
+                matches={matches}
+                predictions={predictions}
+                themeId={themeId}
+              />
+            )}
           </div>
         </div>
       )}
