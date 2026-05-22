@@ -36,7 +36,7 @@ export default function LeaderboardPNGCard({ players }: Props) {
     if (!cardRef.current) return
     setSharing(true)
     try {
-      await captureAndShare(cardRef.current, 'quiniela-tabla-general')
+      await captureAndShare(cardRef.current, 'quiniela-tabla-general', { forceDownload: true })
     } catch {
       // silencioso
     } finally {

@@ -1,6 +1,21 @@
 import html2canvas from 'html2canvas'
 
-export async function captureAndShare(element: HTMLElement, filename: string): Promise<void> {
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${filename}.png`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+export async function captureAndShare(
+  element: HTMLElement,
+  filename: string,
+  { forceDownload = false } = {},
+): Promise<void> {
   const canvas = await html2canvas(element, {
     scale: 2,
     useCORS: true,
@@ -14,7 +29,7 @@ export async function captureAndShare(element: HTMLElement, filename: string): P
 
       const file = new File([blob], `${filename}.png`, { type: 'image/png' })
 
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      if (!forceDownload && navigator.share && navigator.canShare?.({ files: [file] })) {
         try {
           await navigator.share({ files: [file], title: 'Quiniela Expertos del Mundial 2026' })
         } catch (err) {
@@ -22,15 +37,7 @@ export async function captureAndShare(element: HTMLElement, filename: string): P
           reject(err); return
         }
       } else {
-        // Fallback: descargar la imagen directamente
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${filename}.png`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
+        downloadBlob(blob, filename)
       }
       resolve()
     }, 'image/png')
