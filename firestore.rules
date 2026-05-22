@@ -63,6 +63,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Config (tournament flags, scoring config) — readable by all players, writable only by admin
+    match /config/{docId} {
+      allow read: if isAllowedUser();
+      allow write: if isAdmin();
+    }
+
     match /surpriseChallenges/{challengeId} {
       allow read: if isAllowedUser();
       allow write: if isAdmin();

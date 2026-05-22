@@ -6,11 +6,19 @@ import { useAuth } from '@/context/AuthContext'
 import Avatar from '@/components/Avatar'
 import { resetAllData } from '@/services/firestoreAdmin'
 
-const NAV = [
+// Mobile tab bar (space-constrained — 4 items max)
+const MOBILE_NAV = [
   { to: '/admin',           label: 'Jornadas',  end: true },
   { to: '/admin/jugadores', label: 'Jugadores' },
   { to: '/admin/bonus',     label: 'Bonus' },
   { to: '/admin/usuarios',  label: 'Acceso' },
+]
+
+// Desktop header nav (can fit more items)
+const DESKTOP_NAV = [
+  ...MOBILE_NAV,
+  { to: '/admin/tabla',  label: 'Tabla' },
+  { to: '/admin/config', label: 'Puntos' },
 ]
 
 export default function AdminLayout() {
@@ -57,7 +65,7 @@ export default function AdminLayout() {
 
             {/* Desktop only */}
             <nav className="hidden md:flex gap-1">
-              {NAV.map(({ to, label, end }) => (
+              {DESKTOP_NAV.map(({ to, label, end }) => (
                 <NavLink
                   key={to}
                   to={to}
@@ -107,7 +115,7 @@ export default function AdminLayout() {
         className="md:hidden fixed bottom-0 left-0 right-0 surface-nav border-t border-gray-800 flex"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        {NAV.map(({ to, label, end }) => (
+        {MOBILE_NAV.map(({ to, label, end }) => (
           <NavLink
             key={to}
             to={to}

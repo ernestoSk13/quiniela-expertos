@@ -26,6 +26,30 @@ interface PredictionData {
   isCorrectResult: boolean | null
 }
 
+interface ScoringConfig {
+  exactScore: number
+  correctResult: number
+  exactKnockoutWithTie: number
+  correctTieWinner: number
+  groupBonus: number
+  bonusPrediction: number
+}
+
+const DEFAULT_SCORING: ScoringConfig = {
+  exactScore: 3,
+  correctResult: 1,
+  exactKnockoutWithTie: 3,
+  correctTieWinner: 1,
+  groupBonus: 5,
+  bonusPrediction: 5,
+}
+
+async function getScoringConfig(): Promise<ScoringConfig> {
+  const snap = await db.collection('config').doc('scoring').get()
+  if (!snap.exists) return DEFAULT_SCORING
+  return { ...DEFAULT_SCORING, ...(snap.data() as Partial<ScoringConfig>) }
+}
+
 interface PointsResult {
   points: number
   isExact: boolean
@@ -40,6 +64,7 @@ function computePoints(
   predHome: number,
   predAway: number,
   predTieWinner: string | null,
+  cfg: ScoringConfig,
 ): PointsResult {
   const isKnockout = phase !== 'group_stage'
   const isDraw = homeScore === awayScore
@@ -48,14 +73,14 @@ function computePoints(
   if (isKnockout && isDraw) {
     const rightTie = winner != null && predTieWinner === winner
     const rightScore = predHome === homeScore && predAway === awayScore
-    if (rightScore && rightTie) return { points: 3, isExact: true, isCorrectResult: true }
-    if (rightTie) return { points: 1, isExact: false, isCorrectResult: true }
+    if (rightScore && rightTie) return { points: cfg.exactKnockoutWithTie, isExact: true, isCorrectResult: true }
+    if (rightTie) return { points: cfg.correctTieWinner, isExact: false, isCorrectResult: true }
     return { points: 0, isExact: false, isCorrectResult: false }
   }
 
   // Group stage or knockout non-draw: exact = score, correct = result (G/E/P or winner)
   if (predHome === homeScore && predAway === awayScore) {
-    return { points: 3, isExact: true, isCorrectResult: true }
+    return { points: cfg.exactScore, isExact: true, isCorrectResult: true }
   }
 
   let rightResult: boolean
@@ -66,11 +91,11 @@ function computePoints(
     rightResult = homeWon ? predHome > predAway : predHome < predAway
   }
 
-  if (rightResult) return { points: 1, isExact: false, isCorrectResult: true }
+  if (rightResult) return { points: cfg.correctResult, isExact: false, isCorrectResult: true }
   return { points: 0, isExact: false, isCorrectResult: false }
 }
 
-async function scoreMatchPredictions(match: MatchData): Promise<void> {
+async function scoreMatchPredictions(match: MatchData, cfg: ScoringConfig): Promise<void> {
   const { homeScore, awayScore, winner } = match
   if (homeScore == null || awayScore == null) return
 
@@ -85,7 +110,7 @@ async function scoreMatchPredictions(match: MatchData): Promise<void> {
     const pred = predDoc.data() as PredictionData
     const result = computePoints(
       homeScore, awayScore, winner, match.phase,
-      pred.homeScore, pred.awayScore, pred.tieWinner,
+      pred.homeScore, pred.awayScore, pred.tieWinner, cfg,
     )
     batch.update(predDoc.ref, {
       points: result.points,
@@ -123,7 +148,7 @@ async function resetMatchPredictions(matchId: string): Promise<void> {
   await batch.commit()
 }
 
-async function rescoreMatchPredictions(oldMatch: MatchData, newMatch: MatchData): Promise<void> {
+async function rescoreMatchPredictions(oldMatch: MatchData, newMatch: MatchData, cfg: ScoringConfig): Promise<void> {
   const { homeScore: newHome, awayScore: newAway, winner: newWinner } = newMatch
   if (newHome == null || newAway == null) return
 
@@ -138,7 +163,7 @@ async function rescoreMatchPredictions(oldMatch: MatchData, newMatch: MatchData)
     const pred = predDoc.data() as PredictionData
     const newResult = computePoints(
       newHome, newAway, newWinner, newMatch.phase,
-      pred.homeScore, pred.awayScore, pred.tieWinner,
+      pred.homeScore, pred.awayScore, pred.tieWinner, cfg,
     )
     const oldPts = pred.points ?? 0
     const ptsDelta = newResult.points - oldPts
@@ -161,8 +186,8 @@ async function rescoreMatchPredictions(oldMatch: MatchData, newMatch: MatchData)
   await batch.commit()
 }
 
-// Awards +5pts to user(s) with most exact group stage predictions once all are finished.
-async function checkAndAwardGroupBonus(): Promise<void> {
+// Awards groupBonus pts to user(s) with most exact group stage predictions once all are finished.
+async function checkAndAwardGroupBonus(bonusPts: number): Promise<void> {
   const configRef = db.collection('config').doc('tournament')
   const configSnap = await configRef.get()
   if (configSnap.data()?.groupBonusAwarded) return
@@ -210,7 +235,7 @@ async function checkAndAwardGroupBonus(): Promise<void> {
   const batch = db.batch()
   for (const uid of winners) {
     batch.update(db.collection('users').doc(uid), {
-      'stats.totalPoints': FieldValue.increment(5),
+      'stats.totalPoints': FieldValue.increment(bonusPts),
     })
   }
   await batch.commit()
@@ -232,10 +257,12 @@ export const onMatchUpdated = onDocumentUpdated('matches/{matchId}', async event
 
   if (!wasFinished && !isFinished) return
 
+  const cfg = await getScoringConfig()
+
   if (!wasFinished && isFinished) {
-    await scoreMatchPredictions(newMatch)
+    await scoreMatchPredictions(newMatch, cfg)
     if (newMatch.phase === 'group_stage') {
-      await checkAndAwardGroupBonus()
+      await checkAndAwardGroupBonus(cfg.groupBonus)
     }
   } else if (wasFinished && !isFinished) {
     await resetMatchPredictions(oldMatch.id)
@@ -245,7 +272,7 @@ export const onMatchUpdated = onDocumentUpdated('matches/{matchId}', async event
       oldMatch.awayScore !== newMatch.awayScore ||
       oldMatch.winner !== newMatch.winner
     if (scoresChanged) {
-      await rescoreMatchPredictions(oldMatch, newMatch)
+      await rescoreMatchPredictions(oldMatch, newMatch, cfg)
     }
   }
 })
@@ -268,6 +295,8 @@ export const evaluateBonusPredictions = onCall(async request => {
     throw new HttpsError('invalid-argument', 'Faltan campos requeridos')
   }
 
+  const cfg = await getScoringConfig()
+  const bonusPts = cfg.bonusPrediction
   const normalize = (s: string) => (s ?? '').trim().toLowerCase()
 
   const usersSnap = await db.collection('users').get()
@@ -277,10 +306,10 @@ export const evaluateBonusPredictions = onCall(async request => {
     if (!bp || bp.pointsAwarded) continue
 
     let pts = 0
-    if (normalize(bp.topScorer) === normalize(topScorer)) pts += 5
-    if (normalize(bp.goldenBall) === normalize(goldenBall)) pts += 5
-    if (bp.mexicoPhase === mexicoPhase) pts += 5
-    if (bp.champion === champion) pts += 5
+    if (normalize(bp.topScorer) === normalize(topScorer)) pts += bonusPts
+    if (normalize(bp.goldenBall) === normalize(goldenBall)) pts += bonusPts
+    if (bp.mexicoPhase === mexicoPhase) pts += bonusPts
+    if (bp.champion === champion) pts += bonusPts
 
     batch.update(userDoc.ref, {
       'bonusPredictions.pointsAwarded': true,

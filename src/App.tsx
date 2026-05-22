@@ -12,6 +12,8 @@ import MatchdayDetail from '@/pages/Admin/MatchdayDetail'
 import AllowedUsers from '@/pages/Admin/AllowedUsers'
 import UserProfiles from '@/pages/Admin/UserProfiles'
 import BonusEvaluation from '@/pages/Admin/BonusEvaluation'
+import AdminLeaderboard from '@/pages/Admin/AdminLeaderboard'
+import ScoringConfig from '@/pages/Admin/ScoringConfig'
 
 export default function App() {
   return (
@@ -43,6 +45,8 @@ export default function App() {
               <Route path="usuarios" element={<AllowedUsers />} />
               <Route path="jugadores" element={<UserProfiles />} />
               <Route path="bonus" element={<BonusEvaluation />} />
+              <Route path="tabla" element={<AdminLeaderboard />} />
+              <Route path="config" element={<ScoringConfig />} />
             </Route>
           </Route>
 

@@ -40,7 +40,21 @@ const https_1 = require("firebase-functions/v2/https");
 const firestore_2 = require("firebase-admin/firestore");
 admin.initializeApp();
 const db = admin.firestore();
-function computePoints(homeScore, awayScore, winner, phase, predHome, predAway, predTieWinner) {
+const DEFAULT_SCORING = {
+    exactScore: 3,
+    correctResult: 1,
+    exactKnockoutWithTie: 3,
+    correctTieWinner: 1,
+    groupBonus: 5,
+    bonusPrediction: 5,
+};
+async function getScoringConfig() {
+    const snap = await db.collection('config').doc('scoring').get();
+    if (!snap.exists)
+        return DEFAULT_SCORING;
+    return Object.assign(Object.assign({}, DEFAULT_SCORING), snap.data());
+}
+function computePoints(homeScore, awayScore, winner, phase, predHome, predAway, predTieWinner, cfg) {
     const isKnockout = phase !== 'group_stage';
     const isDraw = homeScore === awayScore;
     // Knockout draw at 90': exact = score + tieWinner, correct = tieWinner only
@@ -48,14 +62,14 @@ function computePoints(homeScore, awayScore, winner, phase, predHome, predAway, 
         const rightTie = winner != null && predTieWinner === winner;
         const rightScore = predHome === homeScore && predAway === awayScore;
         if (rightScore && rightTie)
-            return { points: 3, isExact: true, isCorrectResult: true };
+            return { points: cfg.exactKnockoutWithTie, isExact: true, isCorrectResult: true };
         if (rightTie)
-            return { points: 1, isExact: false, isCorrectResult: true };
+            return { points: cfg.correctTieWinner, isExact: false, isCorrectResult: true };
         return { points: 0, isExact: false, isCorrectResult: false };
     }
     // Group stage or knockout non-draw: exact = score, correct = result (G/E/P or winner)
     if (predHome === homeScore && predAway === awayScore) {
-        return { points: 3, isExact: true, isCorrectResult: true };
+        return { points: cfg.exactScore, isExact: true, isCorrectResult: true };
     }
     let rightResult;
     if (isDraw) {
@@ -66,10 +80,10 @@ function computePoints(homeScore, awayScore, winner, phase, predHome, predAway, 
         rightResult = homeWon ? predHome > predAway : predHome < predAway;
     }
     if (rightResult)
-        return { points: 1, isExact: false, isCorrectResult: true };
+        return { points: cfg.correctResult, isExact: false, isCorrectResult: true };
     return { points: 0, isExact: false, isCorrectResult: false };
 }
-async function scoreMatchPredictions(match) {
+async function scoreMatchPredictions(match, cfg) {
     const { homeScore, awayScore, winner } = match;
     if (homeScore == null || awayScore == null)
         return;
@@ -81,7 +95,7 @@ async function scoreMatchPredictions(match) {
     const batch = db.batch();
     for (const predDoc of predsSnap.docs) {
         const pred = predDoc.data();
-        const result = computePoints(homeScore, awayScore, winner, match.phase, pred.homeScore, pred.awayScore, pred.tieWinner);
+        const result = computePoints(homeScore, awayScore, winner, match.phase, pred.homeScore, pred.awayScore, pred.tieWinner, cfg);
         batch.update(predDoc.ref, {
             points: result.points,
             isExact: result.isExact,
@@ -116,7 +130,7 @@ async function resetMatchPredictions(matchId) {
     }
     await batch.commit();
 }
-async function rescoreMatchPredictions(oldMatch, newMatch) {
+async function rescoreMatchPredictions(oldMatch, newMatch, cfg) {
     var _a;
     const { homeScore: newHome, awayScore: newAway, winner: newWinner } = newMatch;
     if (newHome == null || newAway == null)
@@ -129,7 +143,7 @@ async function rescoreMatchPredictions(oldMatch, newMatch) {
     const batch = db.batch();
     for (const predDoc of predsSnap.docs) {
         const pred = predDoc.data();
-        const newResult = computePoints(newHome, newAway, newWinner, newMatch.phase, pred.homeScore, pred.awayScore, pred.tieWinner);
+        const newResult = computePoints(newHome, newAway, newWinner, newMatch.phase, pred.homeScore, pred.awayScore, pred.tieWinner, cfg);
         const oldPts = (_a = pred.points) !== null && _a !== void 0 ? _a : 0;
         const ptsDelta = newResult.points - oldPts;
         const exactDelta = (newResult.isExact ? 1 : 0) - (pred.isExact ? 1 : 0);
@@ -149,8 +163,8 @@ async function rescoreMatchPredictions(oldMatch, newMatch) {
     }
     await batch.commit();
 }
-// Awards +5pts to user(s) with most exact group stage predictions once all are finished.
-async function checkAndAwardGroupBonus() {
+// Awards groupBonus pts to user(s) with most exact group stage predictions once all are finished.
+async function checkAndAwardGroupBonus(bonusPts) {
     var _a;
     const configRef = db.collection('config').doc('tournament');
     const configSnap = await configRef.get();
@@ -199,7 +213,7 @@ async function checkAndAwardGroupBonus() {
     const batch = db.batch();
     for (const uid of winners) {
         batch.update(db.collection('users').doc(uid), {
-            'stats.totalPoints': firestore_2.FieldValue.increment(5),
+            'stats.totalPoints': firestore_2.FieldValue.increment(bonusPts),
         });
     }
     await batch.commit();
@@ -219,10 +233,11 @@ exports.onMatchUpdated = (0, firestore_1.onDocumentUpdated)('matches/{matchId}',
         newMatch.homeScore != null && newMatch.awayScore != null;
     if (!wasFinished && !isFinished)
         return;
+    const cfg = await getScoringConfig();
     if (!wasFinished && isFinished) {
-        await scoreMatchPredictions(newMatch);
+        await scoreMatchPredictions(newMatch, cfg);
         if (newMatch.phase === 'group_stage') {
-            await checkAndAwardGroupBonus();
+            await checkAndAwardGroupBonus(cfg.groupBonus);
         }
     }
     else if (wasFinished && !isFinished) {
@@ -233,7 +248,7 @@ exports.onMatchUpdated = (0, firestore_1.onDocumentUpdated)('matches/{matchId}',
             oldMatch.awayScore !== newMatch.awayScore ||
             oldMatch.winner !== newMatch.winner;
         if (scoresChanged) {
-            await rescoreMatchPredictions(oldMatch, newMatch);
+            await rescoreMatchPredictions(oldMatch, newMatch, cfg);
         }
     }
 });
@@ -249,6 +264,8 @@ exports.evaluateBonusPredictions = (0, https_1.onCall)(async (request) => {
     if (!topScorer || !goldenBall || !mexicoPhase || !champion) {
         throw new https_1.HttpsError('invalid-argument', 'Faltan campos requeridos');
     }
+    const cfg = await getScoringConfig();
+    const bonusPts = cfg.bonusPrediction;
     const normalize = (s) => (s !== null && s !== void 0 ? s : '').trim().toLowerCase();
     const usersSnap = await db.collection('users').get();
     const batch = db.batch();
@@ -258,13 +275,13 @@ exports.evaluateBonusPredictions = (0, https_1.onCall)(async (request) => {
             continue;
         let pts = 0;
         if (normalize(bp.topScorer) === normalize(topScorer))
-            pts += 5;
+            pts += bonusPts;
         if (normalize(bp.goldenBall) === normalize(goldenBall))
-            pts += 5;
+            pts += bonusPts;
         if (bp.mexicoPhase === mexicoPhase)
-            pts += 5;
+            pts += bonusPts;
         if (bp.champion === champion)
-            pts += 5;
+            pts += bonusPts;
         batch.update(userDoc.ref, {
             'bonusPredictions.pointsAwarded': true,
             'stats.totalPoints': firestore_2.FieldValue.increment(pts),
