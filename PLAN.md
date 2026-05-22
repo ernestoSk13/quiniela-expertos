@@ -2,12 +2,14 @@
 
 ## Estado actual (Mayo 2026)
 
-- [x] Fases 1–10 completadas y desplegadas en producción
-- [x] Cloud Functions gen2 activas (`onMatchUpdated`, `evaluateBonusPredictions`)
+- [x] Fases 1–11 (parcial) completadas y desplegadas en producción
+- [x] Cloud Functions gen2 activas (`onMatchUpdated`, `evaluateBonusPredictions`, `getInvite`)
 - [x] Sistema de temas con paleta FIFA WC 2026 (México / Canadá / EUA)
-- [x] Panel de admin completo: jornadas, resultados, jugadores, bonus, acceso
+- [x] Panel de admin completo: jornadas, resultados, jugadores, bonus, acceso, tabla general, configuración de puntos
 - [x] Historial personal por jugador con gráfica SVG de evolución de puntos
 - [x] Vista post-jornada: predicciones de todos los jugadores visibles al cerrar
+- [x] Puntos configurables desde Firestore (`config/scoring`); Cloud Functions leen config con fallback a defaults
+- [x] Link de invitación: admin genera token por correo, invitado llega a página de bienvenida
 
 ---
 
@@ -20,6 +22,8 @@
 - **Bloqueo de predicciones por partido:** Además del `predictionDeadline` de la jornada, cada partido se bloquea individualmente en cuanto su `scheduledAt` pasa. Permite que en jornadas con partidos en días distintos los primeros se bloqueen automáticamente sin afectar los siguientes.
 - **Visibilidad de pronósticos ajenos:** Los pronósticos de otros jugadores solo son visibles cuando la jornada tiene `status: 'closed'` o `'finished'`. Está aplicado tanto en Firestore rules (servidor) como en el toggle de UI (cliente).
 - **Leaderboard como colección pública:** Todos los `isAllowedUser()` pueden leer la colección `users` completa — necesario para que el query de leaderboard funcione. La restricción de escritura sigue siendo individual (cada usuario solo escribe el suyo, admins pueden escribir cualquiera).
+- **Puntos configurables:** Los valores de puntos viven en `config/scoring` (Firestore). Las Cloud Functions leen este documento antes de cada calificación; si no existe, usan `DEFAULT_SCORING` (3/1/3/1/5/5). Cambiar los valores mid-torneo no recalifica predicciones ya puntuadas.
+- **Links de invitación:** Tokens UUID guardados en `invites/{token}` con TTL de 7 días. La Cloud Function `getInvite` los valida sin auth (Admin SDK bypassa las rules). El cliente admin escribe tokens directamente con permisos `isAdmin()`. El link lleva al invitado a `/invite/:token` → bienvenida con correo pre-cargado → login.
 
 ---
 

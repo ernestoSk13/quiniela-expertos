@@ -17,11 +17,13 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 - [x] Onboarding — display name, avatar, bonus predictions (2 pasos)
 - [x] Dashboard — tabla de posiciones en tiempo real, siguiente jornada, sección de bonus, countdown al torneo, jornadas anteriores
 - [x] Pronósticos — keypad numérico en móvil (con scroll automático al partido activo), inputs directos + sidebar en desktop (partidos guardados colapsan con animación, sección "Guardados" con edición por lápiz); bloqueo por `scheduledAt` individual además del deadline de jornada
-- [x] Panel de Admin — jornadas, resultados de partidos, gestión de jugadores (con conteo de pronósticos y estado de onboarding), gestión de acceso, evaluación de bonus
+- [x] Panel de Admin — jornadas, resultados, jugadores, bonus, acceso; tabla general (`/admin/tabla`); configuración de puntos (`/admin/config`); nav desktop con 6 ítems, tab bar móvil con 4
 - [x] Temas por país — México / Canadá / EUA (paleta FIFA WC 2026), skill `/add-theme` para agregar nuevos
-- [x] Cloud Functions gen2 — scoring automático al actualizar resultados, evaluación manual de bonus predictions
+- [x] Cloud Functions gen2 — `onMatchUpdated` (scoring + config dinámica), `evaluateBonusPredictions` (bonus + config dinámica), `getInvite` (valida tokens de invitación sin auth)
 - [x] Historial por jugador — modal desde el leaderboard con stats, gráfica SVG de evolución y acordeón por jornada
 - [x] Post-jornada — toggle "Ver todos" en jornadas cerradas/finalizadas muestra predicciones de todos los jugadores partido a partido con badges de puntos
+- [x] Puntos configurables — `config/scoring` en Firestore; admin edita desde `/admin/config`; Cloud Functions leen config con fallback a `DEFAULT_SCORING`
+- [x] Link de invitación — admin genera token por correo desde `/admin/usuarios`; invitado abre `/invite/:token` y llega al login con correo pre-cargado
 
 ---
 
@@ -65,7 +67,7 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 
 ```
 functions/                           # Cloud Functions gen2 (Node.js 22)
-├── src/index.ts                     # onMatchUpdated + evaluateBonusPredictions
+├── src/index.ts                     # onMatchUpdated + evaluateBonusPredictions + getInvite
 ├── package.json                     # firebase-admin ^13, firebase-functions ^7
 └── tsconfig.json
 
@@ -80,24 +82,27 @@ src/
 │   ├── AuthContext.tsx              # onSnapshot en tiempo real del user doc
 │   └── ThemeContext.tsx             # Aplica clase de tema en <html>
 ├── hooks/
-│   ├── useAllMatchdayPredictions.ts # getDocs lazy: todos los pronósticos de una jornada (Fase 10)
+│   ├── useAllMatchdayPredictions.ts # getDocs lazy: todos los pronósticos de una jornada
 │   ├── useLeaderboard.ts
 │   ├── useMatchdayProgress.ts       # Cuenta predicciones enviadas vs total para barra de progreso
 │   ├── useMatchdays.ts
 │   ├── useMatches.ts
 │   ├── usePlayerHistory.ts          # Historial de predicciones calificadas agrupadas por jornada
 │   ├── usePredictions.ts            # getDocs (no onSnapshot) por bug del emulador
+│   ├── useScoringConfig.ts          # onSnapshot en config/scoring; expone DEFAULT_SCORING como fallback
 │   └── useTeams.ts
 ├── lib/
 │   ├── firebase.ts                  # Configuración Firebase + emuladores
 │   └── themes.ts                    # THEMES array + themeClassName()
 ├── pages/
 │   ├── Admin/
-│   │   ├── AdminLayout.tsx          # Nav + bottom tab bar (móvil). Rutas: Jornadas / Jugadores / Bonus / Acceso
-│   │   ├── AllowedUsers.tsx
+│   │   ├── AdminLayout.tsx          # DESKTOP_NAV (6 ítems) + MOBILE_NAV (4 ítems, tab bar)
+│   │   ├── AdminLeaderboard.tsx     # /admin/tabla — reutiliza LeaderboardTable + PlayerHistoryModal
+│   │   ├── AllowedUsers.tsx         # + botón "Invitar" que genera token y copia link
 │   │   ├── BonusEvaluation.tsx      # Evalúa bonus predictions via Cloud Function
 │   │   ├── MatchdayDetail.tsx
 │   │   ├── MatchdayList.tsx
+│   │   ├── ScoringConfig.tsx        # /admin/config — formulario de puntos con advertencia antes de guardar
 │   │   └── UserProfiles.tsx         # Lista jugadores con conteo de pronósticos y estado onboarding
 │   ├── Dashboard/
 │   │   ├── BonusSummary.tsx
@@ -105,7 +110,9 @@ src/
 │   │   ├── LeaderboardTable.tsx
 │   │   ├── PlayerHistoryModal.tsx   # Bottom-sheet/modal con historial y gráfica SVG
 │   │   └── TournamentCountdown.tsx  # Countdown al 2026-06-11T13:00:00Z (se oculta al iniciar)
-│   ├── Login/Login.tsx
+│   ├── Invite/
+│   │   └── InvitePage.tsx           # /invite/:token — pública; llama getInvite, muestra bienvenida
+│   ├── Login/Login.tsx              # Lee ?email= query param para pre-llenar desde link de invitación
 │   ├── Onboarding/
 │   │   ├── Onboarding.tsx
 │   │   ├── StepBonus.tsx
@@ -117,8 +124,10 @@ src/
 │       ├── PostMatchdayView.tsx     # Vista post-jornada: predicciones de todos × partido
 │       └── PredictionsSidebar.tsx  # Sidebar de desktop (progreso, cambios pendientes, guardados)
 ├── services/
-│   ├── cloudFunctions.ts           # Wrapper para callables (evaluateBonusPredictions)
+│   ├── cloudFunctions.ts           # Wrappers callables: evaluateBonusPredictions, getInvite
 │   ├── firestoreAdmin.ts           # resetAllData()
+│   ├── firestoreConfig.ts          # ScoringConfig, DEFAULT_SCORING, subscribeScoringConfig, saveScoringConfig
+│   ├── firestoreInvites.ts         # generateInviteLink(email) — escribe invites/{token} desde cliente admin
 │   ├── firestoreMatchdays.ts
 │   ├── firestoreMatches.ts
 │   ├── firestorePredictions.ts     # savePredictions(), getUserPredictions(), getMatchdayAllPredictions()
@@ -147,17 +156,22 @@ Se dispara en cualquier actualización a `matches/{matchId}`. Detecta tres casos
 - **Revert** (`wasFinished && !isFinished`): borra puntos de predicciones y los resta de stats.
 
 ### `evaluateBonusPredictions` — Callable HTTP
-Solo admins. Recibe `{ topScorer, goldenBall, mexicoPhase, champion }` y otorga 5pts por cada acierto comparando contra `bonusPredictions` de cada usuario. Marca `bonusPredictions.pointsAwarded = true` para evitar doble puntuación.
+Solo admins. Recibe `{ topScorer, goldenBall, mexicoPhase, champion }` y otorga puntos por cada acierto comparando contra `bonusPredictions` de cada usuario. Puntos por acierto = `cfg.bonusPrediction` (default 5). Marca `bonusPredictions.pointsAwarded = true` para evitar doble puntuación.
+
+### `getInvite` — Callable HTTP (sin auth)
+Recibe `{ token }`. Lee `invites/{token}` via Admin SDK (bypassa rules). Valida que no haya expirado. Devuelve `{ email }`. No requiere autenticación — el invitado aún no tiene cuenta.
 
 ### `checkAndAwardGroupBonus` — Helper interno
-Otorga +5pts al usuario (o usuarios empatados) con más predicciones exactas en la fase de grupos, cuando todos los partidos de grupos están `finished`. Protegido por `config/tournament.groupBonusAwarded` (transacción Firestore para evitar doble ejecución).
+Otorga `cfg.groupBonus` pts (default 5) al usuario (o usuarios empatados) con más predicciones exactas en la fase de grupos, cuando todos los partidos de grupos están `finished`. Protegido por `config/tournament.groupBonusAwarded` (transacción Firestore para evitar doble ejecución).
 
 ### Lógica de puntuación (`computePoints`)
-| Caso | Exacto (3pts) | Resultado correcto (1pt) |
-|------|--------------|--------------------------|
+Los valores de puntos se leen de `config/scoring` al inicio de cada calificación. Si el documento no existe se usa `DEFAULT_SCORING`.
+
+| Caso | Exacto (`cfg.exactScore`) | Resultado correcto (`cfg.correctResult`) |
+|------|--------------------------|------------------------------------------|
 | Fase de grupos | home+away exactos | G/E/P correcto |
 | Eliminatoria sin empate al 90' | home+away exactos | ganador correcto |
-| Eliminatoria con empate al 90' | home+away + tieWinner | solo tieWinner correcto |
+| Eliminatoria con empate al 90' | home+away + tieWinner (`cfg.exactKnockoutWithTie`) | solo tieWinner (`cfg.correctTieWinner`) |
 
 ---
 
@@ -196,6 +210,8 @@ El campo `theme?: ThemeId` se guarda en el documento `users/{uid}` de Firestore.
 - Pronósticos ajenos: solo visibles cuando `matchday.status` es `'closed'` o `'finished'`. Aplicado en Firestore rules (con `get()` al documento de jornada) y en el toggle de UI.
 - Zona horaria: **UTC**. "Lo que escribes es lo que ves". `toLocaleString` usa `timeZone: 'UTC'`.
 - `!= null` (desigualdad débil) para chequear `null | undefined`. Usar en lugar de `!== null` cuando un valor puede ser `undefined`.
+- **Puntos configurables:** Los valores de puntos viven en `config/scoring`. Las Cloud Functions los leen con `getScoringConfig()` antes de cada calificación. Cambiar los valores no recalifica predicciones ya puntuadas — advertir al usuario antes de guardar.
+- **Invites:** Tokens guardados en `invites/{token}` (TTL 7 días). Solo el admin puede escribirlos. La lectura va por `getInvite` Cloud Function (Admin SDK omite rules). `/invite/:token` es una ruta pública sin guard de auth.
 
 ---
 
@@ -208,8 +224,9 @@ npm run build            # Build de producción (tsc + vite)
 npm run emulators        # Firebase Emulators (Auth/Firestore/Storage/Functions)
 npm run seed             # Seed de datos iniciales en emulador
 npm run pull-from-prod   # Importa teams/matchdays/matches de producción al emulador
-firebase deploy --only hosting    # Deploy frontend a producción
-firebase deploy --only functions  # Deploy Cloud Functions a producción
+firebase deploy --only hosting          # Deploy frontend a producción
+firebase deploy --only functions        # Deploy Cloud Functions a producción
+firebase deploy --only firestore:rules  # Deploy reglas de Firestore
 
 # Dentro de functions/
 npm run build            # Compilar TypeScript → lib/

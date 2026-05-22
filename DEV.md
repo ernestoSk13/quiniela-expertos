@@ -106,15 +106,18 @@ npm run pull-from-prod -- --collections=teams       # Solo equipos
 
 | URL | Vista |
 |-----|-------|
-| `/login` | Login (email/contraseña o Google) |
+| `/login` | Login (email/contraseña o Google); lee `?email=` para pre-llenar desde invitación |
 | `/onboarding` | Nombre, foto, bonus predictions |
 | `/dashboard` | Tabla general, siguiente jornada, bonus, jornadas anteriores |
 | `/jornada/:id` | Pronósticos de una jornada; en jornadas cerradas/finalizadas incluye toggle "Ver todos" |
+| `/invite/:token` | Página pública de bienvenida para invitados; no requiere auth |
 | `/admin` | Panel admin — jornadas |
 | `/admin/jornada/:id` | Detalle de jornada — partidos y resultados |
 | `/admin/jugadores` | Perfiles de jugadores (onboarding + conteo de pronósticos) |
 | `/admin/bonus` | Evaluar bonus predictions al final del torneo |
-| `/admin/usuarios` | Gestión de correos con acceso |
+| `/admin/usuarios` | Gestión de correos con acceso + botón "Invitar" por correo |
+| `/admin/tabla` | Tabla general (solo desktop nav) — reutiliza LeaderboardTable + PlayerHistoryModal |
+| `/admin/config` | Configuración de puntos (solo desktop nav) — formulario por categoría con advertencia |
 
 ---
 
@@ -134,6 +137,23 @@ npm run pull-from-prod -- --collections=teams       # Solo equipos
 4. En el Dashboard aparecerá la jornada en la sección **"Jornadas anteriores"**
 
 ---
+
+## Flujo de prueba de link de invitación
+
+1. En `/admin/usuarios`, agrega un correo que aún no tenga cuenta
+2. Haz click en **"Invitar"** — se genera un token en `invites/{token}` y se copia el link al portapapeles
+3. Abre el link en una ventana incógnita: deberías ver la pantalla de bienvenida con el correo pre-cargado
+4. El botón "Crear cuenta / Iniciar sesión" lleva a `/login?email=correo@ejemplo.com`
+5. Para probar errores: modifica el token en la URL → estado "Link no válido"; espera que el emulador tenga un invite expirado → estado "Invitación expirada"
+6. En emuladores: la Cloud Function `getInvite` debe estar corriendo (`npm run emulators`) y el código compilado (`cd functions && npm run build`)
+
+## Flujo de prueba de configuración de puntos
+
+1. Ve a `/admin/config` (solo visible en desktop nav)
+2. Cambia un valor (ej. `exactScore` de 3 a 4)
+3. Al presionar "Guardar" aparece la advertencia — confirma con "Confirmar y guardar"
+4. Ingresa un resultado en `/admin/jornada/:id` — el scoring usará el nuevo valor
+5. Verifica en Firestore → `predictions/{id}` que `points` refleja el valor nuevo
 
 ## Flujo de prueba de scoring
 
@@ -223,14 +243,18 @@ El skill pregunta el país, deriva los colores de la bandera con la energía vis
 - **`!= null`** — usar desigualdad débil cuando un valor puede ser `null` o `undefined`. `!== null` no captura `undefined`.
 - **Functions hot-reload**: no existe. Hacer `cd functions && npm run build` antes de reiniciar el emulador para ver cambios.
 - **`pull-from-prod`**: lee `service-account.json` de la raíz si existe; si no, cae a la variable `FIREBASE_SERVICE_ACCOUNT`. No poner el JSON directamente en `.env.local` — la clave privada tiene saltos de línea que `dotenv` no maneja.
+- **`getInvite` Cloud Function**: no requiere auth (`request.auth` puede ser null). Usa Admin SDK para leer `invites/{token}` — las rules de Firestore no aplican al Admin SDK. Si la función no está corriendo en el emulador (`npm run emulators`) la página `/invite/:token` fallará silenciosamente.
+- **`config/scoring`**: si el documento no existe en Firestore, todas las Cloud Functions usan `DEFAULT_SCORING` (3/1/3/1/5/5). Para inicializar en el emulador, ve a `/admin/config` y guarda sin cambios.
+- **AdminLayout MOBILE_NAV vs DESKTOP_NAV**: el tab bar móvil solo tiene 4 ítems (Jornadas/Jugadores/Bonus/Acceso). "Tabla" y "Puntos" solo están en el nav de escritorio. No agregar ítems al tab bar sin revisar el espacio disponible en pantallas pequeñas.
 
 ---
 
 ## Deploy a producción
 
 ```bash
-# 1. Asegurarse de apuntar a producción
-echo "VITE_USE_EMULATORS=false" > .env.local
+# 1. Cambiar a producción — usa sed para no tocar el resto del archivo
+sed -i '' 's/VITE_USE_EMULATORS=true/VITE_USE_EMULATORS=false/' .env.local
+sed -i '' 's/VITE_EMULATOR_HOST=localhost//' .env.local
 
 # 2. Build y deploy del frontend
 npm run build
@@ -240,6 +264,15 @@ firebase deploy --only hosting
 cd functions && npm run build && cd ..
 firebase deploy --only functions
 
-# 4. Si hay datos nuevos del emulador para subir a Firestore
+# 4. Deploy de reglas de Firestore (cuando hayan cambiado)
+firebase deploy --only firestore:rules
+
+# 5. Restaurar entorno de desarrollo
+sed -i '' 's/VITE_USE_EMULATORS=false/VITE_USE_EMULATORS=true/' .env.local
+echo "VITE_EMULATOR_HOST=localhost" >> .env.local
+
+# 6. Si hay datos nuevos del emulador para subir a Firestore
 npm run push-to-prod
 ```
+
+> **Nota:** El paso 1 quita `VITE_EMULATOR_HOST` del archivo. El paso 5 lo restaura al final. Verifica con `grep "^VITE_" .env.local` que ambas variables quedaron correctas.
