@@ -41,10 +41,10 @@ export default function InvitePage() {
               </p>
             )}
             <Link
-              to={`/login${email ? `?email=${encodeURIComponent(email)}` : ''}`}
+              to="/login"
               className="block w-full py-3 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold rounded-xl transition-colors text-sm"
             >
-              Crear cuenta / Iniciar sesión
+              Iniciar sesión con Google
             </Link>
           </>
         )}
