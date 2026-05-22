@@ -24,6 +24,8 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 - [x] Post-jornada — toggle "Ver todos" en jornadas cerradas/finalizadas muestra predicciones de todos los jugadores partido a partido con badges de puntos
 - [x] Puntos configurables — `config/scoring` en Firestore; admin edita desde `/admin/config`; Cloud Functions leen config con fallback a `DEFAULT_SCORING`
 - [x] Link de invitación — admin genera token por correo desde `/admin/usuarios`; invitado abre `/invite/:token` y llega al login con correo pre-cargado
+- [x] Compartir como imagen — `useShareImage` (html2canvas + Web Share API con `forceDownload` opcional); `LeaderboardShareCard` en dashboard, `JornadaShareCard` post-jornada, `LeaderboardPNGCard` en `/admin/tabla`
+- [x] Leaderboard estilo carta FIFA — componente `LeaderboardRow` compartido entre dashboard, admin y PNG card; filas alternadas con fondo transparente del acento del tema
 
 ---
 
@@ -75,6 +77,7 @@ src/
 ├── components/
 │   ├── Avatar.tsx
 │   ├── AuthGuard.tsx
+│   ├── LeaderboardRow.tsx           # Fila estilo carta FIFA (avatar + nombre + pts); compartida dashboard/admin/PNG
 │   ├── LoadingScreen.tsx
 │   ├── StatusBadge.tsx
 │   └── ThemeSelector.tsx            # Selector de tema en el Dashboard
@@ -90,6 +93,7 @@ src/
 │   ├── usePlayerHistory.ts          # Historial de predicciones calificadas agrupadas por jornada
 │   ├── usePredictions.ts            # getDocs (no onSnapshot) por bug del emulador
 │   ├── useScoringConfig.ts          # onSnapshot en config/scoring; expone DEFAULT_SCORING como fallback
+│   ├── useShareImage.ts             # html2canvas → Web Share API o descarga (`forceDownload`)
 │   └── useTeams.ts
 ├── lib/
 │   ├── firebase.ts                  # Configuración Firebase + emuladores
@@ -97,9 +101,10 @@ src/
 ├── pages/
 │   ├── Admin/
 │   │   ├── AdminLayout.tsx          # DESKTOP_NAV (6 ítems) + MOBILE_NAV (4 ítems, tab bar)
-│   │   ├── AdminLeaderboard.tsx     # /admin/tabla — reutiliza LeaderboardTable + PlayerHistoryModal
+│   │   ├── AdminLeaderboard.tsx     # /admin/tabla — reutiliza LeaderboardTable + PlayerHistoryModal + LeaderboardPNGCard
 │   │   ├── AllowedUsers.tsx         # + botón "Invitar" que genera token y copia link
 │   │   ├── BonusEvaluation.tsx      # Evalúa bonus predictions via Cloud Function
+│   │   ├── LeaderboardPNGCard.tsx   # Botón "Compartir tabla" → PNG full table (420px, alto adaptativo, descarga forzada)
 │   │   ├── MatchdayDetail.tsx
 │   │   ├── MatchdayList.tsx
 │   │   ├── ScoringConfig.tsx        # /admin/config — formulario de puntos con advertencia antes de guardar
@@ -107,7 +112,8 @@ src/
 │   ├── Dashboard/
 │   │   ├── BonusSummary.tsx
 │   │   ├── Dashboard.tsx
-│   │   ├── LeaderboardTable.tsx
+│   │   ├── LeaderboardShareCard.tsx # Botón "Compartir mi posición" → PNG con LeaderboardRow del usuario
+│   │   ├── LeaderboardTable.tsx     # Lista de LeaderboardRow con onClick → PlayerHistoryModal
 │   │   ├── PlayerHistoryModal.tsx   # Bottom-sheet/modal con historial y gráfica SVG
 │   │   └── TournamentCountdown.tsx  # Countdown al 2026-06-11T13:00:00Z (se oculta al iniciar)
 │   ├── Invite/
@@ -119,6 +125,7 @@ src/
 │   │   └── StepProfile.tsx
 │   └── Predictions/
 │       ├── CompactMatchRow.tsx
+│       ├── JornadaShareCard.tsx     # Botón "Compartir" en post-jornada → PNG con resumen de pronósticos
 │       ├── MatchdayPredictions.tsx
 │       ├── NumericKeypad.tsx        # Keypad fijo en móvil
 │       ├── PostMatchdayView.tsx     # Vista post-jornada: predicciones de todos × partido

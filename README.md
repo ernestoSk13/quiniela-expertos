@@ -20,12 +20,14 @@ Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios envían p
 ## Funcionalidades Implementadas
 
 ### Para jugadores
-- **Login** — correo/contraseña o Google; acceso solo para correos autorizados por el admin
+- **Login con Google** — acceso solo para correos autorizados por el admin (cuentas Gmail)
+- **Link de invitación** — el admin genera un link personalizado por correo con TTL de 7 días; el invitado abre `/invite/:token` y llega al login con su correo pre-cargado
 - **Onboarding** — configurar nombre, subir avatar y registrar predicciones de bonus (goleador, balón de oro, fase de México, campeón)
-- **Dashboard** — tabla de posiciones en tiempo real con historial personal por jugador; countdown al inicio del torneo; tarjeta de siguiente jornada con barra de progreso de pronósticos; acceso a jornadas anteriores; resumen de bonus editables hasta el 11 jun 2026
+- **Dashboard** — leaderboard estilo carta FIFA con avatar y posición destacada para top 3 (medallas); historial personal por jugador; countdown al inicio del torneo; tarjeta de siguiente jornada con barra de progreso de pronósticos; acceso a jornadas anteriores; resumen de bonus editables hasta el 11 jun 2026
 - **Pronósticos** — keypad numérico en móvil con scroll automático al partido activo; inputs directos + sidebar en desktop (partidos guardados colapsan con animación, sección "Guardados" con edición rápida); soporte de fase eliminatoria con selección de equipo que avanza en caso de empate; bloqueo automático por partido en cuanto inicia (`scheduledAt`)
 - **Historial personal** — al tocar cualquier fila del leaderboard: stats del jugador (puntos, exactos, correctos), gráfica de evolución de puntos y desglose de pronósticos por jornada
 - **Ver predicciones post-jornada** — cuando una jornada cierra, toggle "Ver todos" muestra qué pronosticó cada jugador partido a partido con indicador de puntos obtenidos
+- **Compartir como imagen** — botones para generar PNG de tu posición en la tabla general y del resumen de una jornada cerrada; usa Web Share API en móvil o descarga directa en desktop
 - **Temas por país sede** — México 🇲🇽, Canadá 🇨🇦, EUA 🇺🇸 — fondo, header, tarjetas y acentos cambian con la paleta FIFA WC 2026
 
 ### Para administradores
@@ -33,7 +35,9 @@ Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios envían p
 - **Ingreso de resultados** — marcador por partido; en fases eliminatorias: especificar equipo ganador
 - **Gestión de jugadores** — editar nombre, avatar y rol; monitoreo de onboarding y conteo de pronósticos por jugador
 - **Evaluación de bonus** — ingresar resultados finales del torneo para otorgar puntos bonus automáticamente
-- **Gestión de acceso** — agregar/eliminar correos permitidos
+- **Gestión de acceso** — agregar/eliminar correos permitidos; generar link de invitación por correo con TTL de 7 días
+- **Tabla general (`/admin/tabla`)** — vista completa del leaderboard con historial de cualquier jugador y botón para descargar la tabla como PNG en formato móvil
+- **Configuración de puntos (`/admin/config`)** — editar todos los valores de scoring desde la UI; cambios aplican a calificaciones futuras (no recalifica predicciones puntuadas previamente)
 - **Restaurar datos** — reset completo de puntos, pronósticos, resultados y onboarding (preserva admins)
 
 ---
@@ -153,6 +157,27 @@ Documento vacío — su existencia indica que el correo tiene acceso.
 | Campo | Tipo | Notas |
 |-------|------|-------|
 | `groupBonusAwarded` | `boolean` | Guard para el bonus de fase de grupos; escrito por Cloud Functions |
+
+### `config/scoring`
+Valores de puntos configurables desde `/admin/config`. Las Cloud Functions leen este doc antes de cada calificación; si no existe usan `DEFAULT_SCORING`.
+
+| Campo | Default | Notas |
+|-------|---------|-------|
+| `exactScore` | `3` | Marcador exacto |
+| `correctResult` | `1` | Resultado correcto G/E/P |
+| `exactKnockoutWithTie` | `3` | Marcador exacto + tieWinner en eliminatoria con empate al 90' |
+| `correctTieWinner` | `1` | Solo tieWinner correcto |
+| `groupBonus` | `5` | Bonus al mejor de fase de grupos |
+| `bonusPrediction` | `5` | Cada acierto de bonus prediction |
+
+### `invites/{token}`
+Documentos creados por el admin para invitar jugadores. Solo se leen vía Cloud Function `getInvite`.
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `email` | `string` | Correo del invitado |
+| `createdAt` | `Timestamp` | |
+| `expiresAt` | `Timestamp` | TTL 7 días desde creación |
 
 ---
 

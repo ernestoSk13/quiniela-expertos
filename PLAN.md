@@ -10,6 +10,8 @@
 - [x] Vista post-jornada: predicciones de todos los jugadores visibles al cerrar
 - [x] Puntos configurables desde Firestore (`config/scoring`); Cloud Functions leen config con fallback a defaults
 - [x] Link de invitación: admin genera token por correo, invitado llega a página de bienvenida
+- [x] Compartir como imagen: posición personal, resumen de jornada y tabla general (PNG)
+- [x] Leaderboard rediseñado tipo carta FIFA (mini-card con avatar) — componente compartido entre dashboard, admin y PNG card
 
 ---
 
@@ -190,8 +192,23 @@
 - [x] Login pre-llena el campo de correo desde `?email=` query param (viene del link de invitación)
 - [x] Firestore rules: `invites/{token}` — write: isAdmin; read: false (Admin SDK en Cloud Function omite reglas)
 
-### Compartir como imagen *(pendiente)*
-- [ ] Screenshot de posición / resumen de jornada con Web Share API + html2canvas
+### Compartir como imagen
+**Estado:** Completado ✓
+
+- [x] `useShareImage` con `html2canvas` + Web Share API y fallback a descarga (`forceDownload`)
+- [x] `LeaderboardShareCard` — botón en dashboard para compartir la propia posición
+- [x] `JornadaShareCard` — botón en vista post-jornada para compartir resumen de pronósticos
+- [x] `LeaderboardPNGCard` — botón en `/admin/tabla` para descargar la tabla general completa (tamaño móvil)
+- [x] Avatares con `crossOrigin="anonymous"` para que html2canvas pueda capturarlos vía CORS
+- [x] Pre-espera de carga de imágenes (`onload`/`onerror`) antes del capture para evitar PNGs con avatares vacíos
+
+### Rediseño de leaderboard (carta FIFA)
+**Estado:** Completado ✓
+
+- [x] Componente compartido `src/components/LeaderboardRow.tsx` con mini-card de avatar, posición prefijada al nombre (con color medal para top 3) y puntos grandes a la derecha
+- [x] Filas alternadas con fondo transparente `rgba(accent, 0.14/0.05)` para que el blob temático se vea a través
+- [x] Aplicado en dashboard (con click → modal de historial y highlight de "tú"), en `/admin/tabla` y en el PNG card
+- [x] Inline styles en el componente para compatibilidad total con html2canvas
 
 ### Notificaciones push *(pendiente)*
 - [ ] Recordatorio antes del predictionDeadline + aviso de resultados (service worker + FCM)

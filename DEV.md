@@ -155,6 +155,13 @@ npm run pull-from-prod -- --collections=teams       # Solo equipos
 4. Ingresa un resultado en `/admin/jornada/:id` — el scoring usará el nuevo valor
 5. Verifica en Firestore → `predictions/{id}` que `points` refleja el valor nuevo
 
+## Flujo de prueba de compartir como imagen
+
+1. **Posición personal**: en `/dashboard`, debajo de la tabla, botón "Compartir mi posición". En móvil abre Web Share API; en desktop descarga el PNG.
+2. **Resumen de jornada**: en `/jornada/:id` con jornada cerrada/finalizada, en el toggle "Mis pronósticos" aparece botón "Compartir" arriba a la derecha. Solo genera PNG si hay predicciones ya calificadas.
+3. **Tabla general (admin)**: en `/admin/tabla`, botón "Compartir tabla" → siempre descarga el PNG (force download) con la tabla completa en formato móvil 420px de ancho, alto adaptativo según número de jugadores.
+4. **Avatares en el PNG**: si no aparecen avatares en el PNG, verifica que el dominio del `avatarUrl` soporte CORS (Google Photos sí; Firebase Storage requiere config). `useShareImage` ya carga las imágenes con `crossOrigin="anonymous"` y espera `onload` antes de capturar.
+
 ## Flujo de prueba de scoring
 
 El scoring lo ejecuta la Cloud Function `onMatchUpdated`. En emuladores, la función se dispara automáticamente al guardar resultados desde el admin.
@@ -246,6 +253,8 @@ El skill pregunta el país, deriva los colores de la bandera con la energía vis
 - **`getInvite` Cloud Function**: no requiere auth (`request.auth` puede ser null). Usa Admin SDK para leer `invites/{token}` — las rules de Firestore no aplican al Admin SDK. Si la función no está corriendo en el emulador (`npm run emulators`) la página `/invite/:token` fallará silenciosamente.
 - **`config/scoring`**: si el documento no existe en Firestore, todas las Cloud Functions usan `DEFAULT_SCORING` (3/1/3/1/5/5). Para inicializar en el emulador, ve a `/admin/config` y guarda sin cambios.
 - **AdminLayout MOBILE_NAV vs DESKTOP_NAV**: el tab bar móvil solo tiene 4 ítems (Jornadas/Jugadores/Bonus/Acceso). "Tabla" y "Puntos" solo están en el nav de escritorio. No agregar ítems al tab bar sin revisar el espacio disponible en pantallas pequeñas.
+- **LeaderboardRow** es un componente compartido (`src/components/LeaderboardRow.tsx`) con **inline styles** — esto es intencional para que html2canvas pueda capturarlo sin problemas. Si modificas el diseño, hazlo con `style={{...}}` y no con `className` para colores/dimensiones; clases solo para hover/cursor. Tres consumidores: `LeaderboardTable` (Dashboard + AdminLeaderboard), `LeaderboardPNGCard` (admin), y `LeaderboardShareCard` (dashboard, posición personal).
+- **html2canvas + avatares**: el componente carga `<img crossOrigin="anonymous">` para que el canvas no quede *tainted*. Antes de capturar, todos los share cards esperan a que las imágenes terminen de cargar (`Promise.all` sobre `img.onload/onerror`). Si un avatar viene de un dominio sin CORS, html2canvas lo omite y el resto del PNG sale correcto.
 
 ---
 
