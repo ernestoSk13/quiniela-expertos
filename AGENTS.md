@@ -222,6 +222,39 @@ El campo `theme?: ThemeId` se guarda en el documento `users/{uid}` de Firestore.
 
 ---
 
+## Flujo de Deploy
+
+**Antes de hacer `firebase deploy` y `git commit`, siempre pausar y pedir al desarrollador que pruebe en local.**
+
+### 1. Avisar qué se hizo
+
+Describe brevemente los cambios realizados:
+- Qué archivos se modificaron y por qué
+- Qué comportamiento cambió (antes → después)
+- Si hay algo que el desarrollador deba verificar específicamente
+
+### 2. Dar instrucciones de prueba local
+
+Proporcionar los pasos exactos según el tipo de cambio:
+
+```bash
+# Iniciar dev server (si no está corriendo)
+npm run dev
+# Abrir http://localhost:5173 en el navegador
+```
+
+Indicar qué flujo recorrer:
+- **UI / visual**: qué pantalla abrir, qué interacciones hacer, qué debe verse
+- **Lógica de auth / rutas**: qué usuario usar, qué ruta visitar
+- **Funcionalidad con Firestore**: si se necesita el emulador → `npm run emulators` + `npm run seed`
+- **Cloud Functions**: hacer deploy de funciones por separado y probar el trigger
+
+### 3. Esperar confirmación
+
+No ejecutar `firebase deploy` ni `git commit` hasta que el desarrollador confirme que la prueba fue exitosa. Si hay algo que corregir, hacerlo antes de continuar.
+
+---
+
 ## Comandos Útiles
 
 ```bash
