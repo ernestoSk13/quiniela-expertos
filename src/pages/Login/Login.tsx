@@ -237,11 +237,8 @@ export default function Login() {
               className="login-title text-white"
               style={{ fontSize: 'clamp(3.4rem, 14vw, 5rem)' }}
             >
-              QUINIELA<br />EXPERTOS
+              QUINIELA<br />EXPERTOS<br />2026
             </h1>
-            <p className="text-[var(--accent-light)] text-xs tracking-[0.28em] mt-2.5 opacity-60 uppercase">
-              El juego de los expertos
-            </p>
           </div>
 
           {/* ── Card ── */}

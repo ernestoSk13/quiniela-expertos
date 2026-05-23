@@ -12,20 +12,31 @@ export default function ThemeSelector() {
   }
 
   return (
-    <div className="flex gap-2">
+    <div
+      className="flex items-center gap-0.5 rounded-full p-1"
+      style={{
+        background: 'rgba(255,255,255,0.045)',
+        border: '1px solid rgba(255,255,255,0.07)',
+      }}
+    >
       {THEMES.map(t => (
         <button
           key={t.id}
           onClick={() => handleSelect(t.id)}
           title={t.label}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+          className="w-7 h-7 rounded-full flex items-center justify-center text-sm leading-none transition-all duration-200"
+          style={
             current === t.id
-              ? 'bg-[var(--accent-muted)] border border-[var(--accent)] text-[var(--accent-light)]'
-              : 'bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
-          }`}
+              ? {
+                  background: 'var(--accent-muted)',
+                  boxShadow: '0 0 0 1.5px var(--accent)',
+                }
+              : {
+                  opacity: 0.55,
+                }
+          }
         >
-          <span>{t.flag}</span>
-          <span className="hidden sm:inline">{t.label}</span>
+          {t.flag}
         </button>
       ))}
     </div>

@@ -106,53 +106,115 @@ export default function Dashboard() {
   // ── Shared section blocks ──────────────────────────────────────────────────
 
   const nextMatchdayCard = (
-    <div className="surface-card border border-gray-800 rounded-xl p-5">
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
-        Siguiente jornada
-      </h3>
-      {matchdaysLoading ? (
-        <p className="text-gray-500 text-sm">Cargando...</p>
-      ) : !nextMatchday ? (
-        <p className="text-gray-500 text-sm">No hay jornadas próximas.</p>
-      ) : (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold">{nextMatchday.name}</span>
-            <StatusBadge status={nextMatchday.status} type="matchday" />
-          </div>
-          <p className="text-xs text-gray-500">
-            Deadline:{' '}
-            <span className="text-gray-400">
-              {formatDeadline(nextMatchday.predictionDeadline)}
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{
+        background: 'linear-gradient(135deg, var(--surface-card) 0%, rgba(5,21,16,0.7) 100%)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        borderLeft: '3px solid var(--accent)',
+        boxShadow: '0 0 0 0 transparent, inset 3px 0 12px -4px var(--accent-muted)',
+      }}
+    >
+      <div className="p-5">
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-3">
+          {nextMatchday?.status === 'open' && (
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span
+                className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                style={{ background: 'var(--accent)' }}
+              />
+              <span
+                className="relative inline-flex rounded-full h-2 w-2"
+                style={{ background: 'var(--accent)' }}
+              />
             </span>
-          </p>
-          {nextMatchday.status === 'open' && total > 0 && (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500">Mis pronósticos</span>
-                <span className={`font-semibold tabular-nums ${filled === total ? 'text-[var(--accent-light)]' : 'text-gray-400'}`}>
-                  {filled} / {total}
-                </span>
-              </div>
-              <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[var(--accent)] rounded-full transition-all duration-300"
-                  style={{ width: `${Math.round((filled / total) * 100)}%` }}
-                />
-              </div>
-            </div>
           )}
-          <button
-            onClick={() => navigate(`/jornada/${nextMatchday.id}`)}
-            disabled={nextMatchday.status !== 'open'}
-            className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:bg-gray-800 disabled:text-gray-500 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
-          >
-            {nextMatchday.status === 'open'
-              ? filled === 0 ? 'Hacer pronósticos' : filled < total ? 'Continuar pronósticos' : 'Ver pronósticos'
-              : 'Aún no disponible'}
-          </button>
+          <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-[0.2em]">
+            Siguiente jornada
+          </h3>
         </div>
-      )}
+
+        {matchdaysLoading ? (
+          <p className="text-gray-500 text-sm">Cargando...</p>
+        ) : !nextMatchday ? (
+          <p className="text-gray-500 text-sm">No hay jornadas próximas.</p>
+        ) : (
+          <div className="space-y-3">
+            {/* Jornada name + badge */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-base text-white leading-tight">{nextMatchday.name}</span>
+              <StatusBadge status={nextMatchday.status} type="matchday" />
+            </div>
+
+            {/* Deadline with clock icon */}
+            <p className="flex items-center gap-1.5 text-xs text-gray-500">
+              <svg viewBox="0 0 16 16" width={12} height={12} fill="currentColor" className="shrink-0 text-gray-600">
+                <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-4.5a.5.5 0 0 1 .5.5v4.25l2.75 1.65a.5.5 0 0 1-.5.87L7.25 9a.5.5 0 0 1-.25-.43V4a.5.5 0 0 1 .5-.5z"/>
+              </svg>
+              <span>Deadline: <span className="text-gray-400 font-medium">{formatDeadline(nextMatchday.predictionDeadline)}</span></span>
+            </p>
+
+            {/* Progress bar */}
+            {nextMatchday.status === 'open' && total > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500">Mis pronósticos</span>
+                  <span className={`font-semibold tabular-nums ${filled === total ? 'text-[var(--accent-light)]' : 'text-gray-400'}`}>
+                    {filled} / {total}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-gray-800/80 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.round((filled / total) * 100)}%`,
+                      background: filled === total
+                        ? 'var(--accent-light)'
+                        : 'var(--accent)',
+                      boxShadow: filled === total
+                        ? '0 0 8px var(--accent-light)'
+                        : '0 0 4px var(--accent-muted)',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* CTA button */}
+            <button
+              onClick={() => navigate(`/jornada/${nextMatchday.id}`)}
+              disabled={nextMatchday.status !== 'open'}
+              className="w-full font-semibold py-2.5 rounded-xl text-sm transition-all duration-200 disabled:bg-gray-800/60 disabled:text-gray-600 disabled:cursor-default"
+              style={
+                nextMatchday.status === 'open'
+                  ? {
+                      background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%)',
+                      color: '#fff',
+                      boxShadow: '0 2px 12px var(--accent-muted)',
+                    }
+                  : {}
+              }
+              onMouseEnter={e => {
+                if (nextMatchday.status === 'open') {
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 20px var(--accent-muted)'
+                  ;(e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'
+                }
+              }}
+              onMouseLeave={e => {
+                if (nextMatchday.status === 'open') {
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 12px var(--accent-muted)'
+                  ;(e.currentTarget as HTMLButtonElement).style.transform = ''
+                }
+              }}
+            >
+              {nextMatchday.status === 'open'
+                ? filled === 0 ? 'Hacer pronósticos' : filled < total ? 'Continuar pronósticos' : 'Ver pronósticos'
+                : 'Aún no disponible'}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 
