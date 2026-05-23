@@ -5,7 +5,13 @@ import { getAvatarUrl, uploadAvatar } from '@/services/storageAvatars'
 import { updateUserProfile } from '@/services/firestoreUsers'
 import StepProfile from './StepProfile'
 import StepBonus from './StepBonus'
+import StepInstall from './StepInstall'
 import type { BonusPredictions } from '@/types/User'
+
+// Detecta si la app ya está corriendo como PWA instalada
+const isStandalone =
+  window.matchMedia('(display-mode: standalone)').matches ||
+  (window.navigator as any).standalone === true
 
 const EMPTY_BONUS: BonusPredictions = {
   topScorer: '',
@@ -19,7 +25,8 @@ export default function Onboarding() {
   const { user } = useAuth()
   const { teamsMap, loading: teamsLoading } = useTeamsMap()
 
-  const [step, setStep] = useState<1 | 2>(1)
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const totalSteps = isStandalone ? 2 : 3
   const [displayName, setDisplayName] = useState(user?.displayName ?? '')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState(user?.avatarUrl ?? '')
@@ -39,7 +46,7 @@ export default function Onboarding() {
     setStep(2)
   }
 
-  async function handleSubmit() {
+  async function handleBonusSubmit() {
     if (!user) return
     setLoading(true)
     try {
@@ -58,13 +65,21 @@ export default function Onboarding() {
         bonusPredictions: { ...bonus, pointsAwarded: false },
         onboardingCompleted: true,
       })
-      // AuthContext onSnapshot will pick up onboardingCompleted: true
-      // and OnboardingRoute will redirect automatically
+
+      // Si no está instalada como PWA, mostrar paso de instalación
+      if (!isStandalone) {
+        setStep(3)
+        setLoading(false)
+      }
+      // Si ya es standalone, AuthContext redirige automáticamente
     } catch (err) {
       console.error('Error al guardar onboarding:', err)
       setLoading(false)
     }
   }
+
+  // Paso 3: el usuario termina (ya se guardó onboardingCompleted en handleBonusSubmit)
+  // AuthContext detectará el cambio y redirigirá al dashboard automáticamente
 
   const teams = Object.values(teamsMap)
 
@@ -77,12 +92,12 @@ export default function Onboarding() {
             Bienvenido a Quiniela Expertos
           </h1>
           <p className="text-gray-400 text-sm">
-            {step === 1 ? 'Configura tu perfil' : 'Pronósticos de inicio'}
+            {step === 1 ? 'Configura tu perfil' : step === 2 ? 'Pronósticos de inicio' : 'Instala la app'}
           </p>
 
           {/* Step indicators */}
           <div className="flex items-center justify-center gap-2 mt-4">
-            {[1, 2].map(n => (
+            {Array.from({ length: totalSteps }, (_, i) => i + 1).map(n => (
               <div
                 key={n}
                 className={`h-1.5 w-8 rounded-full transition-colors ${
@@ -111,9 +126,13 @@ export default function Onboarding() {
             teams={teamsLoading ? [] : teams}
             onBonusChange={setBonus}
             onBack={() => setStep(1)}
-            onSubmit={handleSubmit}
+            onSubmit={handleBonusSubmit}
             loading={loading}
           />
+        )}
+
+        {step === 3 && (
+          <StepInstall onDone={() => {/* AuthContext ya redirige tras onboardingCompleted: true */}} />
         )}
       </div>
     </div>

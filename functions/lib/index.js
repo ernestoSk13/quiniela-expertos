@@ -33,10 +33,11 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.evaluateBonusPredictions = exports.getInvite = exports.onMatchUpdated = void 0;
+exports.evaluateBonusPredictions = exports.notifyResultsPublished = exports.sendDeadlineReminders = exports.getInvite = exports.onMatchUpdated = void 0;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
+const scheduler_1 = require("firebase-functions/v2/scheduler");
 const firestore_2 = require("firebase-admin/firestore");
 admin.initializeApp();
 const db = admin.firestore();
@@ -264,6 +265,64 @@ exports.getInvite = (0, https_1.onCall)(async (request) => {
         throw new https_1.HttpsError('deadline-exceeded', 'Invitación expirada');
     }
     return { email: data.email };
+});
+// ── Push notification helpers ─────────────────────────────────────────────────
+async function getFcmTokens() {
+    const snap = await db.collection('users').get();
+    return snap.docs
+        .map(d => d.data().fcmToken)
+        .filter((t) => !!t);
+}
+async function sendPush(tokens, title, body) {
+    if (tokens.length === 0)
+        return;
+    const result = await admin.messaging().sendEachForMulticast({ tokens, notification: { title, body } });
+    // Limpiar tokens inválidos de Firestore
+    const invalidTokens = result.responses
+        .map((r, i) => (!r.success ? tokens[i] : null))
+        .filter((t) => !!t);
+    if (invalidTokens.length > 0) {
+        const usersSnap = await db.collection('users')
+            .where('fcmToken', 'in', invalidTokens)
+            .get();
+        const batch = db.batch();
+        usersSnap.docs.forEach(d => batch.update(d.ref, { fcmToken: firestore_2.FieldValue.delete() }));
+        await batch.commit();
+    }
+}
+// Corre cada hora — avisa cuando falta ~1h para el cierre de una jornada abierta
+exports.sendDeadlineReminders = (0, scheduler_1.onSchedule)('every 60 minutes', async () => {
+    var _a;
+    const now = new Date();
+    const windowStart = new Date(now.getTime() + 50 * 60 * 1000); // 50 min desde ahora
+    const windowEnd = new Date(now.getTime() + 70 * 60 * 1000); // 70 min desde ahora
+    const matchdaysSnap = await db.collection('matchdays')
+        .where('status', '==', 'open')
+        .get();
+    for (const mdDoc of matchdaysSnap.docs) {
+        const md = mdDoc.data();
+        const deadline = (_a = md.predictionDeadline) === null || _a === void 0 ? void 0 : _a.toDate();
+        if (!deadline)
+            continue;
+        if (deadline < windowStart || deadline > windowEnd)
+            continue;
+        const tokens = await getFcmTokens();
+        await sendPush(tokens, '⏰ ¡Cierre pronto!', `${md.name} cierra en 1 hora — completa tus pronósticos`);
+    }
+});
+// Se dispara cuando cambia el estado de una jornada → avisa al pasar a 'closed' o 'finished'
+exports.notifyResultsPublished = (0, firestore_1.onDocumentUpdated)('matchdays/{matchdayId}', async (event) => {
+    var _a, _b;
+    const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
+    const after = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
+    if (!before || !after)
+        return;
+    const wasOpen = before.status === 'open' || before.status === 'upcoming';
+    const isClosed = after.status === 'closed' || after.status === 'finished';
+    if (!wasOpen || !isClosed)
+        return;
+    const tokens = await getFcmTokens();
+    await sendPush(tokens, '🏆 Resultados disponibles', `Los resultados de ${after.name} ya están publicados`);
 });
 exports.evaluateBonusPredictions = (0, https_1.onCall)(async (request) => {
     var _a;

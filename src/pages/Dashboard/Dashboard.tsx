@@ -18,10 +18,12 @@ import PlayerHistoryModal, { HistoryContent } from './PlayerHistoryModal'
 import LeaderboardShareCard from './LeaderboardShareCard'
 import { useTheme } from '@/context/ThemeContext'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
+import { updateUserTheme } from '@/services/firestoreUsers'
+import { THEMES } from '@/lib/themes'
 import type { BonusPredictions } from '@/types/User'
 import type { User } from '@/types'
 
-type TabId = 'predictions' | 'leaderboard' | 'history'
+type TabId = 'predictions' | 'leaderboard' | 'history' | 'preferences'
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   {
@@ -48,6 +50,15 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
     icon: (
       <svg viewBox="0 0 24 24" width={22} height={22} fill="currentColor">
         <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'preferences',
+    label: 'Preferencias',
+    icon: (
+      <svg viewBox="0 0 24 24" width={22} height={22} fill="currentColor">
+        <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
       </svg>
     ),
   },
@@ -185,6 +196,79 @@ export default function Dashboard() {
     </>
   )
 
+  const preferencesSection = user ? (
+    <div className="space-y-6">
+
+      {/* Tema */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Tema</h3>
+        <div className="grid grid-cols-3 gap-3">
+          {THEMES.map(t => (
+            <button
+              key={t.id}
+              onClick={() => updateUserTheme(user.uid, t.id)}
+              className={`flex flex-col items-center gap-2 py-4 rounded-xl border transition-all ${
+                themeId === t.id
+                  ? 'border-[var(--accent)] bg-[var(--accent-muted)] text-[var(--accent-light)]'
+                  : 'border-gray-700 bg-gray-900/50 text-gray-400 hover:border-gray-600 hover:text-white'
+              }`}
+            >
+              <span className="text-3xl">{t.flag}</span>
+              <span className="text-xs font-semibold">{t.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Notificaciones */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Notificaciones</h3>
+        {push.isSupported ? (
+          <div className="surface-card border border-gray-800 rounded-xl p-4 flex items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white">Recordatorios de jornada</p>
+              <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                {push.permission === 'denied'
+                  ? 'Bloqueadas en el navegador — actívalas desde Ajustes'
+                  : 'Aviso antes del cierre y al publicar resultados'}
+              </p>
+            </div>
+            <button
+              onClick={push.toggle}
+              disabled={push.isLoading || push.permission === 'denied'}
+              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
+                push.isEnabled ? 'bg-[var(--accent)]' : 'bg-gray-700'
+              }`}
+            >
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                push.isEnabled ? 'translate-x-5' : 'translate-x-0.5'
+              }`} />
+            </button>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-600">
+            Las notificaciones no están disponibles en este dispositivo o navegador.
+          </p>
+        )}
+      </div>
+
+      {/* Cuenta */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Cuenta</h3>
+        <div className="surface-card border border-gray-800 rounded-xl divide-y divide-gray-800/60 overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <span className="text-xs text-gray-500 w-20 shrink-0">Usuario</span>
+            <span className="text-sm text-gray-300 truncate">{user.displayName}</span>
+          </div>
+          <div className="flex items-center gap-3 px-4 py-3">
+            <span className="text-xs text-gray-500 w-20 shrink-0">Correo</span>
+            <span className="text-sm text-gray-300 truncate">{user.email}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null
+
   const historySection = user ? (
     <>
       <h2 className="text-lg font-bold mb-4">Mi historial</h2>
@@ -215,37 +299,40 @@ export default function Dashboard() {
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <span className="font-bold text-white text-sm">Quiniela Expertos</span>
           <div className="flex items-center gap-3">
-            {push.isSupported && (
-              <button
-                onClick={push.toggle}
-                disabled={push.isLoading || push.permission === 'denied'}
-                title={
-                  push.permission === 'denied'
-                    ? 'Notificaciones bloqueadas en el navegador'
-                    : push.isEnabled
-                    ? 'Desactivar notificaciones'
-                    : 'Activar notificaciones'
-                }
-                className="text-gray-400 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {push.isLoading ? (
-                  <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor" className="animate-spin opacity-60">
-                    <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
-                  </svg>
-                ) : push.isEnabled ? (
-                  /* campana activa (rellena) */
-                  <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor" className="text-[var(--accent-light)]">
-                    <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
-                  </svg>
-                ) : (
-                  /* campana inactiva (outline) */
-                  <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor">
-                    <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/>
-                  </svg>
-                )}
-              </button>
-            )}
-            <ThemeSelector />
+            {/* Bell + ThemeSelector: desktop only (on mobile they live in Preferencias tab) */}
+            <div className="hidden lg:flex items-center gap-3">
+              {push.isSupported && (
+                <button
+                  onClick={push.toggle}
+                  disabled={push.isLoading || push.permission === 'denied'}
+                  title={
+                    push.permission === 'denied'
+                      ? 'Notificaciones bloqueadas en el navegador'
+                      : push.isEnabled
+                      ? 'Desactivar notificaciones'
+                      : 'Activar notificaciones'
+                  }
+                  className="text-gray-400 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {push.isLoading ? (
+                    <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor" className="animate-spin opacity-60">
+                      <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                    </svg>
+                  ) : push.isEnabled ? (
+                    /* campana activa (rellena) */
+                    <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor" className="text-[var(--accent-light)]">
+                      <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                    </svg>
+                  ) : (
+                    /* campana inactiva (outline) */
+                    <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor">
+                      <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/>
+                    </svg>
+                  )}
+                </button>
+              )}
+              <ThemeSelector />
+            </div>
             <div className="flex items-center gap-2">
               <Avatar
                 url={user?.avatarUrl ?? ''}
@@ -290,6 +377,10 @@ export default function Dashboard() {
 
         {activeTab === 'history' && (
           <div>{historySection}</div>
+        )}
+
+        {activeTab === 'preferences' && (
+          <div>{preferencesSection}</div>
         )}
       </main>
 
