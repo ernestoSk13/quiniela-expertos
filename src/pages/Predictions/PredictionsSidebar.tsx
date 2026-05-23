@@ -30,6 +30,15 @@ function PencilIcon() {
   )
 }
 
+function ClockIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  )
+}
+
 export default function PredictionsSidebar({
   matches, scores, dirtyMatchIds, savedMatchIds, matchday, teamsMap, saving, onSave, onEditSaved,
 }: Props) {
@@ -39,6 +48,7 @@ export default function PredictionsSidebar({
   }).length
   const total = matches.length
   const progressPct = total > 0 ? Math.round((completedCount / total) * 100) : 0
+  const hasChanges = dirtyMatchIds.length > 0
 
   return (
     <div className="space-y-3">
@@ -46,29 +56,62 @@ export default function PredictionsSidebar({
       {/* Save button */}
       <button
         onClick={onSave}
-        disabled={saving || dirtyMatchIds.length === 0}
-        className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:bg-gray-800 disabled:text-gray-600 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+        disabled={saving || !hasChanges}
+        style={hasChanges && !saving ? {
+          background: 'linear-gradient(135deg, var(--accent-light) 0%, var(--accent) 55%, var(--accent-hover, var(--accent)) 100%)',
+          boxShadow: '0 4px 18px var(--accent-muted), inset 0 1px 0 rgba(255,255,255,0.15)',
+          color: '#fff',
+        } : {
+          background: 'rgba(255,255,255,0.04)',
+          color: 'rgba(255,255,255,0.2)',
+        }}
+        className="w-full font-semibold py-3 rounded-xl transition-all duration-150 text-sm flex items-center justify-center gap-2.5 disabled:cursor-default"
       >
-        {saving
-          ? 'Guardando...'
-          : dirtyMatchIds.length > 0
-            ? `Guardar pronósticos (${dirtyMatchIds.length})`
-            : 'Sin cambios pendientes'}
+        {saving ? (
+          <span style={{ opacity: 0.7 }}>Guardando…</span>
+        ) : hasChanges ? (
+          <>
+            <span>Guardar pronósticos</span>
+            <span
+              className="text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{ background: 'rgba(255,255,255,0.2)', lineHeight: 1.4 }}
+            >
+              {dirtyMatchIds.length}
+            </span>
+          </>
+        ) : (
+          <span>Sin cambios pendientes</span>
+        )}
       </button>
 
       {/* Progress */}
       <div className="surface-card border border-gray-800 rounded-xl p-4 space-y-2.5">
-        <div className="flex items-center justify-between text-xs text-gray-400">
-          <span>Progreso</span>
-          <span className="font-semibold text-white">{completedCount} / {total}</span>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-400">Progreso</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-white tabular-nums">{completedCount}/{total}</span>
+            <span
+              className="text-xs font-bold tabular-nums"
+              style={{ color: progressPct === 100 ? 'var(--accent-light)' : 'var(--accent)' }}
+            >
+              {progressPct}%
+            </span>
+          </div>
         </div>
-        <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+        <div
+          className="h-2 rounded-full overflow-hidden"
+          style={{ background: 'rgba(255,255,255,0.06)' }}
+        >
           <div
-            className="h-full bg-[var(--accent)] rounded-full transition-all duration-300"
-            style={{ width: `${progressPct}%` }}
+            className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${progressPct}%`,
+              background: 'linear-gradient(90deg, var(--accent) 0%, var(--accent-light) 100%)',
+              boxShadow: progressPct > 0 ? '0 0 8px var(--accent-muted)' : 'none',
+            }}
           />
         </div>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
           {completedCount === total
             ? '¡Todos los pronósticos ingresados!'
             : `${total - completedCount} partido${total - completedCount !== 1 ? 's' : ''} sin completar`}
@@ -78,8 +121,10 @@ export default function PredictionsSidebar({
       {/* Pending changes */}
       {dirtyMatchIds.length > 0 && (
         <div className="surface-card border border-gray-800 rounded-xl p-4">
-          <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Sin guardar</p>
-          <div className="space-y-2">
+          <p className="text-[10px] font-semibold tracking-[0.18em] uppercase mb-3" style={{ color: 'rgba(255,255,255,0.3)' }}>
+            Sin guardar
+          </p>
+          <div className="space-y-2.5">
             {dirtyMatchIds.map(matchId => {
               const match = matches.find(m => m.id === matchId)
               const s = scores[matchId]
@@ -88,10 +133,13 @@ export default function PredictionsSidebar({
               const af = teamsMap[match.awayTeamCode]?.flag ?? '🏳️'
               return (
                 <div key={matchId} className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-gray-400 truncate">
+                  <span className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.45)' }}>
                     {hf} {match.homeTeamCode} — {match.awayTeamCode} {af}
                   </span>
-                  <span className="text-sm font-bold text-white shrink-0 tabular-nums">
+                  <span
+                    className="text-sm font-bold shrink-0 tabular-nums"
+                    style={{ color: 'var(--accent)', fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: '1rem', letterSpacing: '0.04em' }}
+                  >
                     {s.home ?? '·'} – {s.away ?? '·'}
                   </span>
                 </div>
@@ -101,11 +149,13 @@ export default function PredictionsSidebar({
         </div>
       )}
 
-      {/* Saved matches — desktop collapses these from the list; show here with edit option */}
+      {/* Saved matches */}
       {savedMatchIds.length > 0 && (
         <div className="surface-card border border-gray-800 rounded-xl p-4">
-          <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Guardados</p>
-          <div className="space-y-2">
+          <p className="text-[10px] font-semibold tracking-[0.18em] uppercase mb-3" style={{ color: 'rgba(255,255,255,0.3)' }}>
+            Guardados
+          </p>
+          <div className="space-y-2.5">
             {savedMatchIds.map(matchId => {
               const match = matches.find(m => m.id === matchId)
               const s = scores[matchId]
@@ -114,17 +164,30 @@ export default function PredictionsSidebar({
               const af = teamsMap[match.awayTeamCode]?.flag ?? '🏳️'
               return (
                 <div key={matchId} className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-gray-500 truncate">
-                    {hf} {match.homeTeamCode} — {match.awayTeamCode} {af}
-                  </span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {/* Green dot */}
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ background: 'var(--accent)', boxShadow: '0 0 4px var(--accent-muted)', opacity: 0.8 }}
+                    />
+                    <span className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                      {hf} {match.homeTeamCode} — {match.awayTeamCode} {af}
+                    </span>
+                  </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-sm font-bold text-[var(--accent-light)] tabular-nums">
-                      {s.home ?? '·'} – {s.away ?? '·'}
+                    <span
+                      className="text-sm font-bold tabular-nums"
+                      style={{ color: 'rgba(255,255,255,0.4)', fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: '0.95rem', letterSpacing: '0.04em' }}
+                    >
+                      {s.home ?? '·'}–{s.away ?? '·'}
                     </span>
                     <button
                       onClick={() => onEditSaved(matchId)}
-                      className="text-gray-500 hover:text-white transition-colors p-0.5"
+                      className="transition-colors p-0.5"
+                      style={{ color: 'rgba(255,255,255,0.25)' }}
                       title="Editar pronóstico"
+                      onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
+                      onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.25)')}
                     >
                       <PencilIcon />
                     </button>
@@ -137,11 +200,20 @@ export default function PredictionsSidebar({
       )}
 
       {/* Deadline */}
-      <div className="surface-card border border-gray-800 rounded-xl px-4 py-3 flex items-center gap-2.5">
-        <span className="text-base leading-none shrink-0">⏰</span>
+      <div
+        className="surface-card border border-gray-800 rounded-xl px-4 py-3 flex items-center gap-2.5"
+      >
+        <span
+          className="shrink-0"
+          style={{ color: 'rgba(255,200,50,0.65)' }}
+        >
+          <ClockIcon />
+        </span>
         <div>
-          <p className="text-xs text-gray-500">Cierre de pronósticos</p>
-          <p className="text-xs font-medium text-gray-300 mt-0.5">
+          <p className="text-[10px] font-semibold tracking-[0.15em] uppercase" style={{ color: 'rgba(255,255,255,0.25)' }}>
+            Cierre de pronósticos
+          </p>
+          <p className="text-xs font-medium mt-0.5" style={{ color: 'rgba(255,200,50,0.75)' }}>
             {formatDeadline(matchday.predictionDeadline)}
           </p>
         </div>
