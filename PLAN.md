@@ -213,10 +213,13 @@
 - [x] Aplicado en dashboard (con click → modal de historial y highlight de "tú"), en `/admin/tabla` y en el PNG card
 - [x] Inline styles en el componente para compatibilidad total con html2canvas
 
-### Rediseño del modal de historial *(pendiente)*
-- [ ] Rediseñar `PlayerHistoryModal` siguiendo el mock que el usuario va a proveer
-- [ ] Mantener: stats del jugador, gráfica de evolución de puntos, acordeón por jornada, bottom-sheet en móvil
-- [ ] Revisar consistencia visual con el nuevo leaderboard tipo carta FIFA
+### Rediseño del modal de historial
+**Estado:** Completado ✓
+
+- [x] Header: card de avatar (68×88px) con badge de posición superpuesto en esquina superior izquierda (32px, colores medalla para top 3)
+- [x] 3 stat boxes compactos (80px c/u): Puntos / Aciertos (exactos+correctos) / Exactos; fuente 16px para valores ≥ 100
+- [x] `LeaderboardTable.onPlayerClick` ahora pasa `(player, position)` — Dashboard y AdminLeaderboard actualizados
+- [x] Contenido inferior sin cambios: gráfica de evolución + acordeón por jornada
 
 ### Notificaciones push *(pendiente)*
 - [ ] Recordatorio antes del predictionDeadline + aviso de resultados (service worker + FCM)
