@@ -11,7 +11,6 @@ export default function Login() {
   async function handleGoogleLogin() {
     setError(null)
     setLoading(true)
-
     try {
       const result = await signInWithPopup(auth, new GoogleAuthProvider())
       const allowed = await isEmailAllowed(result.user.email!)
@@ -29,32 +28,252 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen app-bg flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🏆</div>
-          <h1 className="text-2xl font-bold text-white">Quiniela Expertos</h1>
-          <p className="text-[var(--accent-light)] font-medium mt-1">Mundial 2026</p>
-        </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
 
-        {/* Card */}
-        <div className="surface-card border border-gray-800 rounded-2xl p-6 space-y-4">
-          <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-100 disabled:opacity-50 text-gray-900 font-medium py-3 px-4 rounded-xl transition-colors"
-          >
-            <GoogleIcon />
-            {loading ? 'Entrando...' : 'Continuar con Google'}
-          </button>
+        .login-title {
+          font-family: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+          letter-spacing: 0.04em;
+          line-height: 0.92;
+        }
 
-          {error && (
-            <p className="text-red-400 text-sm text-center">{error}</p>
-          )}
+        /* Hexagonal pitch texture (subtle) */
+        .login-hexbg {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='104' viewBox='0 0 60 104'%3E%3Cpath d='M30 68L2 52V18L30 2l28 16v34L30 68zm0-2l26-15V19L30 4 4 19v32l26 15z' fill='%2300C853' fill-opacity='0.035'/%3E%3C/svg%3E");
+        }
+
+        /* Pulsing glow on trophy */
+        @keyframes trophy-glow {
+          0%, 100% {
+            filter: drop-shadow(0 0 14px rgba(0,200,83,0.7))
+                    drop-shadow(0 0 40px rgba(0,200,83,0.3));
+          }
+          50% {
+            filter: drop-shadow(0 0 22px rgba(105,240,174,0.9))
+                    drop-shadow(0 0 60px rgba(0,200,83,0.5));
+          }
+        }
+
+        /* Slow outer ring */
+        @keyframes ring-cw {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        /* Counter-rotate inner ring */
+        @keyframes ring-ccw {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(-360deg); }
+        }
+
+        /* Entry animations */
+        @keyframes fade-up {
+          from { opacity: 0; transform: translateY(18px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes scale-in {
+          from { opacity: 0; transform: scale(0.82); }
+          to   { opacity: 1; transform: scale(1); }
+        }
+
+        .l-badge  { animation: fade-up  0.55s cubic-bezier(.16,1,.3,1) 0.05s both; }
+        .l-trophy { animation: scale-in 0.65s cubic-bezier(.16,1,.3,1) 0.18s both; }
+        .l-title  { animation: fade-up  0.55s cubic-bezier(.16,1,.3,1) 0.32s both; }
+        .l-card   { animation: fade-up  0.55s cubic-bezier(.16,1,.3,1) 0.46s both; }
+
+        .trophy-emoji {
+          animation: trophy-glow 2.8s ease-in-out infinite;
+          display: block;
+        }
+
+        .ring-outer {
+          animation: ring-cw 14s linear infinite;
+          transform-origin: center;
+        }
+        .ring-inner {
+          animation: ring-ccw 9s linear infinite;
+          transform-origin: center;
+        }
+
+        /* Google button */
+        .g-btn {
+          transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+          box-shadow: 0 2px 0 rgba(0,0,0,0.25);
+        }
+        .g-btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 18px rgba(0,200,83,0.18), 0 2px 0 rgba(0,0,0,0.25);
+          background: #f7f7f7;
+        }
+        .g-btn:active:not(:disabled) {
+          transform: translateY(0);
+          box-shadow: 0 2px 0 rgba(0,0,0,0.25);
+        }
+
+        /* Badge */
+        .mundial-badge {
+          border: 1px solid rgba(0,200,83,0.35);
+          background: rgba(0,200,83,0.07);
+        }
+
+        /* Login card */
+        .login-card {
+          background: linear-gradient(160deg, var(--surface-card) 0%, rgba(5,21,16,0.98) 100%);
+          border: 1px solid rgba(0,200,83,0.14);
+          box-shadow:
+            0 0 0 1px rgba(0,200,83,0.04),
+            0 24px 64px rgba(0,0,0,0.55),
+            inset 0 1px 0 rgba(0,200,83,0.09);
+        }
+
+        /* Divider line in card */
+        .login-divider {
+          border-color: rgba(0,200,83,0.1);
+        }
+      `}</style>
+
+      <div className="min-h-screen app-bg login-hexbg flex items-center justify-center px-4 py-10 relative overflow-hidden">
+
+        {/* Spotlight bloom behind trophy */}
+        <div
+          aria-hidden="true"
+          className="absolute pointer-events-none"
+          style={{
+            top: '30%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 480,
+            height: 480,
+            background: 'radial-gradient(circle, var(--accent-muted) 0%, var(--accent-deep) 35%, transparent 70%)',
+            opacity: 0.55,
+          }}
+        />
+
+        {/* Pitch center-circle arc — decorative */}
+        <svg
+          aria-hidden="true"
+          className="absolute pointer-events-none opacity-[0.04]"
+          style={{ top: '18%', left: '50%', transform: 'translateX(-50%)' }}
+          width="340" height="340" viewBox="0 0 340 340"
+        >
+          <circle cx="170" cy="170" r="160" fill="none" stroke="var(--accent)" strokeWidth="1.5" />
+          <circle cx="170" cy="170" r="110" fill="none" stroke="var(--accent)" strokeWidth="0.8" />
+          <line x1="10" y1="170" x2="330" y2="170" stroke="var(--accent)" strokeWidth="0.8" />
+        </svg>
+
+        <div className="w-full max-w-[22rem] relative z-10">
+
+          {/* ── MUNDIAL 2026 badge ── */}
+          <div className="l-badge flex justify-center mb-7">
+            <div className="mundial-badge rounded-full px-5 py-1.5 flex items-center gap-2.5">
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                <path d="M4 0L5 3H8L5.5 5L6.5 8L4 6L1.5 8L2.5 5L0 3H3L4 0Z"
+                  fill="var(--accent)" />
+              </svg>
+              <span
+                className="text-[var(--accent-light)] tracking-[0.22em] text-[11px] font-semibold"
+                style={{ fontFamily: 'system-ui, sans-serif' }}
+              >
+                MUNDIAL 2026
+              </span>
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                <path d="M4 0L5 3H8L5.5 5L6.5 8L4 6L1.5 8L2.5 5L0 3H3L4 0Z"
+                  fill="var(--accent)" />
+              </svg>
+            </div>
+          </div>
+
+          {/* ── Trophy with orbital rings ── */}
+          <div className="l-trophy flex justify-center mb-5">
+            <div className="relative w-36 h-36 flex items-center justify-center">
+
+              {/* Outer dashed orbital ring */}
+              <svg className="ring-outer absolute inset-0 w-full h-full" viewBox="0 0 144 144">
+                <circle cx="72" cy="72" r="66"
+                  fill="none"
+                  stroke="var(--accent)"
+                  strokeWidth="0.6"
+                  strokeDasharray="5 9"
+                  opacity="0.45"
+                />
+                {/* 4 accent dots on the ring */}
+                {[0, 90, 180, 270].map(deg => {
+                  const r = 66, cx = 72, cy = 72
+                  const rad = (deg * Math.PI) / 180
+                  const x = cx + r * Math.cos(rad)
+                  const y = cy + r * Math.sin(rad)
+                  return <circle key={deg} cx={x} cy={y} r="2" fill="var(--accent)" opacity="0.6" />
+                })}
+              </svg>
+
+              {/* Inner solid ring */}
+              <svg className="ring-inner absolute inset-4 w-[calc(100%-2rem)] h-[calc(100%-2rem)]" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="36"
+                  fill="none"
+                  stroke="var(--accent-light)"
+                  strokeWidth="0.4"
+                  strokeDasharray="2 6"
+                  opacity="0.25"
+                />
+              </svg>
+
+              {/* Static glow disc */}
+              <div
+                className="absolute inset-5 rounded-full"
+                style={{
+                  background: 'radial-gradient(circle, var(--accent-muted) 0%, transparent 70%)',
+                  boxShadow: '0 0 24px var(--accent-muted)',
+                }}
+              />
+
+              {/* Trophy */}
+              <span className="trophy-emoji text-6xl select-none relative z-10">🏆</span>
+            </div>
+          </div>
+
+          {/* ── Title ── */}
+          <div className="l-title text-center mb-8">
+            <h1
+              className="login-title text-white"
+              style={{ fontSize: 'clamp(3.4rem, 14vw, 5rem)' }}
+            >
+              QUINIELA<br />EXPERTOS
+            </h1>
+            <p className="text-[var(--accent-light)] text-xs tracking-[0.28em] mt-2.5 opacity-60 uppercase">
+              El juego de los expertos
+            </p>
+          </div>
+
+          {/* ── Card ── */}
+          <div className="l-card login-card rounded-2xl p-5">
+
+            {/* Subtle header */}
+            <p className="text-center text-[10px] tracking-[0.2em] text-gray-600 uppercase font-medium mb-4">
+              Acceso exclusivo
+            </p>
+
+            <button
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="g-btn w-full flex items-center justify-center gap-3 bg-white disabled:opacity-50 text-gray-900 font-medium py-3.5 px-4 rounded-xl text-sm"
+            >
+              <GoogleIcon />
+              {loading ? 'Entrando…' : 'Continuar con Google'}
+            </button>
+
+            {error && (
+              <p className="text-red-400 text-xs text-center mt-3 leading-relaxed">{error}</p>
+            )}
+
+            <hr className="login-divider mt-5 mb-0 border-t" />
+            <p className="text-[10px] text-gray-700 text-center mt-3 leading-relaxed">
+              Acceso solo por invitación
+            </p>
+          </div>
+
         </div>
       </div>
-    </div>
+    </>
   )
 }
 
