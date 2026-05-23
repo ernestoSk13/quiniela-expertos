@@ -120,7 +120,7 @@ function MatchdayItem({
   )
 }
 
-function HistoryContent({ userId, teamsMap }: { userId: string; teamsMap: Record<string, Team> }) {
+export function HistoryContent({ userId, teamsMap }: { userId: string; teamsMap: Record<string, Team> }) {
   const { history, loading } = usePlayerHistory(userId)
   const [openIdx, setOpenIdx] = useState<number | null>(null)
 

@@ -14,11 +14,43 @@ import ThemeSelector from '@/components/ThemeSelector'
 import LeaderboardTable from './LeaderboardTable'
 import BonusSummary from './BonusSummary'
 import TournamentCountdown from './TournamentCountdown'
-import PlayerHistoryModal from './PlayerHistoryModal'
+import PlayerHistoryModal, { HistoryContent } from './PlayerHistoryModal'
 import LeaderboardShareCard from './LeaderboardShareCard'
 import { useTheme } from '@/context/ThemeContext'
 import type { BonusPredictions } from '@/types/User'
 import type { User } from '@/types'
+
+type TabId = 'predictions' | 'leaderboard' | 'history'
+
+const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
+  {
+    id: 'predictions',
+    label: 'Pronósticos',
+    icon: (
+      <svg viewBox="0 0 24 24" width={22} height={22} fill="currentColor">
+        <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'leaderboard',
+    label: 'Tabla',
+    icon: (
+      <svg viewBox="0 0 24 24" width={22} height={22} fill="currentColor">
+        <path d="M7.5 21H2V9h5.5v12zm7.25-18h-5.5v18h5.5V3zM22 11h-5.5v10H22V11z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'history',
+    label: 'Historial',
+    icon: (
+      <svg viewBox="0 0 24 24" width={22} height={22} fill="currentColor">
+        <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
+      </svg>
+    ),
+  },
+]
 
 function formatDeadline(ts: ReturnType<typeof Date.now> | any) {
   return ts?.toDate().toLocaleString('es-MX', {
@@ -34,6 +66,7 @@ export default function Dashboard() {
   const { teamsMap } = useTeamsMap()
   const navigate = useNavigate()
   const [selectedPlayer, setSelectedPlayer] = useState<User | null>(null)
+  const [activeTab, setActiveTab] = useState<TabId>('predictions')
 
   async function handleSignOut() {
     await signOut(auth)
@@ -52,13 +85,133 @@ export default function Dashboard() {
     await updateBonusPredictions(user.uid, bonus)
   }
 
+  const pastMatchdays = matchdays
+    .filter(md => md.status === 'closed' || md.status === 'finished')
+    .slice()
+    .reverse()
+
+  const userPosition = players.findIndex(p => p.uid === user?.uid) + 1
+
+  // ── Shared section blocks ──────────────────────────────────────────────────
+
+  const nextMatchdayCard = (
+    <div className="surface-card border border-gray-800 rounded-xl p-5">
+      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
+        Siguiente jornada
+      </h3>
+      {matchdaysLoading ? (
+        <p className="text-gray-500 text-sm">Cargando...</p>
+      ) : !nextMatchday ? (
+        <p className="text-gray-500 text-sm">No hay jornadas próximas.</p>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">{nextMatchday.name}</span>
+            <StatusBadge status={nextMatchday.status} type="matchday" />
+          </div>
+          <p className="text-xs text-gray-500">
+            Deadline:{' '}
+            <span className="text-gray-400">
+              {formatDeadline(nextMatchday.predictionDeadline)}
+            </span>
+          </p>
+          {nextMatchday.status === 'open' && total > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-500">Mis pronósticos</span>
+                <span className={`font-semibold tabular-nums ${filled === total ? 'text-[var(--accent-light)]' : 'text-gray-400'}`}>
+                  {filled} / {total}
+                </span>
+              </div>
+              <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[var(--accent)] rounded-full transition-all duration-300"
+                  style={{ width: `${Math.round((filled / total) * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
+          <button
+            onClick={() => navigate(`/jornada/${nextMatchday.id}`)}
+            disabled={nextMatchday.status !== 'open'}
+            className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:bg-gray-800 disabled:text-gray-500 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+          >
+            {nextMatchday.status === 'open'
+              ? filled === 0 ? 'Hacer pronósticos' : filled < total ? 'Continuar pronósticos' : 'Ver pronósticos'
+              : 'Aún no disponible'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+
+  const pastMatchdaysSection = pastMatchdays.length > 0 ? (
+    <div>
+      <h2 className="text-lg font-bold mb-4">Jornadas anteriores</h2>
+      <div className="surface-card border border-gray-800 rounded-xl divide-y divide-gray-800/60 overflow-hidden">
+        {pastMatchdays.map(md => (
+          <button
+            key={md.id}
+            onClick={() => navigate(`/jornada/${md.id}`)}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-[var(--surface-card)] transition-colors text-left"
+          >
+            <span className="text-sm text-gray-300">{md.name}</span>
+            <span className="text-xs text-[var(--accent)] shrink-0">Ver resultados →</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  ) : null
+
+  const leaderboardSection = (
+    <>
+      <h2 className="text-lg font-bold mb-4">Tabla general</h2>
+      {leaderboardLoading ? (
+        <p className="text-gray-500 text-sm">Cargando tabla...</p>
+      ) : (
+        <>
+          <LeaderboardTable
+            players={players}
+            currentUserId={user?.uid ?? ''}
+            onPlayerClick={setSelectedPlayer}
+          />
+          {user && userPosition > 0 && (
+            <LeaderboardShareCard position={userPosition} player={user} themeId={themeId} />
+          )}
+        </>
+      )}
+    </>
+  )
+
+  const historySection = user ? (
+    <>
+      <h2 className="text-lg font-bold mb-4">Mi historial</h2>
+      <div className="grid grid-cols-4 gap-2 mb-2">
+        {[
+          { label: 'Puntos',    value: user.stats.totalPoints,       accent: true  },
+          { label: 'Exactos',   value: user.stats.exactPredictions,  accent: false },
+          { label: 'Correctos', value: user.stats.correctPredictions, accent: false },
+          { label: 'Enviados',  value: user.stats.totalPredictions,  accent: false },
+        ].map(({ label, value, accent }) => (
+          <div key={label} className="bg-gray-900/60 rounded-xl px-2 py-3 text-center">
+            <p className={`text-xl font-black tabular-nums ${accent ? 'text-[var(--accent-light)]' : 'text-white'}`}>
+              {value}
+            </p>
+            <p className="text-[10px] text-gray-500 mt-0.5">{label}</p>
+          </div>
+        ))}
+      </div>
+      <HistoryContent userId={user.uid} teamsMap={teamsMap} />
+    </>
+  ) : null
+
   return (
     <div className="min-h-screen app-bg text-white">
+
       {/* Nav */}
       <header className="border-b border-gray-800 surface-nav sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <span className="font-bold text-white text-sm">Quiniela Expertos</span>
-
           <div className="flex items-center gap-3">
             <ThemeSelector />
             <div className="flex items-center gap-2">
@@ -79,88 +232,12 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Body */}
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        <TournamentCountdown />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-          {/* Leaderboard — takes 2/3 on desktop */}
-          <div className="lg:col-span-2">
-            <h2 className="text-lg font-bold mb-4">Tabla general</h2>
-            {leaderboardLoading ? (
-              <p className="text-gray-500 text-sm">Cargando tabla...</p>
-            ) : (
-              <>
-                <LeaderboardTable
-                  players={players}
-                  currentUserId={user?.uid ?? ''}
-                  onPlayerClick={setSelectedPlayer}
-                />
-                {user && (() => {
-                  const pos = players.findIndex(p => p.uid === user.uid) + 1
-                  return pos > 0 ? (
-                    <LeaderboardShareCard position={pos} player={user} themeId={themeId} />
-                  ) : null
-                })()}
-              </>
-            )}
-          </div>
-
-          {/* Sidebar */}
+      {/* ── Mobile: tab panels (hidden on lg+) ─────────────────────────────── */}
+      <main className="lg:hidden max-w-5xl mx-auto px-4 py-6 pb-28">
+        {activeTab === 'predictions' && (
           <div className="space-y-4">
-
-            {/* Next matchday */}
-            <div className="surface-card border border-gray-800 rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                Siguiente jornada
-              </h3>
-
-              {matchdaysLoading ? (
-                <p className="text-gray-500 text-sm">Cargando...</p>
-              ) : !nextMatchday ? (
-                <p className="text-gray-500 text-sm">No hay jornadas próximas.</p>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{nextMatchday.name}</span>
-                    <StatusBadge status={nextMatchday.status} type="matchday" />
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Deadline:{' '}
-                    <span className="text-gray-400">
-                      {formatDeadline(nextMatchday.predictionDeadline)}
-                    </span>
-                  </p>
-                  {nextMatchday.status === 'open' && total > 0 && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-500">Mis pronósticos</span>
-                        <span className={`font-semibold tabular-nums ${filled === total ? 'text-[var(--accent-light)]' : 'text-gray-400'}`}>
-                          {filled} / {total}
-                        </span>
-                      </div>
-                      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-[var(--accent)] rounded-full transition-all duration-300"
-                          style={{ width: `${Math.round((filled / total) * 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => navigate(`/jornada/${nextMatchday.id}`)}
-                    disabled={nextMatchday.status !== 'open'}
-                    className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:bg-gray-800 disabled:text-gray-500 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
-                  >
-                    {nextMatchday.status === 'open'
-                      ? filled === 0 ? 'Hacer pronósticos' : filled < total ? 'Continuar pronósticos' : 'Ver pronósticos'
-                      : 'Aún no disponible'}
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Bonus predictions */}
+            <TournamentCountdown />
+            {nextMatchdayCard}
             {user?.bonusPredictions && (
               <BonusSummary
                 bonus={user.bonusPredictions}
@@ -169,36 +246,68 @@ export default function Dashboard() {
                 onSave={handleSaveBonus}
               />
             )}
+            {pastMatchdays.length > 0 && (
+              <div className="pt-2">{pastMatchdaysSection}</div>
+            )}
+          </div>
+        )}
 
+        {activeTab === 'leaderboard' && (
+          <div>{leaderboardSection}</div>
+        )}
+
+        {activeTab === 'history' && (
+          <div>{historySection}</div>
+        )}
+      </main>
+
+      {/* ── Desktop: original grid layout (hidden below lg) ────────────────── */}
+      <main className="hidden lg:block max-w-5xl mx-auto px-4 py-8">
+        <TournamentCountdown />
+        <div className="grid grid-cols-3 gap-6">
+
+          {/* Leaderboard — 2/3 */}
+          <div className="col-span-2">
+            {leaderboardSection}
+          </div>
+
+          {/* Sidebar — 1/3 */}
+          <div className="space-y-4">
+            {nextMatchdayCard}
+            {user?.bonusPredictions && (
+              <BonusSummary
+                bonus={user.bonusPredictions}
+                teams={teams}
+                teamsMap={teamsMap}
+                onSave={handleSaveBonus}
+              />
+            )}
           </div>
         </div>
 
-        {/* Past matchdays */}
-        {(() => {
-          const past = matchdays
-            .filter(md => md.status === 'closed' || md.status === 'finished')
-            .slice()
-            .reverse()
-          if (past.length === 0) return null
-          return (
-            <div className="mt-8">
-              <h2 className="text-lg font-bold mb-4">Jornadas anteriores</h2>
-              <div className="surface-card border border-gray-800 rounded-xl divide-y divide-gray-800/60 overflow-hidden">
-                {past.map(md => (
-                  <button
-                    key={md.id}
-                    onClick={() => navigate(`/jornada/${md.id}`)}
-                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-[var(--surface-card)] transition-colors text-left"
-                  >
-                    <span className="text-sm text-gray-300">{md.name}</span>
-                    <span className="text-xs text-[var(--accent)] shrink-0">Ver resultados →</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )
-        })()}
+        {pastMatchdays.length > 0 && (
+          <div className="mt-8">{pastMatchdaysSection}</div>
+        )}
       </main>
+
+      {/* ── Mobile bottom tab bar ───────────────────────────────────────────── */}
+      <nav
+        className="lg:hidden fixed bottom-0 left-0 right-0 surface-nav border-t border-gray-800 flex z-10"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        {TABS.map(({ id, label, icon }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[11px] font-medium transition-colors ${
+              activeTab === id ? 'text-[var(--accent-light)]' : 'text-gray-500'
+            }`}
+          >
+            {icon}
+            {label}
+          </button>
+        ))}
+      </nav>
 
       {selectedPlayer && (
         <PlayerHistoryModal
