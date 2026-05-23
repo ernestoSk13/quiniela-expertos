@@ -221,5 +221,14 @@
 - [x] `LeaderboardTable.onPlayerClick` ahora pasa `(player, position)` — Dashboard y AdminLeaderboard actualizados
 - [x] Contenido inferior sin cambios: gráfica de evolución + acordeón por jornada
 
-### Notificaciones push *(pendiente)*
-- [ ] Recordatorio antes del predictionDeadline + aviso de resultados (service worker + FCM)
+### Notificaciones push
+**Estado:** Completado ✓
+
+- [x] `public/firebase-messaging-sw.js` — service worker FCM para notificaciones en background
+- [x] `usePushNotifications` hook — permiso, token FCM, toggle activar/desactivar; no aplica con emuladores
+- [x] `User.fcmToken?: string` + `saveFcmToken()` en firestoreUsers
+- [x] Botón campana en el header del dashboard (solo donde push es soportado: Chrome/Firefox/Android)
+- [x] CF `sendDeadlineReminders` — cron horario, avisa 1h antes del `predictionDeadline` de jornadas abiertas
+- [x] CF `notifyResultsPublished` — trigger en `matchdays/{id}`, avisa al pasar a `closed`/`finished`
+- [x] Limpieza automática de tokens inválidos en Firestore tras envío fallido
+- [x] iOS Safari sin PWA: campana oculta (notificaciones no soportadas fuera de PWA)
