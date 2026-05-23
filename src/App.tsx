@@ -15,6 +15,7 @@ import BonusEvaluation from '@/pages/Admin/BonusEvaluation'
 import AdminLeaderboard from '@/pages/Admin/AdminLeaderboard'
 import ScoringConfig from '@/pages/Admin/ScoringConfig'
 import InvitePage from '@/pages/Invite/InvitePage'
+import Preferences from '@/pages/Preferences/Preferences'
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
           {/* App */}
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/preferencias" element={<Preferences />} />
             <Route path="/jornada/:matchdayId" element={<MatchdayPredictions />} />
           </Route>
 

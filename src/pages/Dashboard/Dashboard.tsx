@@ -18,8 +18,6 @@ import PlayerHistoryModal, { HistoryContent } from './PlayerHistoryModal'
 import LeaderboardShareCard from './LeaderboardShareCard'
 import { useTheme } from '@/context/ThemeContext'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
-import { updateUserTheme } from '@/services/firestoreUsers'
-import { THEMES } from '@/lib/themes'
 import type { BonusPredictions } from '@/types/User'
 import type { User } from '@/types'
 
@@ -196,79 +194,6 @@ export default function Dashboard() {
     </>
   )
 
-  const preferencesSection = user ? (
-    <div className="space-y-6">
-
-      {/* Tema */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Tema</h3>
-        <div className="grid grid-cols-3 gap-3">
-          {THEMES.map(t => (
-            <button
-              key={t.id}
-              onClick={() => updateUserTheme(user.uid, t.id)}
-              className={`flex flex-col items-center gap-2 py-4 rounded-xl border transition-all ${
-                themeId === t.id
-                  ? 'border-[var(--accent)] bg-[var(--accent-muted)] text-[var(--accent-light)]'
-                  : 'border-gray-700 bg-gray-900/50 text-gray-400 hover:border-gray-600 hover:text-white'
-              }`}
-            >
-              <span className="text-3xl">{t.flag}</span>
-              <span className="text-xs font-semibold">{t.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Notificaciones */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Notificaciones</h3>
-        {push.isSupported ? (
-          <div className="surface-card border border-gray-800 rounded-xl p-4 flex items-center gap-4">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white">Recordatorios de jornada</p>
-              <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                {push.permission === 'denied'
-                  ? 'Bloqueadas en el navegador — actívalas desde Ajustes'
-                  : 'Aviso antes del cierre y al publicar resultados'}
-              </p>
-            </div>
-            <button
-              onClick={push.toggle}
-              disabled={push.isLoading || push.permission === 'denied'}
-              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
-                push.isEnabled ? 'bg-[var(--accent)]' : 'bg-gray-700'
-              }`}
-            >
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                push.isEnabled ? 'translate-x-5' : 'translate-x-0.5'
-              }`} />
-            </button>
-          </div>
-        ) : (
-          <p className="text-sm text-gray-600">
-            Las notificaciones no están disponibles en este dispositivo o navegador.
-          </p>
-        )}
-      </div>
-
-      {/* Cuenta */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Cuenta</h3>
-        <div className="surface-card border border-gray-800 rounded-xl divide-y divide-gray-800/60 overflow-hidden">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <span className="text-xs text-gray-500 w-20 shrink-0">Usuario</span>
-            <span className="text-sm text-gray-300 truncate">{user.displayName}</span>
-          </div>
-          <div className="flex items-center gap-3 px-4 py-3">
-            <span className="text-xs text-gray-500 w-20 shrink-0">Correo</span>
-            <span className="text-sm text-gray-300 truncate">{user.email}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  ) : null
-
   const historySection = user ? (
     <>
       <h2 className="text-lg font-bold mb-4">Mi historial</h2>
@@ -299,7 +224,7 @@ export default function Dashboard() {
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <span className="font-bold text-white text-sm">Quiniela Expertos</span>
           <div className="flex items-center gap-3">
-            {/* Bell + ThemeSelector: desktop only (on mobile they live in Preferencias tab) */}
+            {/* Bell + ThemeSelector + Preferencias: desktop only (on mobile they live in Preferencias tab) */}
             <div className="hidden lg:flex items-center gap-3">
               {push.isSupported && (
                 <button
@@ -332,6 +257,15 @@ export default function Dashboard() {
                 </button>
               )}
               <ThemeSelector />
+              <button
+                onClick={() => navigate('/preferencias')}
+                title="Preferencias"
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor">
+                  <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+                </svg>
+              </button>
             </div>
             <div className="flex items-center gap-2">
               <Avatar
@@ -379,9 +313,6 @@ export default function Dashboard() {
           <div>{historySection}</div>
         )}
 
-        {activeTab === 'preferences' && (
-          <div>{preferencesSection}</div>
-        )}
       </main>
 
       {/* ── Desktop: original grid layout (hidden below lg) ────────────────── */}
@@ -421,7 +352,7 @@ export default function Dashboard() {
         {TABS.map(({ id, label, icon }) => (
           <button
             key={id}
-            onClick={() => setActiveTab(id)}
+            onClick={() => id === 'preferences' ? navigate('/preferencias') : setActiveTab(id)}
             className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[11px] font-medium transition-colors ${
               activeTab === id ? 'text-[var(--accent-light)]' : 'text-gray-500'
             }`}
