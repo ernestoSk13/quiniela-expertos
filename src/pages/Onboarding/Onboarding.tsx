@@ -59,27 +59,37 @@ export default function Onboarding() {
         avatarUrl = existing ?? ''
       }
 
-      await updateUserProfile(user.uid, {
-        displayName: displayName.trim(),
-        avatarUrl,
-        bonusPredictions: { ...bonus, pointsAwarded: false },
-        onboardingCompleted: true,
-      })
-
-      // Si no está instalada como PWA, mostrar paso de instalación
-      if (!isStandalone) {
+      if (isStandalone) {
+        // Ya es PWA: guardar todo incluyendo onboardingCompleted → AuthContext redirige
+        await updateUserProfile(user.uid, {
+          displayName: displayName.trim(),
+          avatarUrl,
+          bonusPredictions: { ...bonus, pointsAwarded: false },
+          onboardingCompleted: true,
+        })
+      } else {
+        // No es PWA: guardar perfil SIN onboardingCompleted para que AuthGuard
+        // no redirija al dashboard antes de mostrar el paso 3
+        await updateUserProfile(user.uid, {
+          displayName: displayName.trim(),
+          avatarUrl,
+          bonusPredictions: { ...bonus, pointsAwarded: false },
+        })
         setStep(3)
         setLoading(false)
       }
-      // Si ya es standalone, AuthContext redirige automáticamente
     } catch (err) {
       console.error('Error al guardar onboarding:', err)
       setLoading(false)
     }
   }
 
-  // Paso 3: el usuario termina (ya se guardó onboardingCompleted en handleBonusSubmit)
-  // AuthContext detectará el cambio y redirigirá al dashboard automáticamente
+  // Paso 3: el usuario hace clic en "Ya la instalé" u "Omitir"
+  // Solo aquí se marca onboardingCompleted: true → AuthContext redirige al dashboard
+  async function handleInstallDone() {
+    if (!user) return
+    await updateUserProfile(user.uid, { onboardingCompleted: true })
+  }
 
   const teams = Object.values(teamsMap)
 
@@ -132,7 +142,7 @@ export default function Onboarding() {
         )}
 
         {step === 3 && (
-          <StepInstall onDone={() => {/* AuthContext ya redirige tras onboardingCompleted: true */}} />
+          <StepInstall onDone={handleInstallDone} />
         )}
       </div>
     </div>

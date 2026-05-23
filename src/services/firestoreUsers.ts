@@ -14,16 +14,16 @@ export async function isEmailAllowed(email: string): Promise<boolean> {
 export async function updateUserProfile(
   uid: string,
   data: {
-    displayName: string
-    avatarUrl: string
-    bonusPredictions: {
+    displayName?: string
+    avatarUrl?: string
+    bonusPredictions?: {
       topScorer: string
       goldenBall: string
       mexicoPhase: string
       champion: string
       pointsAwarded: boolean
     }
-    onboardingCompleted: boolean
+    onboardingCompleted?: boolean
   },
 ): Promise<void> {
   await updateDoc(doc(db, 'users', uid), data)
