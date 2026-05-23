@@ -9,7 +9,7 @@ import type { User } from '@/types'
 export default function AdminLeaderboard() {
   const { players, loading } = useLeaderboard()
   const { teamsMap } = useTeamsMap()
-  const [selected, setSelected] = useState<User | null>(null)
+  const [selected, setSelected] = useState<{ player: User; position: number } | null>(null)
 
   if (loading) {
     return <p className="text-gray-500 text-sm py-8 text-center">Cargando tabla...</p>
@@ -25,12 +25,13 @@ export default function AdminLeaderboard() {
       <LeaderboardTable
         players={players}
         currentUserId=""
-        onPlayerClick={setSelected}
+        onPlayerClick={(player, position) => setSelected({ player, position })}
       />
 
       {selected && (
         <PlayerHistoryModal
-          player={selected}
+          player={selected.player}
+          position={selected.position}
           isOwnProfile={true}
           teamsMap={teamsMap}
           onClose={() => setSelected(null)}

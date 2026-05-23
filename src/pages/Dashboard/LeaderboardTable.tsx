@@ -5,7 +5,7 @@ import type { User } from '@/types'
 interface Props {
   players: User[]
   currentUserId: string
-  onPlayerClick: (player: User) => void
+  onPlayerClick: (player: User, position: number) => void
 }
 
 export default function LeaderboardTable({ players, currentUserId, onPlayerClick }: Props) {
@@ -29,7 +29,7 @@ export default function LeaderboardTable({ players, currentUserId, onPlayerClick
             position={i + 1}
             themeId={themeId}
             isCurrentUser={player.uid === currentUserId}
-            onClick={() => onPlayerClick(player)}
+            onClick={() => onPlayerClick(player, i + 1)}
           />
         ))}
       </div>

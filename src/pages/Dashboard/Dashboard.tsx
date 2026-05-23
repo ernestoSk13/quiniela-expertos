@@ -65,7 +65,7 @@ export default function Dashboard() {
   const { players, loading: leaderboardLoading } = useLeaderboard()
   const { teamsMap } = useTeamsMap()
   const navigate = useNavigate()
-  const [selectedPlayer, setSelectedPlayer] = useState<User | null>(null)
+  const [selectedPlayer, setSelectedPlayer] = useState<{ player: User; position: number } | null>(null)
   const [activeTab, setActiveTab] = useState<TabId>('predictions')
 
   async function handleSignOut() {
@@ -173,7 +173,7 @@ export default function Dashboard() {
           <LeaderboardTable
             players={players}
             currentUserId={user?.uid ?? ''}
-            onPlayerClick={setSelectedPlayer}
+            onPlayerClick={(player, position) => setSelectedPlayer({ player, position })}
           />
           {user && userPosition > 0 && (
             <LeaderboardShareCard position={userPosition} player={user} themeId={themeId} />
@@ -311,8 +311,9 @@ export default function Dashboard() {
 
       {selectedPlayer && (
         <PlayerHistoryModal
-          player={selectedPlayer}
-          isOwnProfile={selectedPlayer.uid === user?.uid}
+          player={selectedPlayer.player}
+          position={selectedPlayer.position}
+          isOwnProfile={selectedPlayer.player.uid === user?.uid}
           teamsMap={teamsMap}
           onClose={() => setSelectedPlayer(null)}
         />

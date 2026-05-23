@@ -1,14 +1,25 @@
 import { useState, useEffect } from 'react'
 import type { User, Team } from '@/types'
-import Avatar from '@/components/Avatar'
 import { usePlayerHistory, type MatchdayHistory, type PredictionWithMatch } from '@/hooks/usePlayerHistory'
 
-interface Props {
-  player: User
-  isOwnProfile: boolean
-  teamsMap: Record<string, Team>
-  onClose: () => void
+const MEDAL_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32']
+
+function medalColor(position: number): string {
+  return position <= 3 ? MEDAL_COLORS[position - 1] : 'rgba(255,255,255,0.15)'
 }
+
+function medalTextColor(position: number): string {
+  return position <= 3 ? '#111111' : 'rgba(255,255,255,0.8)'
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function PointsChart({ history }: { history: MatchdayHistory[] }) {
   if (history.length < 2) return null
@@ -157,7 +168,17 @@ export function HistoryContent({ userId, teamsMap }: { userId: string; teamsMap:
   )
 }
 
-export default function PlayerHistoryModal({ player, isOwnProfile, teamsMap, onClose }: Props) {
+// ── Main modal ────────────────────────────────────────────────────────────────
+
+interface Props {
+  player: User
+  position?: number
+  isOwnProfile: boolean
+  teamsMap: Record<string, Team>
+  onClose: () => void
+}
+
+export default function PlayerHistoryModal({ player, position, isOwnProfile, teamsMap, onClose }: Props) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -165,12 +186,13 @@ export default function PlayerHistoryModal({ player, isOwnProfile, teamsMap, onC
   }, [onClose])
 
   const { stats } = player
-
+  const hasPosition = position !== undefined && position > 0
+  const posColor = hasPosition ? medalColor(position!) : 'transparent'
+  const posTextColor = hasPosition ? medalTextColor(position!) : 'white'
   const statItems = [
-    { label: 'Puntos', value: stats.totalPoints, accent: true },
-    { label: 'Exactos', value: stats.exactPredictions, accent: false },
-    { label: 'Correctos', value: stats.correctPredictions, accent: false },
-    { label: 'Enviados', value: stats.totalPredictions, accent: false },
+    { label: 'Puntos',   value: stats.totalPoints,                              accent: true  },
+    { label: 'Aciertos', value: stats.exactPredictions + stats.correctPredictions, accent: false },
+    { label: 'Exactos',  value: stats.exactPredictions,                         accent: false },
   ]
 
   return (
@@ -187,44 +209,110 @@ export default function PlayerHistoryModal({ player, isOwnProfile, teamsMap, onC
           <div className="w-10 h-1 bg-gray-700 rounded-full" />
         </div>
 
-        {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4">
-          <Avatar url={player.avatarUrl} name={player.displayName} size="md" />
-          <div className="flex-1 min-w-0">
-            <p className="font-bold text-white truncate">{player.displayName}</p>
-            {isOwnProfile && (
-              <p className="text-xs text-[var(--accent-light)]">Tu historial</p>
+        {/* ── Header ── */}
+        <div className="flex items-center gap-4 px-4 pt-3 pb-4">
+
+          {/* Avatar card + position badge encima */}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            {/* Card */}
+            <div style={{
+              width: 68,
+              height: 88,
+              borderRadius: 8,
+              overflow: 'hidden',
+              backgroundColor: '#1a1a1a',
+              border: `2px solid ${hasPosition ? posColor : 'rgba(255,255,255,0.18)'}`,
+              boxSizing: 'border-box',
+            }}>
+              {player.avatarUrl ? (
+                <img
+                  src={player.avatarUrl}
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                <div style={{
+                  width: '100%', height: '100%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: 18, fontWeight: 800 }}>
+                    {getInitials(player.displayName)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Position badge — esquina superior izquierda, encima de la card */}
+            {hasPosition && (
+              <div style={{
+                position: 'absolute',
+                top: -10,
+                left: -10,
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                backgroundColor: posColor,
+                border: '2px solid rgba(0,0,0,0.6)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+              }}>
+                <span style={{
+                  color: posTextColor,
+                  fontWeight: 900,
+                  fontSize: (position ?? 0) >= 10 ? 12 : 16,
+                  lineHeight: 1,
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
+                  {position}
+                </span>
+              </div>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-white transition-colors text-lg leading-none"
-            aria-label="Cerrar"
-          >
-            ✕
-          </button>
-        </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-2 px-5">
-          {statItems.map(({ label, value, accent }) => (
-            <div key={label} className="bg-gray-900/60 rounded-xl px-2 py-3 text-center">
-              <p className={`text-xl font-black tabular-nums ${
-                accent ? 'text-[var(--accent-light)]' : 'text-white'
-              }`}>
-                {value}
+          {/* Derecha: nombre + close + stats */}
+          <div className="flex-1 min-w-0">
+            {/* Nombre + close */}
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <p className="font-bold text-white text-xl leading-tight truncate">
+                {player.displayName}
               </p>
-              <p className="text-[10px] text-gray-500 mt-0.5">{label}</p>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-white transition-colors text-base leading-none shrink-0"
+                aria-label="Cerrar"
+              >
+                ✕
+              </button>
             </div>
-          ))}
+
+            {/* Stat boxes — ancho fijo */}
+            <div className="flex gap-2">
+              {statItems.map(({ label, value, accent }) => (
+                <div
+                  key={label}
+                  className="bg-gray-900/70 rounded-lg py-2 text-center"
+                  style={{ width: 80 }}
+                >
+                  <p className="text-[10px] text-gray-500 mb-0.5 leading-none">{label}</p>
+                  <p className={`font-black tabular-nums leading-none ${
+                    accent ? 'text-[var(--accent-light)]' : 'text-white'
+                  }`} style={{ fontSize: value >= 100 ? 16 : 20 }}>
+                    {value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* History */}
+        {/* ── History content ── */}
         <div className="px-5">
           {isOwnProfile ? (
             <HistoryContent userId={player.uid} teamsMap={teamsMap} />
           ) : (
-            <p className="text-center text-gray-600 text-xs mt-8">
+            <p className="text-center text-gray-600 text-xs mt-4">
               El historial detallado solo está disponible en tu propio perfil.
             </p>
           )}
