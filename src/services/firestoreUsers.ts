@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, deleteField } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import type { User as FirebaseUser } from 'firebase/auth'
 import type { User, UserRole } from '@/types'
@@ -50,6 +50,12 @@ export async function adminUpdateUser(
   data: { displayName: string; avatarUrl: string; role: UserRole },
 ): Promise<void> {
   await updateDoc(doc(db, 'users', uid), data)
+}
+
+export async function saveFcmToken(uid: string, token: string | null): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), {
+    fcmToken: token ?? deleteField(),
+  })
 }
 
 export async function ensureUserDoc(fbUser: FirebaseUser): Promise<void> {

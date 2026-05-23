@@ -29,4 +29,5 @@ export interface User {
   bonusPredictions: BonusPredictions
   stats: UserStats
   theme?: ThemeId
+  fcmToken?: string
 }

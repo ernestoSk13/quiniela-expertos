@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin'
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { FieldValue } from 'firebase-admin/firestore'
 
 admin.initializeApp()
@@ -290,6 +291,82 @@ export const getInvite = onCall(async request => {
   }
 
   return { email: data.email as string }
+})
+
+// ── Push notification helpers ─────────────────────────────────────────────────
+
+async function getFcmTokens(): Promise<string[]> {
+  const snap = await db.collection('users').get()
+  return snap.docs
+    .map(d => d.data().fcmToken as string | undefined)
+    .filter((t): t is string => !!t)
+}
+
+async function sendPush(
+  tokens: string[],
+  title: string,
+  body: string,
+): Promise<void> {
+  if (tokens.length === 0) return
+
+  const result = await admin.messaging().sendEachForMulticast({ tokens, notification: { title, body } })
+
+  // Limpiar tokens inválidos de Firestore
+  const invalidTokens = result.responses
+    .map((r, i) => (!r.success ? tokens[i] : null))
+    .filter((t): t is string => !!t)
+
+  if (invalidTokens.length > 0) {
+    const usersSnap = await db.collection('users')
+      .where('fcmToken', 'in', invalidTokens)
+      .get()
+    const batch = db.batch()
+    usersSnap.docs.forEach(d => batch.update(d.ref, { fcmToken: FieldValue.delete() }))
+    await batch.commit()
+  }
+}
+
+// Corre cada hora — avisa cuando falta ~1h para el cierre de una jornada abierta
+export const sendDeadlineReminders = onSchedule('every 60 minutes', async () => {
+  const now = new Date()
+  const windowStart = new Date(now.getTime() + 50 * 60 * 1000)  // 50 min desde ahora
+  const windowEnd   = new Date(now.getTime() + 70 * 60 * 1000)  // 70 min desde ahora
+
+  const matchdaysSnap = await db.collection('matchdays')
+    .where('status', '==', 'open')
+    .get()
+
+  for (const mdDoc of matchdaysSnap.docs) {
+    const md = mdDoc.data()
+    const deadline = (md.predictionDeadline as admin.firestore.Timestamp)?.toDate()
+    if (!deadline) continue
+    if (deadline < windowStart || deadline > windowEnd) continue
+
+    const tokens = await getFcmTokens()
+    await sendPush(
+      tokens,
+      '⏰ ¡Cierre pronto!',
+      `${md.name} cierra en 1 hora — completa tus pronósticos`,
+    )
+  }
+})
+
+// Se dispara cuando cambia el estado de una jornada → avisa al pasar a 'closed' o 'finished'
+export const notifyResultsPublished = onDocumentUpdated('matchdays/{matchdayId}', async event => {
+  const before = event.data?.before.data()
+  const after  = event.data?.after.data()
+  if (!before || !after) return
+
+  const wasOpen = before.status === 'open' || before.status === 'upcoming'
+  const isClosed = after.status === 'closed' || after.status === 'finished'
+  if (!wasOpen || !isClosed) return
+
+  const tokens = await getFcmTokens()
+  await sendPush(
+    tokens,
+    '🏆 Resultados disponibles',
+    `Los resultados de ${after.name} ya están publicados`,
+  )
 })
 
 export const evaluateBonusPredictions = onCall(async request => {

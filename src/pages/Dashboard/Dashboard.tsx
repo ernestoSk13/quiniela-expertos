@@ -17,6 +17,7 @@ import TournamentCountdown from './TournamentCountdown'
 import PlayerHistoryModal, { HistoryContent } from './PlayerHistoryModal'
 import LeaderboardShareCard from './LeaderboardShareCard'
 import { useTheme } from '@/context/ThemeContext'
+import { usePushNotifications } from '@/hooks/usePushNotifications'
 import type { BonusPredictions } from '@/types/User'
 import type { User } from '@/types'
 
@@ -67,6 +68,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [selectedPlayer, setSelectedPlayer] = useState<{ player: User; position: number } | null>(null)
   const [activeTab, setActiveTab] = useState<TabId>('predictions')
+  const push = usePushNotifications()
 
   async function handleSignOut() {
     await signOut(auth)
@@ -213,6 +215,36 @@ export default function Dashboard() {
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <span className="font-bold text-white text-sm">Quiniela Expertos</span>
           <div className="flex items-center gap-3">
+            {push.isSupported && (
+              <button
+                onClick={push.toggle}
+                disabled={push.isLoading || push.permission === 'denied'}
+                title={
+                  push.permission === 'denied'
+                    ? 'Notificaciones bloqueadas en el navegador'
+                    : push.isEnabled
+                    ? 'Desactivar notificaciones'
+                    : 'Activar notificaciones'
+                }
+                className="text-gray-400 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {push.isLoading ? (
+                  <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor" className="animate-spin opacity-60">
+                    <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                  </svg>
+                ) : push.isEnabled ? (
+                  /* campana activa (rellena) */
+                  <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor" className="text-[var(--accent-light)]">
+                    <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                  </svg>
+                ) : (
+                  /* campana inactiva (outline) */
+                  <svg viewBox="0 0 24 24" width={20} height={20} fill="currentColor">
+                    <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/>
+                  </svg>
+                )}
+              </button>
+            )}
             <ThemeSelector />
             <div className="flex items-center gap-2">
               <Avatar
