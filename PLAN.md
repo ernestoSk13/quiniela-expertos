@@ -95,6 +95,8 @@
 - [x] Tarjeta de siguiente jornada con acceso directo a pronósticos
 - [x] Resumen de bonus predictions con edición hasta el 11 jun 2026
 - [x] Selector de tema (México / Canadá / EUA) en el header
+- [x] Navegación por tabs en móvil (< lg): "Pronósticos" / "Tabla" / "Historial" con barra fija en la parte inferior; desktop sin cambios
+- [x] Tab "Historial": stats del usuario + gráfica de evolución + acordeón por jornada, todo inline (sin abrir modal)
 
 ---
 
@@ -201,6 +203,7 @@
 - [x] `LeaderboardPNGCard` — botón en `/admin/tabla` para descargar la tabla general completa (tamaño móvil)
 - [x] Avatares con `crossOrigin="anonymous"` para que html2canvas pueda capturarlos vía CORS
 - [x] Pre-espera de carga de imágenes (`onload`/`onerror`) antes del capture para evitar PNGs con avatares vacíos
+- [x] CORS configurado en Firebase Storage bucket (`quinielaexpertos26.firebasestorage.app`) vía script Node con Admin SDK — fix para avatares bloqueados en el leaderboard en producción
 
 ### Rediseño de leaderboard (carta FIFA)
 **Estado:** Completado ✓
