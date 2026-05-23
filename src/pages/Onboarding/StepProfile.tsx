@@ -25,52 +25,208 @@ export default function StepProfile({
     if (file) onFileChange(file)
   }
 
+  const canContinue = displayName.trim().length > 0 && !loading
+
   return (
-    <div className="space-y-8">
-      {/* Avatar */}
-      <div className="flex flex-col items-center gap-4">
-        <Avatar url={previewUrl} name={displayName || '?'} size="xl" />
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+
+        .sp-name-input {
+          font-family: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+          font-size: 1.4rem;
+          letter-spacing: 0.07em;
+          background: rgba(38, 50, 38, 0.8);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: #fff;
+          border-radius: 0.75rem;
+          padding: 0.7rem 1rem;
+          width: 100%;
+          outline: none;
+          transition: border-color 0.12s ease, box-shadow 0.12s ease;
+          text-transform: uppercase;
+        }
+        .sp-name-input::placeholder {
+          font-family: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+          color: rgba(255,255,255,0.18);
+          text-transform: uppercase;
+        }
+        .sp-name-input:focus {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 2px var(--accent-muted), 0 0 14px var(--accent-muted);
+        }
+
+        .sp-upload-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.375rem;
+          padding: 0.35rem 0.85rem;
+          border-radius: 99px;
+          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.04);
+          color: rgba(255,255,255,0.5);
+          font-size: 0.72rem;
+          font-weight: 600;
+          letter-spacing: 0.05em;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .sp-upload-pill:hover {
+          border-color: var(--accent);
+          color: var(--accent-light);
+          background: var(--accent-deep);
+        }
+
+        .sp-continue {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          padding: 0.8rem 1rem;
+          border-radius: 0.875rem;
+          border: none;
+          font-size: 0.875rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: opacity 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .sp-continue-on {
+          background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent) 60%);
+          box-shadow: 0 4px 18px var(--accent-muted), inset 0 1px 0 rgba(255,255,255,0.12);
+          color: #fff;
+        }
+        .sp-continue-on:hover { opacity: 0.9; }
+        .sp-continue-on:active { transform: scale(0.98); }
+        .sp-continue-off {
+          background: rgba(255,255,255,0.04);
+          color: rgba(255,255,255,0.18);
+          cursor: not-allowed;
+        }
+      `}</style>
+
+      <div className="space-y-7">
+
+        {/* ── Avatar / player card photo zone ── */}
+        <div className="flex flex-col items-center gap-3 pt-2">
+
+          {/* Outer ring + avatar */}
+          <div className="relative" style={{ width: 104, height: 104 }}>
+
+            {/* Dashed outer orbit ring */}
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              viewBox="0 0 104 104"
+            >
+              <circle
+                cx="52" cy="52" r="50"
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth="0.8"
+                strokeDasharray="4 7"
+                opacity="0.35"
+              />
+              {/* 4 accent corner dots */}
+              {[0, 90, 180, 270].map(deg => {
+                const rad = (deg * Math.PI) / 180
+                return (
+                  <circle
+                    key={deg}
+                    cx={52 + 50 * Math.cos(rad)}
+                    cy={52 + 50 * Math.sin(rad)}
+                    r="2.5"
+                    fill="var(--accent)"
+                    opacity="0.55"
+                  />
+                )
+              })}
+            </svg>
+
+            {/* Avatar — clipped inside accent border ring */}
+            <div
+              className="absolute overflow-hidden rounded-full"
+              style={{
+                inset: 10,
+                border: '2px solid var(--accent)',
+                boxShadow: '0 0 12px var(--accent-muted)',
+              }}
+            >
+              <Avatar url={previewUrl} name={displayName || '?'} size="xl" />
+            </div>
+          </div>
+
+          {/* FOTO label */}
+          <p
+            className="text-[8px] tracking-[0.32em] uppercase font-bold select-none"
+            style={{ color: 'rgba(255,255,255,0.22)' }}
+          >
+            FOTO
+          </p>
+
+          {/* Upload pill */}
+          <button
+            type="button"
+            className="sp-upload-pill"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {/* Camera icon */}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            {previewUrl ? 'Cambiar foto' : 'Subir foto'}
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFile}
+          />
+        </div>
+
+        {/* ── Name input ── */}
+        <div>
+          <label
+            className="block text-[9px] font-semibold tracking-[0.25em] uppercase mb-2.5"
+            style={{ color: 'rgba(255,255,255,0.3)' }}
+          >
+            Tu nombre en el marcador
+          </label>
+          <input
+            type="text"
+            value={displayName}
+            onChange={e => onDisplayNameChange(e.target.value)}
+            placeholder="TU NOMBRE"
+            maxLength={30}
+            className="sp-name-input"
+          />
+          <p className="text-[10px] mt-1.5" style={{ color: 'rgba(255,255,255,0.22)' }}>
+            Así aparecerás en el marcador general
+          </p>
+        </div>
+
+        {/* ── Continue button ── */}
         <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="text-sm text-[var(--accent-light)] hover:text-[var(--accent-light)] transition-colors"
+          onClick={onContinue}
+          disabled={!canContinue}
+          className={`sp-continue ${canContinue ? 'sp-continue-on' : 'sp-continue-off'}`}
         >
-          {previewUrl ? 'Cambiar foto' : 'Subir foto'}
+          {loading ? 'Cargando…' : (
+            <>
+              <span>Continuar</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </>
+          )}
         </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFile}
-        />
-      </div>
 
-      {/* Nombre */}
-      <div>
-        <label className="block text-sm text-gray-400 mb-1.5">
-          ¿Cómo quieres que te llamen?
-        </label>
-        <input
-          type="text"
-          value={displayName}
-          onChange={e => onDisplayNameChange(e.target.value)}
-          placeholder="Tu nombre"
-          maxLength={30}
-          className="w-full bg-gray-800 border border-gray-700 focus:border-[var(--accent)] focus:outline-none text-white placeholder-gray-600 rounded-xl px-4 py-3 transition-colors"
-        />
-        <p className="text-xs text-gray-600 mt-1">
-          Así aparecerás en la tabla general.
-        </p>
       </div>
-
-      <button
-        onClick={onContinue}
-        disabled={!displayName.trim() || loading}
-        className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-colors"
-      >
-        {loading ? 'Cargando...' : 'Continuar →'}
-      </button>
-    </div>
+    </>
   )
 }

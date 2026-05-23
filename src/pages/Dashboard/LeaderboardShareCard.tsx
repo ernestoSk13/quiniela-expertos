@@ -3,16 +3,17 @@ import { captureAndShare } from '@/hooks/useShareImage'
 import type { ThemeId } from '@/lib/themes'
 import type { User } from '@/types'
 
-const MEDALS = ['🥇', '🥈', '🥉']
+const MEDAL_BG   = ['#FFD700', '#C0C0C0', '#CD7F32']
+const MEDAL_TEXT = ['#111', '#111', '#fff']
 
-const COLORS: Record<ThemeId, { bg: string; surface: string; accent: string; border: string }> = {
-  mexico: { bg: '#010a04', surface: '#0c1f0f', accent: '#00C853', border: 'rgba(0,200,83,0.3)' },
-  canada: { bg: '#0a0101', surface: '#1a0606', accent: '#E51414', border: 'rgba(229,20,20,0.3)' },
-  usa:    { bg: '#01020c', surface: '#080b1e', accent: '#2535F0', border: 'rgba(37,53,240,0.3)' },
+const COLORS: Record<ThemeId, { bg: string; surface: string; accent: string; border: string; heroStripe: string }> = {
+  mexico: { bg: '#010a04', surface: '#0c1f0f', accent: '#00C853', border: 'rgba(0,200,83,0.25)',  heroStripe: 'rgba(0,200,83,0.13)'  },
+  canada: { bg: '#0a0101', surface: '#1a0606', accent: '#E51414', border: 'rgba(229,20,20,0.25)', heroStripe: 'rgba(229,20,20,0.13)' },
+  usa:    { bg: '#01020c', surface: '#080b1e', accent: '#2535F0', border: 'rgba(37,53,240,0.25)', heroStripe: 'rgba(37,53,240,0.13)' },
 }
 
 interface Props {
-  position: number  // 1-based; 0 means not found
+  position: number   // 1-based; 0 means not found
   player: User
   themeId: ThemeId
 }
@@ -36,11 +37,19 @@ export default function LeaderboardShareCard({ position, player, themeId }: Prop
     }
   }
 
-  const medal = position <= 3 ? MEDALS[position - 1] : null
+  const hasMedal  = position <= 3
+  const posColor  = hasMedal ? MEDAL_BG[position - 1]   : 'rgba(255,255,255,0.15)'
+  const posText   = hasMedal ? MEDAL_TEXT[position - 1] : 'rgba(255,255,255,0.8)'
+
+  const statItems = [
+    { label: 'Puntos',   value: player.stats.totalPoints,                                         accent: true  },
+    { label: 'Aciertos', value: player.stats.exactPredictions + player.stats.correctPredictions,  accent: false },
+    { label: 'Exactos',  value: player.stats.exactPredictions,                                    accent: false },
+  ]
 
   return (
     <>
-      {/* Card off-screen para html2canvas */}
+      {/* ── Off-screen card for html2canvas ── */}
       <div
         ref={cardRef}
         style={{
@@ -51,85 +60,201 @@ export default function LeaderboardShareCard({ position, player, themeId }: Prop
           backgroundColor: c.bg,
           borderRadius: 16,
           overflow: 'hidden',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-          padding: '28px 32px 24px',
+          fontFamily: "'Bebas Neue', Impact, 'Arial Narrow', sans-serif",
           boxSizing: 'border-box',
           border: `1.5px solid ${c.border}`,
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
-          <span style={{ fontSize: 18 }}>⚽</span>
-          <div>
-            <div style={{ color: c.accent, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              Quiniela Expertos
-            </div>
-            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, letterSpacing: '0.05em' }}>
-              Mundial 2026
-            </div>
-          </div>
-        </div>
+        {/* Top accent stripe (3px) */}
+        <div style={{
+          height: 3,
+          background: `linear-gradient(to right, ${c.accent}cc, ${c.accent}88, transparent)`,
+        }} />
 
-        {/* Position + name */}
-        <div style={{ backgroundColor: c.surface, borderRadius: 12, padding: '20px 24px', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <span style={{ fontSize: 32 }}>{medal ?? `#${position}`}</span>
-            {medal && (
-              <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 20, fontWeight: 600 }}>
-                #{position}
-              </span>
-            )}
-          </div>
-          <div style={{ color: '#ffffff', fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4 }}>
-            {player.displayName}
-          </div>
-        </div>
+        {/* Hero header section */}
+        <div style={{
+          padding: '20px 24px 20px',
+          background: `linear-gradient(to bottom, ${c.heroStripe} 0%, transparent 100%)`,
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 16,
+        }}>
+          {/* Rectangular avatar card + position badge */}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <div style={{
+              width: 80,
+              height: 104,
+              borderRadius: 8,
+              overflow: 'hidden',
+              backgroundColor: '#1a1a1a',
+              border: `2.5px solid ${posColor}`,
+              boxSizing: 'border-box',
+            }}>
+              {player.avatarUrl ? (
+                <img
+                  src={player.avatarUrl}
+                  alt=""
+                  crossOrigin="anonymous"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                <div style={{
+                  width: '100%', height: '100%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: c.surface,
+                }}>
+                  <span style={{
+                    color: c.accent,
+                    fontSize: 22,
+                    fontWeight: 800,
+                    fontFamily: "'Bebas Neue', Impact, sans-serif",
+                  }}>
+                    {getInitials(player.displayName)}
+                  </span>
+                </div>
+              )}
+            </div>
 
-        {/* Stats */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          {[
-            { label: 'Puntos', value: player.stats.totalPoints, highlight: true },
-            { label: 'Exactos', value: player.stats.exactPredictions, highlight: false },
-            { label: 'Correctos', value: player.stats.correctPredictions, highlight: false },
-          ].map(({ label, value, highlight }) => (
-            <div
-              key={label}
-              style={{
-                flex: 1,
-                backgroundColor: highlight ? c.accent : c.surface,
-                borderRadius: 10,
-                padding: '12px 8px',
-                textAlign: 'center',
-              }}
-            >
-              <div style={{
-                color: highlight ? '#ffffff' : c.accent,
-                fontSize: 22,
-                fontWeight: 800,
+            {/* Position badge */}
+            <div style={{
+              position: 'absolute',
+              top: -11,
+              left: -11,
+              width: 34,
+              height: 34,
+              borderRadius: '50%',
+              backgroundColor: posColor,
+              border: '2.5px solid rgba(0,0,0,0.7)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: `0 2px 8px rgba(0,0,0,0.55)`,
+            }}>
+              <span style={{
+                color: posText,
+                fontFamily: "'Bebas Neue', Impact, 'Arial Narrow', sans-serif",
+                fontSize: position >= 10 ? 13 : 17,
                 lineHeight: 1,
-                marginBottom: 4,
+                fontWeight: 900,
               }}>
-                {value}
-              </div>
-              <div style={{ color: highlight ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                {label}
-              </div>
+                {position}
+              </span>
             </div>
-          ))}
+          </div>
+
+          {/* Right: name + stat bar */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+
+            {/* Player name */}
+            <div style={{
+              fontFamily: "'Bebas Neue', Impact, 'Arial Narrow', sans-serif",
+              fontSize: 28,
+              letterSpacing: '0.05em',
+              color: '#ffffff',
+              lineHeight: 1,
+              marginBottom: 14,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {player.displayName}
+            </div>
+
+            {/* Unified stat bar */}
+            <div style={{
+              display: 'flex',
+              borderLeft: `2.5px solid ${c.accent}`,
+              borderTop: `1px solid rgba(255,255,255,0.07)`,
+              borderRight: `1px solid rgba(255,255,255,0.07)`,
+              borderBottom: `1px solid rgba(255,255,255,0.07)`,
+              borderRadius: '0 8px 8px 0',
+              background: 'rgba(0,0,0,0.28)',
+              overflow: 'hidden',
+            }}>
+              {statItems.map(({ label, value, accent }, i) => (
+                <div
+                  key={label}
+                  style={{
+                    flex: 1,
+                    textAlign: 'center',
+                    padding: '10px 6px',
+                    borderRight: i < statItems.length - 1
+                      ? '1px solid rgba(255,255,255,0.07)'
+                      : 'none',
+                  }}
+                >
+                  <div style={{
+                    fontFamily: "'Bebas Neue', Impact, 'Arial Narrow', sans-serif",
+                    fontSize: value >= 100 ? 20 : 24,
+                    lineHeight: 1,
+                    letterSpacing: '0.04em',
+                    color: accent ? c.accent : '#ffffff',
+                  }}>
+                    {value}
+                  </div>
+                  <div style={{
+                    fontSize: 8,
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    color: 'rgba(255,255,255,0.32)',
+                    marginTop: 3,
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                  }}>
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Branding footer */}
+        <div style={{
+          borderTop: `1px solid ${c.border}`,
+          padding: '10px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
+        }}>
+          <span style={{ fontSize: 13 }}>⚽</span>
+          <span style={{
+            fontFamily: "'Bebas Neue', Impact, 'Arial Narrow', sans-serif",
+            fontSize: 12,
+            letterSpacing: '0.14em',
+            color: c.accent,
+          }}>
+            QUINIELA EXPERTOS
+          </span>
+          <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 10 }}>•</span>
+          <span style={{
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            fontSize: 10,
+            letterSpacing: '0.06em',
+            color: 'rgba(255,255,255,0.3)',
+          }}>
+            MUNDIAL 2026
+          </span>
         </div>
       </div>
 
       {/* Botón visible en la UI */}
-      <button
+      {/* <button
         onClick={handleShare}
         disabled={sharing}
         className="mt-3 w-full flex items-center justify-center gap-2 text-sm text-gray-400 hover:text-[var(--accent-light)] border border-gray-800 hover:border-[var(--accent)] rounded-xl py-2.5 transition-colors disabled:opacity-50"
       >
         <ShareIcon />
         {sharing ? 'Generando imagen...' : 'Compartir mi posición'}
-      </button>
+      </button> */}
     </>
   )
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 function ShareIcon() {
