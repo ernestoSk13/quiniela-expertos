@@ -1,5 +1,4 @@
-import { useRef, useState } from 'react'
-import { captureAndShare } from '@/hooks/useShareImage'
+import { useRef } from 'react'
 import type { ThemeId } from '@/lib/themes'
 import type { User } from '@/types'
 
@@ -20,22 +19,9 @@ interface Props {
 
 export default function LeaderboardShareCard({ position, player, themeId }: Props) {
   const cardRef = useRef<HTMLDivElement>(null)
-  const [sharing, setSharing] = useState(false)
   const c = COLORS[themeId]
 
   if (position === 0) return null
-
-  async function handleShare() {
-    if (!cardRef.current) return
-    setSharing(true)
-    try {
-      await captureAndShare(cardRef.current, `quiniela-pos${position}`)
-    } catch {
-      // silencioso — el usuario canceló o el navegador no soporta
-    } finally {
-      setSharing(false)
-    }
-  }
 
   const hasMedal  = position <= 3
   const posColor  = hasMedal ? MEDAL_BG[position - 1]   : 'rgba(255,255,255,0.15)'
@@ -257,10 +243,10 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-function ShareIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-      <path d="M13 4.5a2.5 2.5 0 11.702 1.737L6.97 9.604a2.518 2.518 0 010 .792l6.733 3.367a2.5 2.5 0 11-.671 1.341l-6.733-3.367a2.5 2.5 0 110-3.474l6.733-3.366A2.52 2.52 0 0113 4.5z" />
-    </svg>
-  )
-}
+// function ShareIcon() {
+//   return (
+//     <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+//       <path d="M13 4.5a2.5 2.5 0 11.702 1.737L6.97 9.604a2.518 2.518 0 010 .792l6.733 3.367a2.5 2.5 0 11-.671 1.341l-6.733-3.367a2.5 2.5 0 110-3.474l6.733-3.366A2.52 2.52 0 0113 4.5z" />
+//     </svg>
+//   )
+// }

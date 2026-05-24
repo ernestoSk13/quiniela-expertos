@@ -22,13 +22,14 @@ Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios envían p
 ### Para jugadores
 - **Login con Google** — acceso solo para correos autorizados por el admin (cuentas Gmail)
 - **Link de invitación** — el admin genera un link personalizado por correo con TTL de 7 días; el invitado abre `/invite/:token` y llega al login con su correo pre-cargado
-- **Onboarding** — configurar nombre, subir avatar y registrar predicciones de bonus (goleador, balón de oro, fase de México, campeón)
+- **Onboarding** — 3 pasos: configurar nombre + avatar, registrar predicciones de bonus (goleador, balón de oro, fase de México, campeón), instalar como PWA
 - **Dashboard** — leaderboard estilo carta FIFA con avatar y posición destacada para top 3 (medallas); historial personal por jugador; countdown al inicio del torneo; tarjeta de siguiente jornada con barra de progreso de pronósticos; acceso a jornadas anteriores; resumen de bonus editables hasta el 11 jun 2026
-- **Pronósticos** — keypad numérico en móvil con scroll automático al partido activo; inputs directos + sidebar en desktop (partidos guardados colapsan con animación, sección "Guardados" con edición rápida); soporte de fase eliminatoria con selección de equipo que avanza en caso de empate; bloqueo automático por partido en cuanto inicia (`scheduledAt`)
-- **Historial personal** — al tocar cualquier fila del leaderboard: stats del jugador (puntos, exactos, correctos), gráfica de evolución de puntos y desglose de pronósticos por jornada
+- **Pronósticos** — keypad numérico frosted-glass en móvil con scroll automático al partido activo; inputs directos + sidebar en desktop (barra de progreso, marcadores pendientes, guardados); soporte de fase eliminatoria con selección de equipo que avanza en caso de empate; bloqueo automático por partido en cuanto inicia (`scheduledAt`)
+- **Historial personal** — al tocar cualquier fila del leaderboard: card de avatar, stats del jugador (puntos, exactos, correctos), gráfica de evolución de puntos con área degradada y desglose de pronósticos por jornada; accordion por jornada con resultado real, pronóstico y puntos
 - **Ver predicciones post-jornada** — cuando una jornada cierra, toggle "Ver todos" muestra qué pronosticó cada jugador partido a partido con indicador de puntos obtenidos
-- **Compartir como imagen** — botones para generar PNG de tu posición en la tabla general y del resumen de una jornada cerrada; usa Web Share API en móvil o descarga directa en desktop
+- **Compartir como imagen** — botones para generar PNG del resumen de una jornada cerrada y de la tabla general; usa Web Share API en móvil o descarga directa en desktop
 - **Temas por país sede** — México 🇲🇽, Canadá 🇨🇦, EUA 🇺🇸 — fondo, header, tarjetas y acentos cambian con la paleta FIFA WC 2026
+- **Preferencias** — cambiar tema, instalar PWA, activar notificaciones push, gestionar cuenta; accesible como tab en móvil (sin perder contexto)
 
 ### Para administradores
 - **Gestión de jornadas** — crear, editar, cambiar estado (upcoming/open/closed/finished), modificar deadline de pronósticos

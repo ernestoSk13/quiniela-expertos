@@ -16,6 +16,7 @@ import BonusSummary from './BonusSummary'
 import TournamentCountdown from './TournamentCountdown'
 import PlayerHistoryModal, { HistoryContent } from './PlayerHistoryModal'
 import LeaderboardShareCard from './LeaderboardShareCard'
+import { PreferencesContent } from '@/pages/Preferences/Preferences'
 import { useTheme } from '@/context/ThemeContext'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import type { BonusPredictions } from '@/types/User'
@@ -375,6 +376,10 @@ export default function Dashboard() {
           <div>{historySection}</div>
         )}
 
+        {activeTab === 'preferences' && (
+          <PreferencesContent />
+        )}
+
       </main>
 
       {/* ── Desktop: original grid layout (hidden below lg) ────────────────── */}
@@ -414,7 +419,7 @@ export default function Dashboard() {
         {TABS.map(({ id, label, icon }) => (
           <button
             key={id}
-            onClick={() => id === 'preferences' ? navigate('/preferencias') : setActiveTab(id)}
+            onClick={() => setActiveTab(id)}
             className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[11px] font-medium transition-colors ${
               activeTab === id ? 'text-[var(--accent-light)]' : 'text-gray-500'
             }`}

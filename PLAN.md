@@ -12,6 +12,8 @@
 - [x] Link de invitación: admin genera token por correo, invitado llega a página de bienvenida
 - [x] Compartir como imagen: posición personal, resumen de jornada y tabla general (PNG)
 - [x] Leaderboard rediseñado tipo carta FIFA (mini-card con avatar) — componente compartido entre dashboard, admin y PNG card
+- [x] Rediseño visual completo: Onboarding, Pronósticos, Modal de historial, Preferencias (Fase 12)
+- [ ] **PENDIENTE**: Fix flujo mobile — Preferencias como tab inline en Dashboard (evitar que la tab bar desaparezca)
 
 ---
 
@@ -220,6 +222,52 @@
 - [x] 3 stat boxes compactos (80px c/u): Puntos / Aciertos (exactos+correctos) / Exactos; fuente 16px para valores ≥ 100
 - [x] `LeaderboardTable.onPlayerClick` ahora pasa `(player, position)` — Dashboard y AdminLeaderboard actualizados
 - [x] Contenido inferior sin cambios: gráfica de evolución + acordeón por jornada
+
+---
+
+## Fase 12 — Rediseño Visual (Mayo 2026)
+
+### Pronósticos
+**Estado:** Completado ✓ (desplegado)
+
+- [x] `NumericKeypad.tsx` — panel frosted-glass (`rgba(8,18,10,0.82)` + `backdrop-filter: blur(20px) saturate(160%)`), botones con gradiente interno y `scale(0.93)` en `:active`, botón Guardar con pill de conteo, ícono SVG de borrar
+- [x] `PredictionsSidebar.tsx` — barra de progreso con glow, marcadores pendientes en Bebas Neue acento, partidos guardados con punto verde, icono SVG de reloj para deadline en ámbar
+
+### Onboarding
+**Estado:** Completado ✓ (desplegado)
+
+- [x] `Onboarding.tsx` — fondo con rayas diagonales, "REGISTRO DEL TORNEO" en Bebas Neue, progress stepper con círculos numerados (completado / activo pulsante / pendiente), card con franja superior de gradiente acento
+- [x] `StepProfile.tsx` — zona de foto con anillo SVG punteado + 4 puntos decorativos, input de nombre en Bebas Neue tipo marcador arcade, botón de cámara pill, botón continuar con gradiente
+- [x] `StepBonus.tsx` — 4 field-cards con borde izquierdo acento, inputs y selects en Bebas Neue, select de campeón con bandera inline al seleccionar
+- [x] `StepInstall.tsx` — ilustración SVG de teléfono con glow animado, chips de beneficios en pill, círculos numerados de pasos, dos botones (confirmar + omitir)
+
+### Modal de historial
+**Estado:** Completado ✓ (desplegado)
+
+- [x] `PlayerHistoryModal.tsx` — card avatar rectangular (68×88px) con badge de posición superpuesto, animaciones de entrada (overlay fade + sheet slide-up), franja heroica con gradiente, stat bar en Bebas Neue con borde izquierdo acento, gráfica SVG con área de relleno degradada, acordeón con chevron rotante, badge de puntos por partido, pill "TÚ" para perfil propio, estado vacío con ícono SVG de calendario
+
+### Leaderboard Share Card
+**Estado:** Completado ✓ (desplegado)
+
+- [x] `LeaderboardShareCard.tsx` — card off-screen 400px para html2canvas: franja superior gradiente, avatar rectangular 80×104px con badge de posición, nombre en Bebas Neue 28px, stat bar con borde acento, footer de marca
+- [x] Botón "Compartir mi posición" comentado intencionalmente — restaurar en el futuro cuando se decida
+- [x] Colores hardcodeados en `COLORS` record (no CSS variables) para compatibilidad con html2canvas
+
+### Preferencias
+**Estado:** Redesñado ✓ / **Deploy pendiente**
+
+- [x] `Preferences.tsx` — header con "PREFERENCIAS" en Bebas Neue, `SectionHeader` con línea gradiente, tema con 3 cards (flag 4xl + glow acento al activo), sección instalación con chips pill + instrucciones numeradas, toggle de notificaciones 50×28px + borde izquierdo al activar + LockIcon si denegado, cuenta con iconos SVG (persona/mail), botón cerrar sesión rojo
+- [ ] **Deploy pendiente** junto con fix mobile de Dashboard.tsx
+
+### Fix Mobile — Tab de Preferencias
+**Estado:** Pendiente
+
+- [ ] `Dashboard.tsx`: cambiar `onClick={() => navigate('/preferencias')}` → `setActiveTab('preferences')` para el tab de móvil
+- [ ] Agregar panel `{activeTab === 'preferences' && <PreferencesContent />}` en la sección mobile del Dashboard
+- [ ] La ruta `/preferencias` permanece solo para acceso desktop (ícono engranaje del header)
+- [ ] Desplegar junto con Preferences.tsx redesignado
+
+---
 
 ### Notificaciones push
 **Estado:** Completado ✓

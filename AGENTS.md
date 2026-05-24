@@ -14,18 +14,20 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 
 - [x] Firebase configurado (Auth, Firestore, Storage, Hosting, Cloud Functions gen2)
 - [x] Autenticación — email/contraseña + Google, lista de correos permitidos
-- [x] Onboarding — display name, avatar, bonus predictions (2 pasos)
-- [x] Dashboard — tabla de posiciones en tiempo real, siguiente jornada, sección de bonus, countdown al torneo, jornadas anteriores
-- [x] Pronósticos — keypad numérico en móvil (con scroll automático al partido activo), inputs directos + sidebar en desktop (partidos guardados colapsan con animación, sección "Guardados" con edición por lápiz); bloqueo por `scheduledAt` individual además del deadline de jornada
+- [x] Onboarding — display name, avatar, bonus predictions (3 pasos: perfil, bonus, instalar PWA); rediseñado con estética "Tournament Registration"
+- [x] Dashboard — tabla de posiciones en tiempo real, siguiente jornada, sección de bonus, countdown al torneo, jornadas anteriores; tab bar en móvil con 4 pestañas (pronósticos / tabla / historial / preferencias)
+- [x] Pronósticos — keypad numérico rediseñado (frosted-glass) en móvil; sidebar de desktop rediseñado; bloqueo por `scheduledAt` individual además del deadline de jornada
 - [x] Panel de Admin — jornadas, resultados, jugadores, bonus, acceso; tabla general (`/admin/tabla`); configuración de puntos (`/admin/config`); nav desktop con 6 ítems, tab bar móvil con 4
 - [x] Temas por país — México / Canadá / EUA (paleta FIFA WC 2026), skill `/add-theme` para agregar nuevos
 - [x] Cloud Functions gen2 — `onMatchUpdated` (scoring + config dinámica), `evaluateBonusPredictions` (bonus + config dinámica), `getInvite` (valida tokens de invitación sin auth)
-- [x] Historial por jugador — modal desde el leaderboard con stats, gráfica SVG de evolución y acordeón por jornada
+- [x] Historial por jugador — `PlayerHistoryModal`: bottom-sheet/modal con card avatar rectangular, badge de posición, stat bar Bebas Neue, gráfica SVG con área de relleno, acordeón por jornada con PredRow detallado
 - [x] Post-jornada — toggle "Ver todos" en jornadas cerradas/finalizadas muestra predicciones de todos los jugadores partido a partido con badges de puntos
 - [x] Puntos configurables — `config/scoring` en Firestore; admin edita desde `/admin/config`; Cloud Functions leen config con fallback a `DEFAULT_SCORING`
 - [x] Link de invitación — admin genera token por correo desde `/admin/usuarios`; invitado abre `/invite/:token` y llega al login con correo pre-cargado
-- [x] Compartir como imagen — `useShareImage` (html2canvas + Web Share API con `forceDownload` opcional); `LeaderboardShareCard` en dashboard, `JornadaShareCard` post-jornada, `LeaderboardPNGCard` en `/admin/tabla`
+- [x] Compartir como imagen — `useShareImage` (html2canvas + Web Share API con `forceDownload` opcional); `LeaderboardShareCard` (botón "Compartir mi posición" comentado temporalmente), `JornadaShareCard` post-jornada, `LeaderboardPNGCard` en `/admin/tabla`
 - [x] Leaderboard estilo carta FIFA — componente `LeaderboardRow` compartido entre dashboard, admin y PNG card; filas alternadas con fondo transparente del acento del tema
+- [x] `Preferences.tsx` rediseñado — header Bebas Neue, theme cards con glow, toggle premium, account con iconos SVG; **pendiente de deploy junto con el fix de mobile tab**
+- [ ] **PENDIENTE**: `Dashboard.tsx` — cambiar tab de Preferencias de `navigate('/preferencias')` a `setActiveTab('preferences')` con contenido inline para mantener tab bar visible en móvil
 
 ---
 
@@ -62,6 +64,22 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
   - `surface-nav` — clase utilitaria para header/tab bar
   - `surface-card` — clase utilitaria para tarjetas/paneles
   - `app-bg` — clase utilitaria para el fondo de página completa
+
+### Sistema de diseño — Bebas Neue
+- La fuente **Bebas Neue** está cargada globalmente vía `@import url(...)` en `src/index.css`.
+- Se usa para: títulos de header, marcadores de partidos, nombres en modales, estadísticas destacadas.
+- En los componentes también se puede cargar vía `<style>{ \`@import url(...)\` }</style>` (necesario si el componente se captura con html2canvas fuera del DOM principal).
+- Stack de fuente recomendado: `'Bebas Neue', Impact, 'Arial Narrow', sans-serif`
+
+### html2canvas — Colores en cards off-screen
+- Los componentes usados como "off-screen card" para html2canvas (ej. `LeaderboardShareCard`, `LeaderboardPNGCard`, `JornadaShareCard`) deben usar **colores hardcodeados**, no `var(--accent)` ni otras CSS custom properties.
+- html2canvas no resuelve variables CSS del contexto del DOM en elementos con `position: absolute; left: -9999px`.
+- Cada componente de este tipo define su propio `COLORS` record con valores literales por tema.
+- Usar `crossOrigin="anonymous"` en `<img>` para avatares de Firebase Storage (CORS configurado en el bucket).
+
+### TypeScript — noUnusedLocals
+- El proyecto tiene `"noUnusedLocals": true` en `tsconfig.json`. Variables declaradas y nunca leídas causan error TS6133.
+- Si se comenta un bloque de JSX que deja estado/funciones sin usar, eliminar o comentar también las declaraciones correspondientes.
 
 ---
 
@@ -122,14 +140,17 @@ src/
 │   ├── Onboarding/
 │   │   ├── Onboarding.tsx
 │   │   ├── StepBonus.tsx
+│   │   ├── StepInstall.tsx          # Paso 3: instalar PWA (detect platform, instrucciones numeradas)
 │   │   └── StepProfile.tsx
+│   ├── Preferences/
+│   │   └── Preferences.tsx          # /preferencias — acceso desde gear icon desktop; en móvil se renderiza inline como tab en Dashboard
 │   └── Predictions/
 │       ├── CompactMatchRow.tsx
 │       ├── JornadaShareCard.tsx     # Botón "Compartir" en post-jornada → PNG con resumen de pronósticos
 │       ├── MatchdayPredictions.tsx
-│       ├── NumericKeypad.tsx        # Keypad fijo en móvil
+│       ├── NumericKeypad.tsx        # Keypad fijo en móvil (frosted-glass, botones con gradiente interno)
 │       ├── PostMatchdayView.tsx     # Vista post-jornada: predicciones de todos × partido
-│       └── PredictionsSidebar.tsx  # Sidebar de desktop (progreso, cambios pendientes, guardados)
+│       └── PredictionsSidebar.tsx  # Sidebar de desktop (barra de progreso con glow, marcadores en Bebas Neue)
 ├── services/
 │   ├── cloudFunctions.ts           # Wrappers callables: evaluateBonusPredictions, getInvite
 │   ├── firestoreAdmin.ts           # resetAllData()
@@ -286,3 +307,6 @@ npm run build            # Compilar TypeScript → lib/
 - No hacer commits con credenciales distintas al proyecto `quinielaexpertos26`.
 - No agregar features no solicitadas ("gold-plating").
 - No usar `firebase-functions` < v4 — las funciones son gen2 y requieren el API v2 (`firebase-functions/v2/...`).
+- No usar `var(--accent)` ni CSS variables en cards off-screen para html2canvas — usar colores hardcodeados del `COLORS` record.
+- No restaurar el botón "Compartir mi posición" en `LeaderboardShareCard.tsx` sin confirmación explícita del desarrollador — fue comentado intencionalmente.
+- En móvil, el tab de Preferencias debe renderizarse **inline en Dashboard** (no navegar a `/preferencias`); la ruta `/preferencias` es solo para desktop.
