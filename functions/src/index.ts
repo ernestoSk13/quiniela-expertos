@@ -369,6 +369,25 @@ export const notifyResultsPublished = onDocumentUpdated('matchdays/{matchdayId}'
   )
 })
 
+export const sendMassNotification = onCall(async request => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Not authenticated')
+
+  const callerDoc = await db.collection('users').doc(request.auth.uid).get()
+  if (callerDoc.data()?.role !== 'admin') {
+    throw new HttpsError('permission-denied', 'Admins only')
+  }
+
+  const { title, body } = request.data as { title?: string; body?: string }
+  if (!title?.trim() || !body?.trim()) {
+    throw new HttpsError('invalid-argument', 'Título y mensaje requeridos')
+  }
+
+  const tokens = await getFcmTokens()
+  await sendPush(tokens, title.trim(), body.trim())
+
+  return { sent: tokens.length }
+})
+
 export const evaluateBonusPredictions = onCall(async request => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Not authenticated')
 

@@ -25,3 +25,15 @@ export async function evaluateBonusPredictions(actual: {
   const fn = httpsCallable(functions, 'evaluateBonusPredictions')
   await fn(actual)
 }
+
+export async function sendMassNotification(
+  title: string,
+  body: string,
+): Promise<{ sent: number }> {
+  const fn = httpsCallable<{ title: string; body: string }, { sent: number }>(
+    functions,
+    'sendMassNotification',
+  )
+  const result = await fn({ title, body })
+  return result.data
+}

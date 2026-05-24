@@ -15,21 +15,23 @@ const MOBILE_NAV = [
 
 // Secciones ocultas bajo "Más" en móvil
 const MORE_NAV = [
-  { to: '/admin/bonus',    label: 'Bonus' },
-  { to: '/admin/metricas', label: 'Métricas' },
-  { to: '/admin/config',   label: 'Puntos' },
+  { to: '/admin/bonus',           label: 'Bonus' },
+  { to: '/admin/metricas',        label: 'Métricas' },
+  { to: '/admin/notificaciones',  label: 'Notificaciones' },
+  { to: '/admin/config',          label: 'Puntos' },
 ]
 
 const MORE_PATHS = MORE_NAV.map(n => n.to)
 
 const DESKTOP_NAV = [
-  { to: '/admin',            label: 'Jornadas',  end: true },
-  { to: '/admin/jugadores',  label: 'Jugadores' },
-  { to: '/admin/bonus',      label: 'Bonus' },
-  { to: '/admin/usuarios',   label: 'Acceso' },
-  { to: '/admin/tabla',      label: 'Tabla' },
-  { to: '/admin/metricas',   label: 'Métricas' },
-  { to: '/admin/config',     label: 'Puntos' },
+  { to: '/admin',                   label: 'Jornadas',        end: true },
+  { to: '/admin/jugadores',         label: 'Jugadores' },
+  { to: '/admin/bonus',             label: 'Bonus' },
+  { to: '/admin/usuarios',          label: 'Acceso' },
+  { to: '/admin/tabla',             label: 'Tabla' },
+  { to: '/admin/metricas',          label: 'Métricas' },
+  { to: '/admin/notificaciones',    label: 'Notifs' },
+  { to: '/admin/config',            label: 'Puntos' },
 ]
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
@@ -103,6 +105,15 @@ function ChartIcon() {
   )
 }
 
+function BellIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  )
+}
+
 function MoreIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -115,19 +126,21 @@ function MoreIcon() {
 }
 
 const NAV_ICONS: Record<string, JSX.Element> = {
-  '/admin':            <CalendarIcon />,
-  '/admin/jugadores':  <UsersIcon />,
-  '/admin/bonus':      <StarIcon />,
-  '/admin/usuarios':   <ShieldIcon />,
-  '/admin/tabla':      <TableIcon />,
-  '/admin/metricas':   <ChartIcon />,
-  '/admin/config':     <GearIcon />,
+  '/admin':                   <CalendarIcon />,
+  '/admin/jugadores':         <UsersIcon />,
+  '/admin/bonus':             <StarIcon />,
+  '/admin/usuarios':          <ShieldIcon />,
+  '/admin/tabla':             <TableIcon />,
+  '/admin/metricas':          <ChartIcon />,
+  '/admin/notificaciones':    <BellIcon />,
+  '/admin/config':            <GearIcon />,
 }
 
 const MORE_ICONS: Record<string, JSX.Element> = {
-  '/admin/bonus':    <StarIcon />,
-  '/admin/metricas': <ChartIcon />,
-  '/admin/config':   <GearIcon />,
+  '/admin/bonus':          <StarIcon />,
+  '/admin/metricas':       <ChartIcon />,
+  '/admin/notificaciones': <BellIcon />,
+  '/admin/config':         <GearIcon />,
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
