@@ -2,32 +2,37 @@ import { useState, useEffect } from 'react'
 import { useScoringConfig } from '@/hooks/useScoringConfig'
 import { saveScoringConfig, type ScoringConfig } from '@/services/firestoreConfig'
 
+const BEBAS = "'Bebas Neue', Impact, 'Arial Narrow', sans-serif"
+
 interface FieldDef {
   key: keyof ScoringConfig
   label: string
   description: string
 }
 
-const FIELDS: { group: string; fields: FieldDef[] }[] = [
+const FIELDS: { group: string; emoji: string; fields: FieldDef[] }[] = [
   {
-    group: 'Partidos (grupos y eliminatorias sin empate al 90\')',
+    group: 'Fase de Grupos',
+    emoji: '⚽',
     fields: [
       { key: 'exactScore',    label: 'Marcador exacto',    description: 'Aciertan home y away exactamente' },
-      { key: 'correctResult', label: 'Resultado correcto', description: 'G/E/P correcto (grupos) o ganador correcto (eliminatorias), sin exacto' },
+      { key: 'correctResult', label: 'Resultado correcto', description: 'G/E/P correcto sin exacto' },
     ],
   },
   {
-    group: 'Eliminatorias con empate al 90\'',
+    group: 'Eliminatorias con empate',
+    emoji: '⚡',
     fields: [
-      { key: 'exactKnockoutWithTie', label: 'Marcador exacto + tieWinner', description: 'Marcador exacto Y equipo que avanza correcto' },
-      { key: 'correctTieWinner',     label: 'Solo tieWinner',              description: 'Equipo que avanza correcto, sin exacto de marcador' },
+      { key: 'exactKnockoutWithTie', label: 'Exacto + tieWinner', description: 'Marcador exacto Y equipo que avanza correcto' },
+      { key: 'correctTieWinner',     label: 'Solo tieWinner',     description: 'Equipo que avanza correcto, sin exacto' },
     ],
   },
   {
     group: 'Bonos',
+    emoji: '🏆',
     fields: [
-      { key: 'groupBonus',      label: 'Bonus de fase de grupos', description: '+pts al jugador con más exactos al terminar todos los partidos de grupos' },
-      { key: 'bonusPrediction', label: 'Predicción de bonus',      description: 'Por cada predicción de bonus acertada (goleador, balón de oro, etc.)' },
+      { key: 'groupBonus',      label: 'Bonus fase de grupos',  description: '+pts al jugador con más exactos al terminar grupos' },
+      { key: 'bonusPrediction', label: 'Predicción de bonus',   description: 'Por cada predicción bonus acertada' },
     ],
   },
 ]
@@ -41,7 +46,7 @@ export default function ScoringConfig() {
 
   useEffect(() => {
     if (!loading) setForm(config)
-  }, [loading]) // only sync once on initial load
+  }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleChange(key: keyof ScoringConfig, value: string) {
     const n = parseInt(value, 10)
@@ -66,77 +71,189 @@ export default function ScoringConfig() {
     }
   }
 
-  if (loading) {
-    return <p className="text-gray-500 text-sm py-8 text-center">Cargando configuración...</p>
-  }
-
   return (
-    <div className="space-y-6 max-w-xl">
-      <div>
-        <h1 className="text-xl font-bold">Configuración de puntos</h1>
-        <p className="text-gray-400 text-sm mt-1">
-          Los valores se aplican en la siguiente calificación. Cambiarlos no recalifica predicciones ya puntuadas.
+    <>
+      <style>{styles}</style>
+
+      {/* Page header */}
+      <div style={{ marginBottom: 24, maxWidth: 520 }}>
+        <h1 style={{ fontFamily: BEBAS, fontSize: '1.8rem', letterSpacing: '0.08em', color: '#fff', margin: 0, lineHeight: 1 }}>
+          CONFIGURACIÓN DE PUNTOS
+        </h1>
+        <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
+          Los valores se aplican en la siguiente calificación. No recalifica predicciones ya puntuadas.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {FIELDS.map(({ group, fields }) => (
-          <div key={group} className="surface-card rounded-xl p-4 space-y-4 border border-gray-800">
-            <h2 className="text-sm font-semibold text-[var(--accent-light)] uppercase tracking-wide">
-              {group}
-            </h2>
-            {fields.map(({ key, label, description }) => (
-              <div key={`${group}-${key}`} className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-sm text-gray-200">{label}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{description}</p>
-                </div>
-                <input
-                  type="number"
-                  min={0}
-                  max={99}
-                  value={form[key]}
-                  onChange={e => handleChange(key, e.target.value)}
-                  className="w-16 text-center bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white text-sm shrink-0 focus:outline-none focus:border-[var(--accent)]"
-                />
-              </div>
-            ))}
-          </div>
-        ))}
-
-        {showWarning && (
-          <div className="rounded-xl border border-yellow-700 bg-yellow-900/20 px-4 py-3 text-sm text-yellow-300 space-y-1">
-            <p className="font-semibold">Atención</p>
-            <p>
-              Cambiar los puntos no recalifica automáticamente las predicciones ya puntuadas.
-              Los partidos calificados antes de este cambio mantendrán sus puntos anteriores.
-              Confirma para guardar de todas formas.
-            </p>
-          </div>
-        )}
-
-        <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-4 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-          >
-            {saving ? 'Guardando...' : showWarning ? 'Confirmar y guardar' : 'Guardar'}
-          </button>
-          {showWarning && (
-            <button
-              type="button"
-              onClick={() => setShowWarning(false)}
-              className="px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
-            >
-              Cancelar
-            </button>
-          )}
-          {saved && !showWarning && (
-            <span className="text-sm text-green-400">Guardado</span>
-          )}
+      {loading ? (
+        <div style={{ maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} className="sc-shimmer" style={{ height: 120, borderRadius: 14 }} />
+          ))}
         </div>
-      </form>
-    </div>
+      ) : (
+        <form onSubmit={handleSubmit} style={{ maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {FIELDS.map(({ group, emoji, fields }) => (
+            <div key={group} className="sc-card rounded-2xl overflow-hidden">
+              {/* Card header */}
+              <div style={{
+                padding: '10px 16px 8px',
+                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                background: 'linear-gradient(to bottom, rgba(255,255,255,0.03) 0%, transparent 100%)',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <span style={{ fontSize: '1rem' }}>{emoji}</span>
+                <span style={{ fontFamily: BEBAS, fontSize: '0.95rem', letterSpacing: '0.12em', color: 'var(--accent-light)' }}>
+                  {group}
+                </span>
+              </div>
+
+              {/* Fields */}
+              <div style={{ padding: '4px 0' }}>
+                {fields.map(({ key, label, description }) => (
+                  <div key={`${group}-${key}`} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: 12, padding: '12px 16px',
+                    borderBottom: fields[fields.length - 1].key === key ? 'none' : '1px solid rgba(255,255,255,0.04)',
+                  }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.75)', margin: 0, fontWeight: 500 }}>{label}</p>
+                      <p style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.3)', marginTop: 2, margin: 0 }}>{description}</p>
+                    </div>
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <input
+                        type="number"
+                        min={0}
+                        max={99}
+                        value={form[key]}
+                        onChange={e => handleChange(key, e.target.value)}
+                        className="sc-number-input"
+                      />
+                      <span style={{
+                        position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                        fontSize: '0.6rem', color: 'rgba(255,255,255,0.2)', pointerEvents: 'none',
+                        letterSpacing: '0.08em',
+                      }}>
+                        pts
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Warning */}
+          {showWarning && (
+            <div style={{
+              background: 'rgba(250,204,21,0.06)', border: '1px solid rgba(250,204,21,0.25)',
+              borderRadius: 14, padding: '14px 16px',
+              display: 'flex', flexDirection: 'column', gap: 6,
+            }}>
+              <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(250,204,21,0.9)', margin: 0 }}>
+                ⚠ Atención
+              </p>
+              <p style={{ fontSize: '0.75rem', color: 'rgba(250,204,21,0.6)', margin: 0, lineHeight: 1.5 }}>
+                Cambiar los puntos no recalifica predicciones ya puntuadas. Los partidos anteriores mantendrán sus puntos.
+                Confirma para guardar de todas formas.
+              </p>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 4 }}>
+            <button
+              type="submit"
+              disabled={saving}
+              className="sc-btn-primary px-5 py-2.5 rounded-xl text-sm"
+            >
+              {saving ? 'Guardando...' : showWarning ? 'Confirmar y guardar' : 'Guardar'}
+            </button>
+            {showWarning && (
+              <button
+                type="button"
+                onClick={() => setShowWarning(false)}
+                className="sc-btn-ghost px-4 py-2.5 rounded-xl text-sm"
+              >
+                Cancelar
+              </button>
+            )}
+            {saved && !showWarning && (
+              <span style={{ fontSize: '0.78rem', color: 'rgba(74,222,128,0.8)' }}>
+                ✓ Guardado
+              </span>
+            )}
+          </div>
+        </form>
+      )}
+    </>
   )
 }
+
+// ── Styles ─────────────────────────────────────────────────────────────────────
+
+const styles = `
+  @keyframes sc-shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+
+  .sc-shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0.03) 25%,
+      rgba(255,255,255,0.07) 50%,
+      rgba(255,255,255,0.03) 75%
+    );
+    background-size: 800px 100%;
+    animation: sc-shimmer 1.6s ease-in-out infinite;
+  }
+
+  .sc-card {
+    background: var(--surface-card);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .sc-number-input {
+    width: 64px;
+    text-align: center;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 8px 20px 8px 10px;
+    color: white;
+    font-family: ${BEBAS};
+    font-size: 1.3rem;
+    letter-spacing: 0.04em;
+    outline: none;
+    transition: border-color 0.15s ease;
+    -moz-appearance: textfield;
+  }
+  .sc-number-input:focus { border-color: var(--accent); }
+  .sc-number-input::-webkit-outer-spin-button,
+  .sc-number-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  .sc-btn-primary {
+    background: var(--accent-deep);
+    border: 1px solid var(--accent-muted);
+    color: var(--accent-light);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .sc-btn-primary:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .sc-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .sc-btn-ghost {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.4);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .sc-btn-ghost:hover { color: rgba(255,255,255,0.75); border-color: rgba(255,255,255,0.2); }
+`

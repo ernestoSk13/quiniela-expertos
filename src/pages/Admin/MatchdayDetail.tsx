@@ -7,6 +7,8 @@ import { saveMatchResult, clearMatchResult, updateMatchDetails } from '@/service
 import StatusBadge from '@/components/StatusBadge'
 import type { Match } from '@/types'
 
+const BEBAS = "'Bebas Neue', Impact, 'Arial Narrow', sans-serif"
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface ResultEditState {
@@ -18,7 +20,7 @@ interface ResultEditState {
 interface DetailsEditState {
   homeTeamCode: string
   awayTeamCode: string
-  scheduledAt: string // formato datetime-local
+  scheduledAt: string
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -44,6 +46,19 @@ function groupMatchesByGroup(matches: Match[]) {
   }, {})
 }
 
+// ── Skeleton ───────────────────────────────────────────────────────────────────
+
+function SkeletonGroup() {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div className="mdd-shimmer" style={{ height: 12, width: 80, borderRadius: 4, marginBottom: 10 }} />
+      {[1, 2, 3].map(i => (
+        <div key={i} className="mdd-shimmer" style={{ height: 58, borderRadius: 12, marginBottom: 6 }} />
+      ))}
+    </div>
+  )
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function MatchdayDetail() {
@@ -52,12 +67,10 @@ export default function MatchdayDetail() {
   const { matches, loading } = useMatchesByMatchday(matchdayId ?? '')
   const { teamsMap } = useTeamsMap()
 
-  // Result edit state
   const [resultEditId, setResultEditId] = useState<string | null>(null)
   const [resultState, setResultState] = useState<ResultEditState>({ homeScore: '', awayScore: '', winner: '' })
   const [savingResult, setSavingResult] = useState(false)
 
-  // Details edit state
   const [detailsEditId, setDetailsEditId] = useState<string | null>(null)
   const [detailsState, setDetailsState] = useState<DetailsEditState>({ homeTeamCode: '', awayTeamCode: '', scheduledAt: '' })
   const [savingDetails, setSavingDetails] = useState(false)
@@ -68,7 +81,7 @@ export default function MatchdayDetail() {
     (a.group ?? '').localeCompare(b.group ?? '') || a.name.localeCompare(b.name)
   )
 
-  // ── Result edit handlers ──
+  // ── Result handlers ──
 
   function startResultEdit(match: Match) {
     setDetailsEditId(null)
@@ -108,7 +121,7 @@ export default function MatchdayDetail() {
     }
   }
 
-  // ── Details edit handlers ──
+  // ── Details handlers ──
 
   function startDetailsEdit(match: Match) {
     setResultEditId(null)
@@ -148,209 +161,387 @@ export default function MatchdayDetail() {
   const flag = (code: string) => teamsMap[code]?.flag ?? '🏳️'
   const isTie = parseInt(resultState.homeScore) === parseInt(resultState.awayScore)
 
-  if (loading) return <p className="text-gray-500">Cargando partidos...</p>
-
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <Link to="/admin" className="text-gray-400 hover:text-white transition-colors text-sm">
-          ← Jornadas
-        </Link>
-        {matchday && (
-          <>
-            <span className="text-gray-700">/</span>
-            <h1 className="font-bold">{matchday.name}</h1>
-            <StatusBadge status={matchday.status} type="matchday" />
-          </>
-        )}
+    <>
+      <style>{styles}</style>
+
+      {/* Breadcrumb + page header */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <Link
+            to="/admin"
+            style={{
+              fontSize: '0.72rem',
+              color: 'rgba(255,255,255,0.3)',
+              textDecoration: 'none',
+              letterSpacing: '0.06em',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--accent-light)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.3)' }}
+          >
+            ← JORNADAS
+          </Link>
+          {matchday && (
+            <>
+              <span style={{ color: 'rgba(255,255,255,0.12)', fontSize: '0.8rem' }}>/</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h1 style={{ fontFamily: BEBAS, fontSize: '1.3rem', letterSpacing: '0.08em', color: '#fff', margin: 0, lineHeight: 1 }}>
+                  {matchday.name}
+                </h1>
+                <StatusBadge status={matchday.status} type="matchday" />
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Matches */}
-      <div className="space-y-6">
-        {Object.entries(grouped).sort().map(([group, groupMatches]) => (
-          <div key={group}>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
-              Grupo {group}
-            </h2>
-            <div className="space-y-2">
-              {groupMatches.map(match => (
-                <div key={match.id} className="surface-card border border-gray-800 rounded-xl p-4">
+      {/* Content */}
+      {loading ? (
+        <div>
+          <SkeletonGroup />
+          <SkeletonGroup />
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+          {Object.entries(grouped).sort().map(([group, groupMatches]) => (
+            <div key={group}>
+              {/* Group header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <span style={{
+                  fontFamily: BEBAS,
+                  fontSize: '1rem',
+                  letterSpacing: '0.14em',
+                  color: 'var(--accent)',
+                }}>
+                  GRUPO {group}
+                </span>
+                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
+                <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.2)', letterSpacing: '0.06em' }}>
+                  {groupMatches.length} PARTIDOS
+                </span>
+              </div>
 
-                  {resultEditId === match.id ? (
-                    /* ── Result edit mode ── */
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 flex-1 justify-end">
-                          <span className="text-sm font-medium">{match.homeTeam}</span>
-                          <span>{flag(match.homeTeamCode)}</span>
-                          <input
-                            type="number" min="0" max="99"
-                            value={resultState.homeScore}
-                            onChange={e => setResultState(s => ({ ...s, homeScore: e.target.value }))}
-                            className="w-14 text-center bg-gray-800 border border-gray-700 focus:border-[var(--accent)] focus:outline-none rounded-lg py-1.5 text-white font-bold text-lg"
-                          />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {groupMatches.map(match => (
+                  <div key={match.id} className="mdd-card rounded-xl overflow-hidden">
+
+                    {resultEditId === match.id ? (
+                      /* ── Result edit mode ── */
+                      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
+                            <span style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.7)' }}>{match.homeTeam}</span>
+                            <span style={{ fontSize: '1.4rem' }}>{flag(match.homeTeamCode)}</span>
+                            <input
+                              type="number" min="0" max="99"
+                              value={resultState.homeScore}
+                              onChange={e => setResultState(s => ({ ...s, homeScore: e.target.value }))}
+                              className="mdd-score-input"
+                            />
+                          </div>
+                          <span style={{ color: 'rgba(255,255,255,0.2)', fontFamily: BEBAS, fontSize: '1.2rem' }}>VS</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+                            <input
+                              type="number" min="0" max="99"
+                              value={resultState.awayScore}
+                              onChange={e => setResultState(s => ({ ...s, awayScore: e.target.value }))}
+                              className="mdd-score-input"
+                            />
+                            <span style={{ fontSize: '1.4rem' }}>{flag(match.awayTeamCode)}</span>
+                            <span style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.7)' }}>{match.awayTeam}</span>
+                          </div>
                         </div>
-                        <span className="text-gray-500 font-bold">vs</span>
-                        <div className="flex items-center gap-2 flex-1">
-                          <input
-                            type="number" min="0" max="99"
-                            value={resultState.awayScore}
-                            onChange={e => setResultState(s => ({ ...s, awayScore: e.target.value }))}
-                            className="w-14 text-center bg-gray-800 border border-gray-700 focus:border-[var(--accent)] focus:outline-none rounded-lg py-1.5 text-white font-bold text-lg"
-                          />
-                          <span>{flag(match.awayTeamCode)}</span>
-                          <span className="text-sm font-medium">{match.awayTeam}</span>
-                        </div>
-                      </div>
 
-                      {match.phase !== 'group_stage' && isTie && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-400">¿Quién avanza?</span>
-                          <select
-                            value={resultState.winner}
-                            onChange={e => setResultState(s => ({ ...s, winner: e.target.value }))}
-                            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-[var(--accent)] focus:outline-none"
-                          >
-                            <option value="">Seleccionar…</option>
-                            <option value={match.homeTeamCode}>{flag(match.homeTeamCode)} {match.homeTeam}</option>
-                            <option value={match.awayTeamCode}>{flag(match.awayTeamCode)} {match.awayTeam}</option>
-                          </select>
-                        </div>
-                      )}
-
-                      <div className="flex gap-2 justify-end">
-                        <button onClick={cancelResultEdit} className="px-3 py-1.5 text-sm rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors">
-                          Cancelar
-                        </button>
-                        <button
-                          onClick={() => handleResultSave(match)}
-                          disabled={savingResult || !resultState.homeScore || !resultState.awayScore}
-                          className="px-3 py-1.5 text-sm rounded-lg bg-[var(--accent-hover)] hover:bg-[var(--accent)] disabled:opacity-50 transition-colors"
-                        >
-                          {savingResult ? 'Guardando…' : 'Guardar resultado'}
-                        </button>
-                      </div>
-                    </div>
-
-                  ) : detailsEditId === match.id ? (
-                    /* ── Details edit mode ── */
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs text-gray-500 mb-1">Local</label>
-                          <select
-                            value={detailsState.homeTeamCode}
-                            onChange={e => setDetailsState(s => ({ ...s, homeTeamCode: e.target.value }))}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-[var(--accent)] focus:outline-none"
-                          >
-                            <option value="">Seleccionar…</option>
-                            {teamsList.map(t => (
-                              <option key={t.id} value={t.id}>
-                                {t.flag} {t.name} ({t.group ?? '—'})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-500 mb-1">Visitante</label>
-                          <select
-                            value={detailsState.awayTeamCode}
-                            onChange={e => setDetailsState(s => ({ ...s, awayTeamCode: e.target.value }))}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-[var(--accent)] focus:outline-none"
-                          >
-                            <option value="">Seleccionar…</option>
-                            {teamsList.map(t => (
-                              <option key={t.id} value={t.id}>
-                                {t.flag} {t.name} ({t.group ?? '—'})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Fecha y hora (hora local)</label>
-                        <input
-                          type="datetime-local"
-                          value={detailsState.scheduledAt}
-                          onChange={e => setDetailsState(s => ({ ...s, scheduledAt: e.target.value }))}
-                          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:border-[var(--accent)] focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="flex gap-2 justify-end">
-                        <button onClick={cancelDetailsEdit} className="px-3 py-1.5 text-sm rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors">
-                          Cancelar
-                        </button>
-                        <button
-                          onClick={() => handleDetailsSave(match)}
-                          disabled={savingDetails || !detailsState.homeTeamCode || !detailsState.awayTeamCode || !detailsState.scheduledAt}
-                          className="px-3 py-1.5 text-sm rounded-lg bg-[var(--accent-hover)] hover:bg-[var(--accent)] disabled:opacity-50 transition-colors"
-                        >
-                          {savingDetails ? 'Guardando…' : 'Guardar cambios'}
-                        </button>
-                      </div>
-                    </div>
-
-                  ) : (
-                    /* ── Display mode ── */
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 flex-1 justify-end">
-                        <span className="text-sm font-medium hidden sm:block">{match.homeTeam}</span>
-                        <span className="text-lg">{flag(match.homeTeamCode)}</span>
-                      </div>
-
-                      <div className="text-center min-w-[72px]">
-                        {match.status === 'finished' ? (
-                          <span className="font-bold text-lg">{match.homeScore} – {match.awayScore}</span>
-                        ) : (
-                          <span className="text-xs text-gray-500">{formatTime(match.scheduledAt)}</span>
+                        {match.phase !== 'group_stage' && isTie && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.4)' }}>¿Quién avanza?</span>
+                            <select
+                              value={resultState.winner}
+                              onChange={e => setResultState(s => ({ ...s, winner: e.target.value }))}
+                              className="mdd-select"
+                            >
+                              <option value="">Seleccionar…</option>
+                              <option value={match.homeTeamCode}>{flag(match.homeTeamCode)} {match.homeTeam}</option>
+                              <option value={match.awayTeamCode}>{flag(match.awayTeamCode)} {match.awayTeam}</option>
+                            </select>
+                          </div>
                         )}
-                        {match.winner && (
-                          <p className="text-xs text-[var(--accent-light)] mt-0.5">
-                            Avanza: {flag(match.winner)} {teamsMap[match.winner]?.name}
-                          </p>
-                        )}
-                      </div>
 
-                      <div className="flex items-center gap-2 flex-1">
-                        <span className="text-lg">{flag(match.awayTeamCode)}</span>
-                        <span className="text-sm font-medium hidden sm:block">{match.awayTeam}</span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                        <button
-                          onClick={() => startDetailsEdit(match)}
-                          title="Editar equipos y horario"
-                          className="px-2.5 py-1 text-xs rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => startResultEdit(match)}
-                          className="px-2.5 py-1 text-xs rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
-                        >
-                          {match.status === 'finished' ? 'Editar' : 'Resultado'}
-                        </button>
-                        {match.status === 'finished' && (
-                          <button
-                            onClick={() => clearMatchResult(match.id)}
-                            className="px-2.5 py-1 text-xs rounded-lg bg-gray-800 hover:bg-red-900 text-gray-400 hover:text-red-400 transition-colors"
-                          >
-                            ✕
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                          <button onClick={cancelResultEdit} className="mdd-btn-secondary text-sm px-3 py-1.5 rounded-lg">
+                            Cancelar
                           </button>
-                        )}
+                          <button
+                            onClick={() => handleResultSave(match)}
+                            disabled={savingResult || !resultState.homeScore || !resultState.awayScore}
+                            className="mdd-btn-primary text-sm px-3 py-1.5 rounded-lg"
+                          >
+                            {savingResult ? 'Guardando…' : 'Guardar resultado'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
 
-                </div>
-              ))}
+                    ) : detailsEditId === match.id ? (
+                      /* ── Details edit mode ── */
+                      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.65rem', color: 'rgba(255,255,255,0.35)', marginBottom: 5, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                              Local
+                            </label>
+                            <select
+                              value={detailsState.homeTeamCode}
+                              onChange={e => setDetailsState(s => ({ ...s, homeTeamCode: e.target.value }))}
+                              className="mdd-select w-full"
+                            >
+                              <option value="">Seleccionar…</option>
+                              {teamsList.map(t => (
+                                <option key={t.id} value={t.id}>
+                                  {t.flag} {t.name} ({t.group ?? '—'})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.65rem', color: 'rgba(255,255,255,0.35)', marginBottom: 5, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                              Visitante
+                            </label>
+                            <select
+                              value={detailsState.awayTeamCode}
+                              onChange={e => setDetailsState(s => ({ ...s, awayTeamCode: e.target.value }))}
+                              className="mdd-select w-full"
+                            >
+                              <option value="">Seleccionar…</option>
+                              {teamsList.map(t => (
+                                <option key={t.id} value={t.id}>
+                                  {t.flag} {t.name} ({t.group ?? '—'})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.65rem', color: 'rgba(255,255,255,0.35)', marginBottom: 5, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                            Fecha y hora (UTC)
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={detailsState.scheduledAt}
+                            onChange={e => setDetailsState(s => ({ ...s, scheduledAt: e.target.value }))}
+                            className="mdd-input w-full"
+                          />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                          <button onClick={cancelDetailsEdit} className="mdd-btn-secondary text-sm px-3 py-1.5 rounded-lg">
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={() => handleDetailsSave(match)}
+                            disabled={savingDetails || !detailsState.homeTeamCode || !detailsState.awayTeamCode || !detailsState.scheduledAt}
+                            className="mdd-btn-primary text-sm px-3 py-1.5 rounded-lg"
+                          >
+                            {savingDetails ? 'Guardando…' : 'Guardar cambios'}
+                          </button>
+                        </div>
+                      </div>
+
+                    ) : (
+                      /* ── Display mode ── */
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
+
+                        {/* Home team */}
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, minWidth: 0 }}>
+                          <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} className="hidden sm:block">
+                            {match.homeTeam}
+                          </span>
+                          <span style={{ fontSize: '1.6rem', lineHeight: 1, flexShrink: 0 }}>{flag(match.homeTeamCode)}</span>
+                        </div>
+
+                        {/* Score / Time */}
+                        <div style={{
+                          flexShrink: 0,
+                          textAlign: 'center',
+                          minWidth: 80,
+                          padding: '0 8px',
+                          borderLeft: '1px solid rgba(255,255,255,0.06)',
+                          borderRight: '1px solid rgba(255,255,255,0.06)',
+                        }}>
+                          {match.status === 'finished' ? (
+                            <span style={{ fontFamily: BEBAS, fontSize: '1.6rem', letterSpacing: '0.06em', color: '#fff', lineHeight: 1 }}>
+                              {match.homeScore} – {match.awayScore}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.04em' }}>
+                              {formatTime(match.scheduledAt)}
+                            </span>
+                          )}
+                          {match.winner && (
+                            <div style={{ fontSize: '0.62rem', color: 'var(--accent-light)', marginTop: 2, letterSpacing: '0.04em' }}>
+                              Avanza: {flag(match.winner)}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Away team */}
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                          <span style={{ fontSize: '1.6rem', lineHeight: 1, flexShrink: 0 }}>{flag(match.awayTeamCode)}</span>
+                          <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} className="hidden sm:block">
+                            {match.awayTeam}
+                          </span>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                          <button
+                            onClick={() => startDetailsEdit(match)}
+                            title="Editar equipos y horario"
+                            className="mdd-icon-btn"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => startResultEdit(match)}
+                            className="mdd-btn-secondary text-xs px-2.5 py-1 rounded-lg"
+                          >
+                            {match.status === 'finished' ? 'Editar' : 'Resultado'}
+                          </button>
+                          {match.status === 'finished' && (
+                            <button
+                              onClick={() => clearMatchResult(match.id)}
+                              className="mdd-btn-danger text-xs px-2 py-1 rounded-lg"
+                              title="Borrar resultado"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-    </div>
+          ))}
+        </div>
+      )}
+    </>
   )
 }
+
+// ── Styles ─────────────────────────────────────────────────────────────────────
+
+const styles = `
+  @keyframes mdd-shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+
+  .mdd-shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0.03) 25%,
+      rgba(255,255,255,0.07) 50%,
+      rgba(255,255,255,0.03) 75%
+    );
+    background-size: 800px 100%;
+    animation: mdd-shimmer 1.6s ease-in-out infinite;
+  }
+
+  .mdd-card {
+    background: var(--surface-card);
+    border: 1px solid rgba(255,255,255,0.05);
+    transition: border-color 0.15s ease;
+  }
+  .mdd-card:hover { border-color: rgba(255,255,255,0.09); }
+
+  .mdd-score-input {
+    width: 52px;
+    text-align: center;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px;
+    padding: 6px 4px;
+    color: white;
+    font-family: ${BEBAS};
+    font-size: 1.3rem;
+    letter-spacing: 0.04em;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .mdd-score-input:focus { border-color: var(--accent); }
+
+  .mdd-input {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 8px 12px;
+    color: white;
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .mdd-input:focus { border-color: var(--accent); }
+  .mdd-input::-webkit-calendar-picker-indicator { filter: invert(0.4); }
+
+  .mdd-select {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 8px 12px;
+    color: white;
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .mdd-select:focus { border-color: var(--accent); }
+
+  .mdd-btn-primary {
+    background: var(--accent-deep);
+    border: 1px solid var(--accent-muted);
+    color: var(--accent-light);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .mdd-btn-primary:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .mdd-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .mdd-btn-secondary {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.55);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .mdd-btn-secondary:hover { background: rgba(255,255,255,0.09); color: white; }
+
+  .mdd-btn-danger {
+    background: rgba(239,68,68,0.07);
+    border: 1px solid rgba(239,68,68,0.2);
+    color: rgba(239,68,68,0.5);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .mdd-btn-danger:hover { background: rgba(239,68,68,0.15); color: #ef4444; border-color: rgba(239,68,68,0.4); }
+
+  .mdd-icon-btn {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.15s ease;
+  }
+  .mdd-icon-btn:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.16); }
+`

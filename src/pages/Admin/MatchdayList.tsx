@@ -5,6 +5,8 @@ import { updateMatchdayStatus, updateMatchdayDeadline } from '@/services/firesto
 import StatusBadge from '@/components/StatusBadge'
 import type { Matchday, MatchdayStatus } from '@/types'
 
+const BEBAS = "'Bebas Neue', Impact, 'Arial Narrow', sans-serif"
+
 const STATUS_CYCLE: Record<MatchdayStatus, MatchdayStatus> = {
   upcoming: 'open',
   open:     'closed',
@@ -19,6 +21,13 @@ const STATUS_CYCLE_LABEL: Record<MatchdayStatus, string> = {
   finished: 'Reactivar',
 }
 
+const STATUS_BORDER: Record<MatchdayStatus, string> = {
+  upcoming: 'rgba(255,255,255,0.1)',
+  open:     'var(--accent)',
+  closed:   'rgba(250,204,21,0.5)',
+  finished: 'rgba(74,222,128,0.45)',
+}
+
 function formatDate(ts: Matchday['predictionDeadline']) {
   return ts?.toDate().toLocaleString('es-MX', {
     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
@@ -31,6 +40,18 @@ function toDatetimeLocal(ts: Matchday['predictionDeadline']): string {
   const p = (n: number) => String(n).padStart(2, '0')
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`
 }
+
+// ── Skeleton ───────────────────────────────────────────────────────────────────
+
+function SkeletonRow() {
+  return (
+    <div className="mdl-skeleton rounded-xl overflow-hidden" style={{ height: 76 }}>
+      <div style={{ width: 4, position: 'absolute', top: 0, bottom: 0, left: 0, background: 'rgba(255,255,255,0.05)' }} />
+    </div>
+  )
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
 
 export default function MatchdayList() {
   const { matchdays, loading } = useMatchdays()
@@ -64,83 +85,219 @@ export default function MatchdayList() {
     }
   }
 
-  if (loading) {
-    return <p className="text-gray-500">Cargando jornadas...</p>
-  }
-
   return (
-    <div>
-      <h1 className="text-xl font-bold mb-6">Jornadas</h1>
+    <>
+      <style>{styles}</style>
 
-      <div className="space-y-3">
-        {matchdays.map(md => (
-          <div
-            key={md.id}
-            className="surface-card border border-gray-800 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4"
-          >
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-semibold truncate">{md.name}</span>
-                <StatusBadge status={md.status} type="matchday" />
-              </div>
+      {/* Page header */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <h1 style={{ fontFamily: BEBAS, fontSize: '1.8rem', letterSpacing: '0.08em', color: '#fff', margin: 0, lineHeight: 1 }}>
+            JORNADAS
+          </h1>
+          {!loading && (
+            <span style={{
+              background: 'var(--accent-deep)',
+              border: '1px solid var(--accent-muted)',
+              borderRadius: 99,
+              padding: '2px 8px',
+              fontSize: '0.65rem',
+              letterSpacing: '0.12em',
+              color: 'var(--accent-light)',
+            }}>
+              {matchdays.length}
+            </span>
+          )}
+        </div>
+        <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
+          Gestiona el estado y deadline de cada jornada.
+        </p>
+      </div>
 
-              {editingDeadline === md.id ? (
-                <div className="flex items-center gap-2 mt-1">
-                  <input
-                    type="datetime-local"
-                    value={deadlineInput}
-                    onChange={e => setDeadlineInput(e.target.value)}
-                    className="bg-gray-800 border border-gray-700 focus:border-[var(--accent)] focus:outline-none text-white rounded-lg px-2 py-1 text-xs transition-colors"
-                  />
-                  <button
-                    onClick={() => handleSaveDeadline(md)}
-                    disabled={savingDeadline || !deadlineInput}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-[var(--accent-hover)] hover:bg-[var(--accent)] disabled:opacity-50 transition-colors"
+      <div className="space-y-2">
+        {loading
+          ? [1, 2, 3, 4].map(i => <SkeletonRow key={i} />)
+          : matchdays.map(md => (
+            <div
+              key={md.id}
+              className="mdl-card rounded-xl overflow-hidden"
+              style={{ borderLeft: `4px solid ${STATUS_BORDER[md.status]}` }}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4">
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span style={{ fontFamily: BEBAS, fontSize: '1.1rem', letterSpacing: '0.06em', color: '#fff' }}>
+                      {md.name}
+                    </span>
+                    <StatusBadge status={md.status} type="matchday" />
+                  </div>
+
+                  {editingDeadline === md.id ? (
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <input
+                        type="datetime-local"
+                        value={deadlineInput}
+                        onChange={e => setDeadlineInput(e.target.value)}
+                        className="mdl-input text-xs px-2 py-1 rounded-lg"
+                      />
+                      <button
+                        onClick={() => handleSaveDeadline(md)}
+                        disabled={savingDeadline || !deadlineInput}
+                        className="mdl-btn-primary text-xs px-2.5 py-1 rounded-lg"
+                      >
+                        {savingDeadline ? '···' : 'OK'}
+                      </button>
+                      <button
+                        onClick={() => setEditingDeadline(null)}
+                        disabled={savingDeadline}
+                        className="mdl-btn-ghost text-xs"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.28)' }}>
+                        Deadline:
+                      </span>
+                      <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)' }}>
+                        {formatDate(md.predictionDeadline)}
+                      </span>
+                      <button
+                        onClick={() => startEditDeadline(md)}
+                        style={{
+                          fontSize: '0.65rem',
+                          color: 'rgba(255,255,255,0.22)',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '0 2px',
+                          transition: 'color 0.15s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-light)' }}
+                        onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.22)' }}
+                      >
+                        ✏ editar
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link
+                    to={`/admin/jornada/${md.id}`}
+                    className="mdl-btn-secondary text-sm px-3 py-1.5 rounded-lg"
                   >
-                    {savingDeadline ? '...' : 'OK'}
-                  </button>
+                    Ver partidos
+                  </Link>
                   <button
-                    onClick={() => setEditingDeadline(null)}
-                    disabled={savingDeadline}
-                    className="text-xs text-gray-500 hover:text-white transition-colors"
+                    onClick={() => handleStatusChange(md)}
+                    disabled={updating === md.id}
+                    className="mdl-btn-primary text-sm px-3 py-1.5 rounded-lg"
                   >
-                    Cancelar
+                    {updating === md.id ? '···' : STATUS_CYCLE_LABEL[md.status]}
                   </button>
                 </div>
-              ) : (
-                <p className="text-sm text-gray-500">
-                  Deadline:{' '}
-                  <span className="text-gray-400">{formatDate(md.predictionDeadline)}</span>
-                  <button
-                    onClick={() => startEditDeadline(md)}
-                    className="ml-2 text-xs text-gray-600 hover:text-[var(--accent-light)] transition-colors"
-                  >
-                    Editar
-                  </button>
-                </p>
-              )}
-            </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2 shrink-0">
-              <Link
-                to={`/admin/jornada/${md.id}`}
-                className="px-3 py-1.5 text-sm rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
-              >
-                Ver partidos
-              </Link>
-              <button
-                onClick={() => handleStatusChange(md)}
-                disabled={updating === md.id}
-                className="px-3 py-1.5 text-sm rounded-lg bg-[var(--accent-hover)] hover:bg-[var(--accent)] disabled:opacity-50 transition-colors"
-              >
-                {updating === md.id ? '...' : STATUS_CYCLE_LABEL[md.status]}
-              </button>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        }
       </div>
-    </div>
+    </>
   )
 }
+
+// ── Styles ─────────────────────────────────────────────────────────────────────
+
+const styles = `
+  @keyframes mdl-shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+
+  .mdl-card {
+    background: var(--surface-card);
+    border-top: 1px solid rgba(255,255,255,0.05);
+    border-right: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: background 0.15s ease;
+    position: relative;
+  }
+  .mdl-card:hover {
+    background: rgba(255,255,255,0.025);
+  }
+
+  .mdl-skeleton {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
+    position: relative;
+    animation: mdl-shimmer 1.6s ease-in-out infinite;
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0.02) 25%,
+      rgba(255,255,255,0.05) 50%,
+      rgba(255,255,255,0.02) 75%
+    );
+    background-size: 800px 100%;
+  }
+
+  .mdl-input {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: white;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .mdl-input:focus { border-color: var(--accent); }
+  .mdl-input::-webkit-calendar-picker-indicator { filter: invert(0.5); }
+
+  .mdl-btn-primary {
+    background: var(--accent-deep);
+    border: 1px solid var(--accent-muted);
+    color: var(--accent-light);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+  }
+  .mdl-btn-primary:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .mdl-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .mdl-btn-secondary {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.6);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+  }
+  .mdl-btn-secondary:hover {
+    background: rgba(255,255,255,0.08);
+    color: white;
+  }
+
+  .mdl-btn-ghost {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.3);
+    cursor: pointer;
+    transition: color 0.15s ease;
+    font-size: 0.75rem;
+    padding: 0 4px;
+  }
+  .mdl-btn-ghost:hover:not(:disabled) { color: rgba(255,255,255,0.7); }
+  .mdl-btn-ghost:disabled { opacity: 0.3; cursor: not-allowed; }
+`

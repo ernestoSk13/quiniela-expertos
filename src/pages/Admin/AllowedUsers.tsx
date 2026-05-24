@@ -6,9 +6,13 @@ import {
 } from '@/services/firestoreAllowedUsers'
 import { generateInviteLink } from '@/services/firestoreInvites'
 
+const BEBAS = "'Bebas Neue', Impact, 'Arial Narrow', sans-serif"
+
+// ── Icons ──────────────────────────────────────────────────────────────────────
+
 function LinkIcon() {
   return (
-    <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+    <svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13">
       <path
         fillRule="evenodd"
         d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z"
@@ -17,6 +21,16 @@ function LinkIcon() {
     </svg>
   )
 }
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13">
+      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
 
 export default function AllowedUsers() {
   const [emails, setEmails] = useState<string[]>([])
@@ -66,79 +80,221 @@ export default function AllowedUsers() {
       setCopiedEmail(email)
       setTimeout(() => setCopiedEmail(null), 2500)
     } catch {
-      // fallback: show the link in a prompt
       const link = await generateInviteLink(email)
       window.prompt('Copia el link de invitación:', link)
     }
   }
 
   return (
-    <div className="max-w-lg">
-      <h1 className="text-xl font-bold mb-6">Usuarios con acceso</h1>
+    <>
+      <style>{styles}</style>
 
-      {/* Add form */}
-      <form onSubmit={handleAdd} className="flex gap-2 mb-6">
-        <input
-          type="email"
-          value={newEmail}
-          onChange={e => setNewEmail(e.target.value)}
-          placeholder="correo@ejemplo.com"
-          required
-          className="flex-1 bg-gray-800 border border-gray-700 focus:border-[var(--accent)] focus:outline-none text-white placeholder-gray-600 rounded-xl px-4 py-2.5 text-sm transition-colors"
-        />
-        <button
-          type="submit"
-          disabled={adding}
-          className="px-4 py-2.5 text-sm rounded-xl bg-[var(--accent-hover)] hover:bg-[var(--accent)] disabled:opacity-50 font-medium transition-colors shrink-0"
-        >
-          {adding ? '...' : 'Agregar'}
-        </button>
-      </form>
-      {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
-
-      {/* List */}
-      {loading ? (
-        <p className="text-gray-500 text-sm">Cargando...</p>
-      ) : emails.length === 0 ? (
-        <p className="text-gray-500 text-sm">Sin usuarios registrados.</p>
-      ) : (
-        <div className="space-y-1">
-          {emails.map(email => (
-            <div
-              key={email}
-              className="flex items-center justify-between surface-card border border-gray-800 rounded-xl px-4 py-3 gap-2"
-            >
-              <span className="text-sm text-gray-200 truncate min-w-0">{email}</span>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => handleCopyLink(email)}
-                  title="Copiar link de invitación"
-                  className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg transition-colors ${
-                    copiedEmail === email
-                      ? 'text-green-400 bg-green-400/10'
-                      : 'text-gray-500 hover:text-[var(--accent-light)] hover:bg-[var(--accent-dim)]'
-                  }`}
-                >
-                  <LinkIcon />
-                  <span className="hidden sm:inline">
-                    {copiedEmail === email ? 'Copiado' : 'Invitar'}
-                  </span>
-                </button>
-                <button
-                  onClick={() => handleRemove(email)}
-                  className="text-gray-600 hover:text-red-400 transition-colors text-sm"
-                >
-                  Quitar
-                </button>
-              </div>
-            </div>
-          ))}
+      {/* Page header */}
+      <div style={{ marginBottom: 24, maxWidth: 520 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <h1 style={{ fontFamily: BEBAS, fontSize: '1.8rem', letterSpacing: '0.08em', color: '#fff', margin: 0, lineHeight: 1 }}>
+            ACCESO
+          </h1>
+          {!loading && (
+            <span style={{
+              background: 'var(--accent-deep)',
+              border: '1px solid var(--accent-muted)',
+              borderRadius: 99,
+              padding: '2px 8px',
+              fontSize: '0.65rem',
+              letterSpacing: '0.12em',
+              color: 'var(--accent-light)',
+            }}>
+              {emails.length} usuarios
+            </span>
+          )}
         </div>
-      )}
+        <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
+          Correos autorizados. Genera links de invitación válidos por 7 días.
+        </p>
+      </div>
 
-      <p className="text-xs text-gray-600 mt-4">
-        "Invitar" genera un link válido por 7 días que puedes enviarle directamente.
-      </p>
-    </div>
+      <div style={{ maxWidth: 520 }}>
+        {/* Add form */}
+        <form onSubmit={handleAdd} style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+          <input
+            type="email"
+            value={newEmail}
+            onChange={e => setNewEmail(e.target.value)}
+            placeholder="correo@ejemplo.com"
+            required
+            className="au-input flex-1"
+          />
+          <button
+            type="submit"
+            disabled={adding}
+            className="au-btn-primary px-4 py-2.5 rounded-xl text-sm"
+          >
+            {adding ? '···' : 'Agregar'}
+          </button>
+        </form>
+
+        {error && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)',
+            borderRadius: 10, padding: '8px 12px', marginBottom: 16,
+          }}>
+            <span style={{ fontSize: '0.8rem', color: 'rgba(239,68,68,0.8)' }}>{error}</span>
+          </div>
+        )}
+
+        {/* Email list */}
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {[1, 2, 3].map(i => (
+              <div key={i} className="au-shimmer" style={{ height: 48, borderRadius: 12 }} />
+            ))}
+          </div>
+        ) : emails.length === 0 ? (
+          <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.25)', textAlign: 'center', padding: '32px 0' }}>
+            Sin usuarios registrados.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {emails.map(email => (
+              <div key={email} className="au-row rounded-xl">
+                <span style={{
+                  fontSize: '0.82rem',
+                  color: 'rgba(255,255,255,0.65)',
+                  flex: 1,
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {email}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  <button
+                    onClick={() => handleCopyLink(email)}
+                    title="Copiar link de invitación"
+                    className={`au-link-btn ${copiedEmail === email ? 'au-link-copied' : ''}`}
+                  >
+                    {copiedEmail === email ? <CheckIcon /> : <LinkIcon />}
+                    <span className="hidden sm:inline">
+                      {copiedEmail === email ? 'Copiado' : 'Invitar'}
+                    </span>
+                  </button>
+                  <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.08)' }} />
+                  <button
+                    onClick={() => handleRemove(email)}
+                    className="au-remove-btn"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.2)', marginTop: 16, letterSpacing: '0.02em' }}>
+          El link de invitación expira en 7 días y es de un solo uso.
+        </p>
+      </div>
+    </>
   )
 }
+
+// ── Styles ─────────────────────────────────────────────────────────────────────
+
+const styles = `
+  @keyframes au-shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+
+  .au-shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0.03) 25%,
+      rgba(255,255,255,0.07) 50%,
+      rgba(255,255,255,0.03) 75%
+    );
+    background-size: 800px 100%;
+    animation: au-shimmer 1.6s ease-in-out infinite;
+  }
+
+  .au-input {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: white;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .au-input::placeholder { color: rgba(255,255,255,0.2); }
+  .au-input:focus { border-color: var(--accent); }
+
+  .au-btn-primary {
+    background: var(--accent-deep);
+    border: 1px solid var(--accent-muted);
+    color: var(--accent-light);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .au-btn-primary:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .au-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .au-row {
+    display: flex;
+    align-items: center;
+    gap: 10;
+    background: var(--surface-card);
+    border: 1px solid rgba(255,255,255,0.05);
+    padding: 10px 14px;
+    transition: border-color 0.15s ease;
+    gap: 10px;
+  }
+  .au-row:hover { border-color: rgba(255,255,255,0.09); }
+
+  .au-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    padding: 4px 8px;
+    border-radius: 7px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.4);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .au-link-btn:hover {
+    color: var(--accent-light);
+    border-color: var(--accent-muted);
+    background: var(--accent-deep);
+  }
+  .au-link-copied {
+    color: #4ade80 !important;
+    border-color: rgba(74,222,128,0.3) !important;
+    background: rgba(74,222,128,0.07) !important;
+  }
+
+  .au-remove-btn {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.22);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.15s ease;
+    padding: 2px 4px;
+  }
+  .au-remove-btn:hover { color: rgba(239,68,68,0.7); }
+`

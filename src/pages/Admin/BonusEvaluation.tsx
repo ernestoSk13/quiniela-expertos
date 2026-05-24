@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useTeamsMap } from '@/hooks/useTeams'
 import { evaluateBonusPredictions } from '@/services/cloudFunctions'
 
+const BEBAS = "'Bebas Neue', Impact, 'Arial Narrow', sans-serif"
+
 const MEXICO_PHASES = [
   { value: 'grupos',   label: 'Fase de grupos' },
   { value: 'ronda32',  label: 'Ronda de 32' },
@@ -11,6 +13,24 @@ const MEXICO_PHASES = [
   { value: 'tercero',  label: 'Tercer lugar' },
   { value: 'campeon',  label: 'Campeón' },
 ]
+
+// ── Field wrapper ──────────────────────────────────────────────────────────────
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label style={{ display: 'block', fontSize: '0.65rem', color: 'rgba(255,255,255,0.35)', marginBottom: 6, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+        {label}
+      </label>
+      {children}
+      {hint && (
+        <p style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.2)', marginTop: 5 }}>{hint}</p>
+      )}
+    </div>
+  )
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
 
 export default function BonusEvaluation() {
   const { teamsMap, loading: teamsLoading } = useTeamsMap()
@@ -62,104 +82,208 @@ export default function BonusEvaluation() {
     }
   }
 
+  // ── Done state ──
+
   if (done) {
     return (
-      <div className="max-w-lg">
-        <div className="surface-card border border-gray-800 rounded-xl p-8 text-center space-y-3">
-          <p className="text-4xl">🏆</p>
-          <p className="text-lg font-semibold text-white">¡Puntos bonus otorgados!</p>
-          <p className="text-sm text-gray-400">Los pronósticos bonus de todos los jugadores han sido evaluados.</p>
+      <>
+        <style>{styles}</style>
+        <div style={{ maxWidth: 480 }}>
+          <div className="be-done-card rounded-2xl p-8 text-center">
+            <div style={{ fontSize: '3.5rem', marginBottom: 12 }}>🏆</div>
+            <div style={{ fontFamily: BEBAS, fontSize: '1.8rem', letterSpacing: '0.08em', color: '#fff', lineHeight: 1, marginBottom: 8 }}>
+              ¡PUNTOS BONUS OTORGADOS!
+            </div>
+            <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>
+              Los pronósticos bonus de todos los jugadores han sido evaluados.
+            </p>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   return (
-    <div className="max-w-lg space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">Evaluar pronósticos bonus</h1>
-        <p className="text-sm text-gray-400 mt-1">
+    <>
+      <style>{styles}</style>
+
+      {/* Page header */}
+      <div style={{ marginBottom: 24, maxWidth: 480 }}>
+        <h1 style={{ fontFamily: BEBAS, fontSize: '1.8rem', letterSpacing: '0.08em', color: '#fff', margin: 0, lineHeight: 1 }}>
+          BONUS FINAL
+        </h1>
+        <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
           Ingresa los resultados finales del torneo. Cada acierto vale 5 puntos.
         </p>
       </div>
 
-      <div className="surface-card border border-gray-800 rounded-xl p-5 space-y-5">
+      <div style={{ maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-        <div>
-          <label className="block text-xs text-gray-400 mb-1.5">Goleador del torneo</label>
-          <input
-            type="text"
-            value={topScorer}
-            onChange={e => setTopScorer(e.target.value)}
-            placeholder="Nombre del jugador"
-            maxLength={60}
-            className="w-full bg-gray-800 border border-gray-700 focus:border-[var(--accent)] focus:outline-none text-white placeholder-gray-600 rounded-xl px-3 py-2 text-sm transition-colors"
-          />
-        </div>
+        {/* Form card */}
+        <div className="be-card rounded-2xl overflow-hidden">
+          {/* Card header stripe */}
+          <div style={{ height: 3, background: 'linear-gradient(to right, var(--accent-light), var(--accent), transparent)' }} />
 
-        <div>
-          <label className="block text-xs text-gray-400 mb-1.5">Balón de Oro</label>
-          <input
-            type="text"
-            value={goldenBall}
-            onChange={e => setGoldenBall(e.target.value)}
-            placeholder="Nombre del jugador"
-            maxLength={60}
-            className="w-full bg-gray-800 border border-gray-700 focus:border-[var(--accent)] focus:outline-none text-white placeholder-gray-600 rounded-xl px-3 py-2 text-sm transition-colors"
-          />
-        </div>
+          <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-        <div>
-          <label className="block text-xs text-gray-400 mb-1.5">¿Hasta qué fase llegó México?</label>
-          <select
-            value={mexicoPhase}
-            onChange={e => setMexicoPhase(e.target.value)}
-            className="w-full bg-gray-800 border border-gray-700 focus:border-[var(--accent)] focus:outline-none text-white rounded-xl px-3 py-2 text-sm transition-colors"
-          >
-            <option value="" disabled>Selecciona una fase</option>
-            {MEXICO_PHASES.map(p => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-          </select>
-        </div>
+            <Field label="Goleador del torneo" hint="Nombre completo del jugador">
+              <input
+                type="text"
+                value={topScorer}
+                onChange={e => setTopScorer(e.target.value)}
+                placeholder="Ej. Kylian Mbappé"
+                maxLength={60}
+                className="be-input w-full"
+              />
+            </Field>
 
-        <div>
-          <label className="block text-xs text-gray-400 mb-1.5">Campeón del Mundial</label>
-          {teamsLoading ? (
-            <p className="text-xs text-gray-500">Cargando equipos...</p>
-          ) : (
-            <select
-              value={champion}
-              onChange={e => setChampion(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 focus:border-[var(--accent)] focus:outline-none text-white rounded-xl px-3 py-2 text-sm transition-colors"
-            >
-              <option value="" disabled>Selecciona un equipo</option>
-              {groups.map(g => (
-                <optgroup key={g} label={`Grupo ${g}`}>
-                  {grouped[g].map(t => (
-                    <option key={t.id} value={t.id}>
-                      {t.flag} {t.name}
-                    </option>
+            <Field label="Balón de Oro" hint="Mejor jugador del torneo">
+              <input
+                type="text"
+                value={goldenBall}
+                onChange={e => setGoldenBall(e.target.value)}
+                placeholder="Ej. Lionel Messi"
+                maxLength={60}
+                className="be-input w-full"
+              />
+            </Field>
+
+            <Field label="¿Hasta qué fase llegó México?">
+              <select
+                value={mexicoPhase}
+                onChange={e => setMexicoPhase(e.target.value)}
+                className="be-select w-full"
+              >
+                <option value="" disabled>Selecciona una fase</option>
+                {MEXICO_PHASES.map(p => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Campeón del Mundial">
+              {teamsLoading ? (
+                <div className="be-shimmer" style={{ height: 42, borderRadius: 10 }} />
+              ) : (
+                <select
+                  value={champion}
+                  onChange={e => setChampion(e.target.value)}
+                  className="be-select w-full"
+                >
+                  <option value="" disabled>Selecciona un equipo</option>
+                  {groups.map(g => (
+                    <optgroup key={g} label={`Grupo ${g}`}>
+                      {grouped[g].map(t => (
+                        <option key={t.id} value={t.id}>
+                          {t.flag} {t.name}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
-                </optgroup>
-              ))}
-            </select>
-          )}
+                </select>
+              )}
+            </Field>
+          </div>
         </div>
+
+        {/* Error */}
+        {error && (
+          <div style={{
+            background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)',
+            borderRadius: 12, padding: '10px 14px',
+          }}>
+            <p style={{ fontSize: '0.8rem', color: 'rgba(239,68,68,0.8)', margin: 0 }}>{error}</p>
+          </div>
+        )}
+
+        {/* Submit */}
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!isValid || saving}
+          className="be-btn-primary w-full py-3.5 rounded-xl text-sm"
+        >
+          {saving ? 'Evaluando...' : 'Otorgar puntos bonus'}
+        </button>
       </div>
-
-      {error && (
-        <p className="text-sm text-red-400">{error}</p>
-      )}
-
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={!isValid || saving}
-        className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
-      >
-        {saving ? 'Evaluando...' : 'Otorgar puntos bonus'}
-      </button>
-    </div>
+    </>
   )
 }
+
+// ── Styles ─────────────────────────────────────────────────────────────────────
+
+const styles = `
+  @keyframes be-shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+
+  .be-shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0.03) 25%,
+      rgba(255,255,255,0.07) 50%,
+      rgba(255,255,255,0.03) 75%
+    );
+    background-size: 800px 100%;
+    animation: be-shimmer 1.6s ease-in-out infinite;
+  }
+
+  .be-card {
+    background: var(--surface-card);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .be-done-card {
+    background: var(--surface-card);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .be-input {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: white;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.15s ease;
+    box-sizing: border-box;
+  }
+  .be-input::placeholder { color: rgba(255,255,255,0.2); }
+  .be-input:focus { border-color: var(--accent); }
+
+  .be-select {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: white;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.15s ease;
+    box-sizing: border-box;
+  }
+  .be-select:focus { border-color: var(--accent); }
+
+  .be-btn-primary {
+    background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent) 100%);
+    border: none;
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: ${BEBAS};
+    letter-spacing: 0.1em;
+    font-size: 1rem !important;
+    transition: opacity 0.15s ease, transform 0.1s ease;
+    box-shadow: 0 4px 20px var(--accent-muted);
+  }
+  .be-btn-primary:hover:not(:disabled) {
+    opacity: 0.92;
+    transform: translateY(-1px);
+  }
+  .be-btn-primary:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  .be-btn-primary:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+`
