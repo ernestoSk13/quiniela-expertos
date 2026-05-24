@@ -1,5 +1,5 @@
-import { useState, type JSX } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useState, type JSX } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
@@ -7,16 +7,29 @@ import Avatar from '@/components/Avatar'
 import { resetAllData } from '@/services/firestoreAdmin'
 
 const MOBILE_NAV = [
-  { to: '/admin',           label: 'Jornadas',  end: true },
-  { to: '/admin/jugadores', label: 'Jugadores' },
-  { to: '/admin/bonus',     label: 'Bonus' },
-  { to: '/admin/usuarios',  label: 'Acceso' },
+  { to: '/admin',            label: 'Jornadas', end: true },
+  { to: '/admin/jugadores',  label: 'Jugadores' },
+  { to: '/admin/usuarios',   label: 'Acceso' },
+  { to: '/admin/tabla',      label: 'Tabla' },
 ]
 
+// Secciones ocultas bajo "Más" en móvil
+const MORE_NAV = [
+  { to: '/admin/bonus',    label: 'Bonus' },
+  { to: '/admin/metricas', label: 'Métricas' },
+  { to: '/admin/config',   label: 'Puntos' },
+]
+
+const MORE_PATHS = MORE_NAV.map(n => n.to)
+
 const DESKTOP_NAV = [
-  ...MOBILE_NAV,
-  { to: '/admin/tabla',  label: 'Tabla' },
-  { to: '/admin/config', label: 'Puntos' },
+  { to: '/admin',            label: 'Jornadas',  end: true },
+  { to: '/admin/jugadores',  label: 'Jugadores' },
+  { to: '/admin/bonus',      label: 'Bonus' },
+  { to: '/admin/usuarios',   label: 'Acceso' },
+  { to: '/admin/tabla',      label: 'Tabla' },
+  { to: '/admin/metricas',   label: 'Métricas' },
+  { to: '/admin/config',     label: 'Puntos' },
 ]
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
@@ -79,13 +92,42 @@ function GearIcon() {
   )
 }
 
+function ChartIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10" />
+      <line x1="12" y1="20" x2="12" y2="4" />
+      <line x1="6"  y1="20" x2="6"  y2="14" />
+      <line x1="2"  y1="20" x2="22" y2="20" />
+    </svg>
+  )
+}
+
+function MoreIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3"  y="3"  width="7" height="7" rx="1.5" />
+      <rect x="14" y="3"  width="7" height="7" rx="1.5" />
+      <rect x="3"  y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  )
+}
+
 const NAV_ICONS: Record<string, JSX.Element> = {
-  '/admin':           <CalendarIcon />,
-  '/admin/jugadores': <UsersIcon />,
-  '/admin/bonus':     <StarIcon />,
-  '/admin/usuarios':  <ShieldIcon />,
-  '/admin/tabla':     <TableIcon />,
-  '/admin/config':    <GearIcon />,
+  '/admin':            <CalendarIcon />,
+  '/admin/jugadores':  <UsersIcon />,
+  '/admin/bonus':      <StarIcon />,
+  '/admin/usuarios':   <ShieldIcon />,
+  '/admin/tabla':      <TableIcon />,
+  '/admin/metricas':   <ChartIcon />,
+  '/admin/config':     <GearIcon />,
+}
+
+const MORE_ICONS: Record<string, JSX.Element> = {
+  '/admin/bonus':    <StarIcon />,
+  '/admin/metricas': <ChartIcon />,
+  '/admin/config':   <GearIcon />,
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -93,7 +135,14 @@ const NAV_ICONS: Record<string, JSX.Element> = {
 export default function AdminLayout() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [resetting, setResetting] = useState(false)
+  const [showMore, setShowMore] = useState(false)
+
+  const isMoreActive = MORE_PATHS.some(p => location.pathname.startsWith(p))
+
+  // Cierra el panel "Más" al navegar
+  useEffect(() => { setShowMore(false) }, [location.pathname])
 
   async function handleSignOut() {
     await signOut(auth)
@@ -162,7 +211,7 @@ export default function AdminLayout() {
               </div>
 
               {/* Desktop nav */}
-              <nav className="hidden md:flex items-center gap-0.5">
+              <nav className="hidden md:flex items-center gap-0">
                 {DESKTOP_NAV.map(({ to, label, end }) => (
                   <NavLink
                     key={to}
@@ -207,6 +256,35 @@ export default function AdminLayout() {
           <Outlet />
         </main>
 
+        {/* ── "Más" panel (slide-up sobre tab bar) ── */}
+        {showMore && (
+          <div className="md:hidden">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 z-30"
+              onClick={() => setShowMore(false)}
+            />
+            {/* Panel */}
+            <div
+              className="fixed left-3 right-3 z-40 rounded-2xl overflow-hidden adm-more-panel"
+              style={{ bottom: 'calc(60px + env(safe-area-inset-bottom))' }}
+            >
+              {MORE_NAV.map(({ to, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    `adm-more-item ${isActive ? 'adm-more-active' : ''}`
+                  }
+                >
+                  <span className="adm-more-icon">{MORE_ICONS[to]}</span>
+                  <span>{label}</span>
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── Bottom tab bar (mobile) ── */}
         <nav
           className="md:hidden fixed bottom-0 left-0 right-0 flex adm-tabbar"
@@ -225,6 +303,15 @@ export default function AdminLayout() {
               <span>{label}</span>
             </NavLink>
           ))}
+
+          {/* Tab "Más" */}
+          <button
+            className={`adm-tab ${isMoreActive || showMore ? 'adm-tab-active' : ''}`}
+            onClick={() => setShowMore(v => !v)}
+          >
+            <MoreIcon />
+            <span>Más</span>
+          </button>
         </nav>
 
       </div>
@@ -243,14 +330,15 @@ const styles = `
   .adm-nav-item {
     display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 6px 10px;
-    border-radius: 8px;
-    font-size: 0.78rem;
+    gap: 4px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    font-size: 0.72rem;
     font-weight: 500;
     color: rgba(255,255,255,0.38);
     text-decoration: none;
     transition: color 0.15s ease, background 0.15s ease;
+    white-space: nowrap;
   }
   .adm-nav-item:hover {
     color: rgba(255,255,255,0.8);
@@ -312,16 +400,56 @@ const styles = `
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 10px 0 7px;
-    gap: 4px;
-    font-size: 0.58rem;
+    padding: 8px 2px 6px;
+    gap: 3px;
+    font-size: 0.54rem;
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
     color: rgba(255,255,255,0.25);
     text-decoration: none;
     transition: color 0.15s ease;
   }
+  .adm-tab svg { width: 15px; height: 15px; }
   .adm-tab:hover { color: rgba(255,255,255,0.55); }
   .adm-tab-active { color: var(--accent-light) !important; }
+
+  /* ── Panel "Más" ── */
+  .adm-more-panel {
+    background: var(--surface-nav);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
+    animation: adm-slide-up 0.18s ease;
+  }
+  @keyframes adm-slide-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .adm-more-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.55);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .adm-more-item:last-child { border-bottom: none; }
+  .adm-more-item:hover {
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.9);
+  }
+  .adm-more-active {
+    color: var(--accent-light) !important;
+    background: var(--accent-deep) !important;
+  }
+  .adm-more-icon {
+    display: flex;
+    align-items: center;
+    opacity: 0.6;
+  }
+  .adm-more-active .adm-more-icon { opacity: 1; }
 `

@@ -13,6 +13,7 @@ import AllowedUsers from '@/pages/Admin/AllowedUsers'
 import UserProfiles from '@/pages/Admin/UserProfiles'
 import BonusEvaluation from '@/pages/Admin/BonusEvaluation'
 import AdminLeaderboard from '@/pages/Admin/AdminLeaderboard'
+import AdminMetrics from '@/pages/Admin/AdminMetrics'
 import ScoringConfig from '@/pages/Admin/ScoringConfig'
 import InvitePage from '@/pages/Invite/InvitePage'
 import Preferences from '@/pages/Preferences/Preferences'
@@ -49,6 +50,7 @@ export default function App() {
               <Route path="jugadores" element={<UserProfiles />} />
               <Route path="bonus" element={<BonusEvaluation />} />
               <Route path="tabla" element={<AdminLeaderboard />} />
+              <Route path="metricas" element={<AdminMetrics />} />
               <Route path="config" element={<ScoringConfig />} />
             </Route>
           </Route>
