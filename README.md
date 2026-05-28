@@ -1,6 +1,6 @@
 # Quiniela Expertos del Mundial 2026
 
-Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios envían pronósticos por jornada y acumulan puntos según sus aciertos. Incluye panel de administración, ranking en tiempo real y temas visuales por país sede.
+Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios predicen el resultado de cada partido (local gana / empate / visitante gana) y acumulan puntos según sus aciertos. Incluye panel de administración, ranking en tiempo real y temas visuales por país sede.
 
 ## Tech Stack
 
@@ -24,9 +24,9 @@ Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios envían p
 - **Link de invitación** — el admin genera un link personalizado por correo con TTL de 7 días; el invitado abre `/invite/:token` y llega al login con su correo pre-cargado
 - **Onboarding** — 3 pasos: configurar nombre + avatar, registrar predicciones de bonus (goleador, balón de oro, fase de México, campeón), instalar como PWA
 - **Dashboard** — leaderboard estilo carta FIFA con avatar y posición destacada para top 3 (medallas); historial personal por jugador; countdown al inicio del torneo; tarjeta de siguiente jornada con barra de progreso de pronósticos; acceso a jornadas anteriores; resumen de bonus editables hasta el 11 jun 2026
-- **Pronósticos** — keypad numérico frosted-glass en móvil con scroll automático al partido activo; inputs directos + sidebar en desktop (barra de progreso, marcadores pendientes, guardados); soporte de fase eliminatoria con selección de equipo que avanza en caso de empate; bloqueo automático por partido en cuanto inicia (`scheduledAt`)
-- **Historial personal** — al tocar cualquier fila del leaderboard: card de avatar, stats del jugador (puntos, exactos, correctos), gráfica de evolución de puntos con área degradada y desglose de pronósticos por jornada; accordion por jornada con resultado real, pronóstico y puntos
-- **Ver predicciones post-jornada** — cuando una jornada cierra, toggle "Ver todos" muestra qué pronosticó cada jugador partido a partido con indicador de puntos obtenidos
+- **Pronósticos** — selector de resultado por partido: **LOCAL · EMPATE · VISITANTE**; tres botones tipo pill, el activo lleva color de acento; en fases eliminatorias con empate aparece inline la pregunta `¿Quién pasa?`; barra de progreso (n/m partidos predichos); bloqueo automático por partido en cuanto inicia (`scheduledAt`)
+- **Historial personal** — al tocar cualquier fila del leaderboard: card de avatar, stats del jugador (puntos, aciertos, % de aciertos), gráfica de evolución de puntos con área degradada y desglose de pronósticos por jornada; accordion por jornada con resultado real, pronóstico y puntos
+- **Ver predicciones post-jornada** — cuando una jornada cierra, toggle "Ver todos" muestra qué resultado pronosticó cada jugador partido a partido (LOCAL/EMPATE/VISITANTE) con indicador de puntos obtenidos
 - **Compartir como imagen** — botones para generar PNG del resumen de una jornada cerrada y de la tabla general; usa Web Share API en móvil o descarga directa en desktop
 - **Temas por país sede** — México 🇲🇽, Canadá 🇨🇦, EUA 🇺🇸 — fondo, header, tarjetas y acentos cambian con la paleta FIFA WC 2026
 - **Preferencias** — cambiar tema, instalar PWA, activar notificaciones push, gestionar cuenta; accesible como tab en móvil (sin perder contexto)
@@ -55,10 +55,10 @@ Al iniciar sesión por primera vez el usuario configura:
 3. **Bonus predictions** — cuatro preguntas previas al torneo con valor de 5 pts cada una
 
 ### Pronósticos por Jornada
-- El usuario predice el marcador exacto de cada partido
+- El usuario predice el **resultado** de cada partido: local gana / empate / visitante gana
 - Se pueden editar hasta el `predictionDeadline` de la jornada **o** hasta que el partido inicie (`scheduledAt`), lo que ocurra primero
 - Una vez que una jornada cierra (`status: closed` o `finished`), los pronósticos de todos los jugadores se revelan
-- En fases eliminatorias con empate al 90', se debe indicar qué equipo avanza (`tieWinner`)
+- En fases eliminatorias: si el usuario predice empate, debe indicar además qué equipo avanza (`tieWinner`)
 
 ### Sistema de Puntos
 
@@ -66,19 +66,19 @@ Al iniciar sesión por primera vez el usuario configura:
 
 | Caso | Puntos |
 |------|--------|
-| Marcador exacto (fase de grupos o eliminatoria sin empate) | **3 pts** |
-| Resultado correcto G/E/P (fase de grupos) | **1 pt** |
-| Ganador correcto (eliminatoria sin empate al 90') | **1 pt** |
-| Marcador exacto **+** tieWinner correcto (eliminatoria con empate al 90') | **3 pts** |
-| Solo tieWinner correcto (eliminatoria con empate al 90') | **1 pt** |
+| Resultado correcto (local/empate/visitante) | **3 pts** |
+| Resultado correcto + `tieWinner` correcto (eliminatoria con empate al 90') | **3 + 1 pts** |
+| Solo `tieWinner` correcto en eliminatoria con empate | **1 pt** |
 | Pronóstico incorrecto | **0 pts** |
+
+> El admin sigue ingresando el marcador real (ej. `2-1`). El sistema deriva el resultado automáticamente para comparar con el pronóstico del usuario.
 
 #### Bonus
 
 | Bonus | Puntos |
 |-------|--------|
 | Predicción de bonus acertada (×4) | **5 pts c/u** |
-| Más predicciones exactas en fase de grupos (puede haber empate) | **+5 pts** |
+| Más predicciones correctas en fase de grupos (puede haber empate) | **+5 pts** |
 
 > Los puntos se calculan automáticamente server-side (Cloud Functions `onMatchUpdated`) al ingresar resultados. El cliente solo lee.
 
@@ -104,9 +104,10 @@ Al iniciar sesión por primera vez el usuario configura:
 | `bonusPredictions.champion` | `string` | Código ISO del equipo |
 | `bonusPredictions.pointsAwarded` | `boolean` | Evita doble puntuación |
 | `stats.totalPoints` | `number` | Actualizado por Cloud Functions |
-| `stats.exactPredictions` | `number` | |
-| `stats.correctPredictions` | `number` | |
+| `stats.correctPredictions` | `number` | Predicciones con resultado correcto |
 | `stats.totalPredictions` | `number` | Incrementado al guardar pronósticos |
+| `currentStreak` | `number` | Jornadas consecutivas activas con ≥1 acierto |
+| `maxStreak` | `number` | Racha máxima histórica |
 
 ### `matchdays/{matchdayId}`
 
@@ -136,11 +137,11 @@ Al iniciar sesión por primera vez el usuario configura:
 | Campo | Tipo | Notas |
 |-------|------|-------|
 | `userId` / `matchId` / `matchdayId` | `string` | |
-| `homeScore` / `awayScore` | `number` | Marcador pronosticado |
-| `tieWinner` | `string \| null` | Solo fases eliminatorias |
+| `result` | `'home' \| 'draw' \| 'away' \| null` | Resultado pronosticado por el usuario |
+| `tieWinner` | `string \| null` | Código ISO del equipo; solo eliminatorias con `result === 'draw'` |
 | `submittedAt` / `updatedAt` | `Timestamp` | |
 | `points` | `number \| null` | `null` hasta que Cloud Functions calcule |
-| `isExact` / `isCorrectResult` | `boolean \| null` | |
+| `isCorrect` | `boolean \| null` | `true` si `result` coincide con el resultado real |
 
 ### `teams/{teamCode}`
 
@@ -164,11 +165,9 @@ Valores de puntos configurables desde `/admin/config`. Las Cloud Functions leen 
 
 | Campo | Default | Notas |
 |-------|---------|-------|
-| `exactScore` | `3` | Marcador exacto |
-| `correctResult` | `1` | Resultado correcto G/E/P |
-| `exactKnockoutWithTie` | `3` | Marcador exacto + tieWinner en eliminatoria con empate al 90' |
-| `correctTieWinner` | `1` | Solo tieWinner correcto |
-| `groupBonus` | `5` | Bonus al mejor de fase de grupos |
+| `correctPrediction` | `3` | Resultado correcto (local/empate/visitante) |
+| `correctTieWinner` | `1` | Bonus por `tieWinner` correcto en eliminatoria con empate al 90' |
+| `groupBonus` | `5` | Bonus al jugador con más aciertos en fase de grupos |
 | `bonusPrediction` | `5` | Cada acierto de bonus prediction |
 
 ### `invites/{token}`

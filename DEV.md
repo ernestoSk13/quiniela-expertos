@@ -133,9 +133,10 @@ npm run pull-from-prod -- --collections=teams       # Solo equipos
 
 1. En `/admin`, abre una jornada con el botón **"Abrir"**
 2. En `/dashboard` aparecerá el botón **"Hacer pronósticos"** con barra de progreso
-3. En móvil: keypad numérico fijo en la parte inferior; la vista hace scroll automático al partido activo
-4. En desktop: inputs directos por partido + sidebar con progreso, cambios pendientes y sección "Guardados"; los partidos ya guardados colapsan con animación
-5. Los partidos cuyo `scheduledAt` ya pasó se bloquean automáticamente (input deshabilitado) aunque la jornada siga abierta
+3. Por cada partido aparece el selector **LOCAL · EMPATE · VISITANTE** — tocar un botón guarda el pronóstico inmediatamente
+4. En eliminatorias: si el usuario selecciona "EMPATE", aparece inline la pregunta **¿Quién pasa?** con los dos equipos del partido
+5. La barra de progreso en la parte superior muestra `Pronósticos: n / m partidos`
+6. Los partidos cuyo `scheduledAt` ya pasó se bloquean automáticamente (botones deshabilitados) aunque la jornada siga abierta
 
 ## Flujo de prueba de post-jornada (Fase 10)
 
@@ -158,7 +159,7 @@ npm run pull-from-prod -- --collections=teams       # Solo equipos
 ## Flujo de prueba de configuración de puntos
 
 1. Ve a `/admin/config` (solo visible en desktop nav)
-2. Cambia un valor (ej. `exactScore` de 3 a 4)
+2. Cambia un valor (ej. `correctPrediction` de 3 a 2)
 3. Al presionar "Guardar" aparece la advertencia — confirma con "Confirmar y guardar"
 4. Ingresa un resultado en `/admin/jornada/:id` — el scoring usará el nuevo valor
 5. Verifica en Firestore → `predictions/{id}` que `points` refleja el valor nuevo
@@ -175,13 +176,13 @@ npm run pull-from-prod -- --collections=teams       # Solo equipos
 El scoring lo ejecuta la Cloud Function `onMatchUpdated`. En emuladores, la función se dispara automáticamente al guardar resultados desde el admin.
 
 1. Asegúrate de que los emuladores están corriendo con `npm run emulators` (incluye el emulador de Functions)
-2. Haz que un jugador ingrese pronósticos para una jornada abierta
+2. Haz que un jugador ingrese pronósticos para una jornada abierta (selector LOCAL/EMPATE/VISITANTE)
 3. En `/admin/jornada/:id`, ingresa el marcador final de un partido y guarda
-4. La función se ejecuta en el emulador y actualiza `stats.totalPoints` del jugador
-5. Verifica en http://localhost:4000 → Firestore → `predictions/{id}` que `points`, `isExact` e `isCorrectResult` fueron escritos
-6. Verifica en `users/{uid}` que `stats.totalPoints` se incrementó
+4. La función deriva el resultado (`home` / `draw` / `away`) del marcador y lo compara con `prediction.result`
+5. Verifica en http://localhost:4000 → Firestore → `predictions/{id}` que `points` e `isCorrect` fueron escritos
+6. Verifica en `users/{uid}` que `stats.totalPoints` y `stats.correctPredictions` se incrementaron
 
-**Bonus de fase de grupos:** cuando todos los partidos con `phase: "group_stage"` pasen a `status: "finished"`, la función otorga automáticamente +5pts al jugador con más predicciones exactas. El guard `config/tournament.groupBonusAwarded` evita doble ejecución.
+**Bonus de fase de grupos:** cuando todos los partidos con `phase: "group_stage"` pasen a `status: "finished"`, la función otorga automáticamente +5pts al jugador con más **predicciones correctas** (no exactas). El guard `config/tournament.groupBonusAwarded` evita doble ejecución.
 
 **Evaluación de bonus manual:** en `/admin/bonus`, ingresa los 4 resultados reales y presiona "Otorgar puntos bonus". Llama a la función `evaluateBonusPredictions` y actualiza a todos los jugadores en una sola operación.
 
@@ -256,14 +257,15 @@ El skill pregunta el país, deriva los colores de la bandera con la energía vis
 - **`usePredictions` usa `getDocs`** (no `onSnapshot`) para evitar el mismo bug con el emulador. Llamar a `refresh()` después de guardar para actualizar el estado.
 - **`useAllMatchdayPredictions` también usa `getDocs`** — mismo motivo. El fetch se dispara lazy solo cuando `enabled = true` (al activar el tab "Ver todos").
 - **Leaderboard requiere leer colección completa de `users`** — la regla de Firestore debe permitir `read` a `isAllowedUser()` sin restricción de `userId`. Una regla `request.auth.uid == userId` rompe el query de colección silenciosamente.
-- **Bloqueo por partido**: `MatchdayPredictions` calcula `matchReadOnly = readOnly || match.scheduledAt.toDate() <= new Date()` por cada partido. No confundir con `readOnly` que aplica a la jornada entera.
+- **Bloqueo por partido**: `MatchdayPredictions` calcula `matchReadOnly = readOnly || match.scheduledAt.toDate() <= new Date()` por cada partido. En modo `readOnly`, los botones del selector LOCAL/EMPATE/VISITANTE se deshabilitan y resaltan el valor guardado. No confundir con `readOnly` que aplica a la jornada entera.
+- **Modo resultado simple (Fase 14):** Los usuarios ya no ingresan marcadores exactos. El campo `prediction.result` puede ser `'home' | 'draw' | 'away'`. Los campos `homeScore`, `awayScore`, `isExact` e `isCorrectResult` fueron eliminados del tipo `Prediction`. Si ves predicciones antiguas con esos campos en Firestore, la Cloud Function los ignora — solo lee `result`.
 - **Zona horaria UTC** — toda fecha/hora se almacena y muestra en UTC. `toLocaleString` usa `timeZone: 'UTC'`.
 - **Batch limit**: máximo 499 ops por batch (cliente) / 500 (admin SDK en functions).
 - **`!= null`** — usar desigualdad débil cuando un valor puede ser `null` o `undefined`. `!== null` no captura `undefined`.
 - **Functions hot-reload**: no existe. Hacer `cd functions && npm run build` antes de reiniciar el emulador para ver cambios.
 - **`pull-from-prod`**: lee `service-account.json` de la raíz si existe; si no, cae a la variable `FIREBASE_SERVICE_ACCOUNT`. No poner el JSON directamente en `.env.local` — la clave privada tiene saltos de línea que `dotenv` no maneja.
 - **`getInvite` Cloud Function**: no requiere auth (`request.auth` puede ser null). Usa Admin SDK para leer `invites/{token}` — las rules de Firestore no aplican al Admin SDK. Si la función no está corriendo en el emulador (`npm run emulators`) la página `/invite/:token` fallará silenciosamente.
-- **`config/scoring`**: si el documento no existe en Firestore, todas las Cloud Functions usan `DEFAULT_SCORING` (3/1/3/1/5/5). Para inicializar en el emulador, ve a `/admin/config` y guarda sin cambios.
+- **`config/scoring`**: si el documento no existe en Firestore, todas las Cloud Functions usan `DEFAULT_SCORING` (`correctPrediction: 3`, `correctTieWinner: 1`, `groupBonus: 5`, `bonusPrediction: 5`). Para inicializar en el emulador, ve a `/admin/config` y guarda sin cambios.
 - **AdminLayout MOBILE_NAV vs DESKTOP_NAV**: el tab bar móvil solo tiene 4 ítems (Jornadas/Jugadores/Bonus/Acceso). "Tabla" y "Puntos" solo están en el nav de escritorio. No agregar ítems al tab bar sin revisar el espacio disponible en pantallas pequeñas.
 - **LeaderboardRow** es un componente compartido (`src/components/LeaderboardRow.tsx`) con **inline styles** — esto es intencional para que html2canvas pueda capturarlo sin problemas. Si modificas el diseño, hazlo con `style={{...}}` y no con `className` para colores/dimensiones; clases solo para hover/cursor. Tres consumidores: `LeaderboardTable` (Dashboard + AdminLeaderboard), `LeaderboardPNGCard` (admin), y `LeaderboardShareCard` (dashboard, posición personal).
 - **html2canvas + avatares**: el componente carga `<img crossOrigin="anonymous">` para que el canvas no quede _tainted_. Antes de capturar, todos los share cards esperan a que las imágenes terminen de cargar (`Promise.all` sobre `img.onload/onerror`). Si un avatar viene de un dominio sin CORS, html2canvas lo omite y el resto del PNG sale correcto.
