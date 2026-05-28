@@ -23,6 +23,7 @@
 - **Scoring server-side:** Toda lógica de puntos vive en Cloud Functions. El cliente solo lee.
 - **Bonus de grupos:** +5pts automático al usuario(s) con más predicciones exactas en fase de grupos, una sola vez al terminar todos los partidos de grupos. Guard: `config/tournament.groupBonusAwarded`.
 - **Bonus onboarding:** Evaluación manual por el admin (4 preguntas × 5pts). No se puede deshacer.
+- **[Fase 14] Modo resultado simple:** A partir de la Fase 14 los usuarios ya no ingresan marcadores exactos — solo predicen quién gana o si hay empate. El admin sigue ingresando marcadores reales para determinar el resultado. Las predicciones existentes (si las hubiera antes del cambio) se consideran migradas: se deriva `result` a partir de `homeScore`/`awayScore` históricos. Cambiar el sistema de puntos no recalifica predicciones ya puntuadas.
 - **Bloqueo de predicciones por partido:** Además del `predictionDeadline` de la jornada, cada partido se bloquea individualmente en cuanto su `scheduledAt` pasa. Permite que en jornadas con partidos en días distintos los primeros se bloqueen automáticamente sin afectar los siguientes.
 - **Visibilidad de pronósticos ajenos:** Los pronósticos de otros jugadores solo son visibles cuando la jornada tiene `status: 'closed'` o `'finished'`. Está aplicado tanto en Firestore rules (servidor) como en el toggle de UI (cliente).
 - **Leaderboard como colección pública:** Todos los `isAllowedUser()` pueden leer la colección `users` completa — necesario para que el query de leaderboard funcione. La restricción de escritura sigue siendo individual (cada usuario solo escribe el suyo, admins pueden escribir cualquiera).
@@ -549,3 +550,268 @@ Sección al final de la página, solo visible cuando `matchday.status === 'close
 - **Empates masivos en el Sotanero:** Si todos fallan igual (p.ej. 0 aciertos todos), no se muestra el Sotanero (no tiene gracia mostrarlo si fallaron todos).
 - **Recálculo:** El admin puede volver a calcular los premios después (p.ej. si se corrigió un resultado). `computedAt` se actualiza; el cliente siempre lee el último valor.
 - **`awards` en Firestore:** Se guarda como campo directo en el documento `matchdays/{id}` (no subcollección) para que el hook `useMatchdays` existente lo levante automáticamente sin cambios.
+
+---
+
+## Fase 14 — Modo Resultado Simple
+**Estado:** Pendiente ⏳
+
+Cambio de requerimiento: los usuarios ya **no ingresan marcadores exactos**. Solo predicen el resultado: **local gana / empate / visitante gana**. Esto afecta el modelo de datos, la Cloud Function de scoring, la UI de pronósticos, el historial, la vista post-jornada y la gamificación.
+
+El admin **sigue ingresando el marcador real** (homeScore / awayScore) para determinar el resultado del partido. El cliente solo lo usa para mostrar el resultado, no para comparar con pronósticos.
+
+---
+
+### 14A — Modelo de datos + Cloud Function de scoring
+**Estado:** Pendiente ⏳
+
+#### Cambios en tipos
+
+```ts
+// src/types/Prediction.ts
+type PredictionResult = 'home' | 'draw' | 'away'
+
+interface Prediction {
+  userId: string
+  matchdayId: string
+  matchId: string
+  result: PredictionResult | null      // reemplaza homeScore + awayScore
+  tieWinner?: string                   // solo en eliminatorias con result === 'draw'
+  points?: number
+  isCorrect?: boolean                  // reemplaza isExact + isCorrectResult
+  scoredAt?: string
+}
+```
+
+Los campos `homeScore`, `awayScore`, `isExact`, `isCorrectResult` se eliminan del tipo. Las predicciones antiguas en Firestore (si las hay) se ignoran — el sistema las trata como `result: null` (no predicción).
+
+#### Cambios en `config/scoring`
+
+| Campo anterior | Campo nuevo | Default |
+|---|---|---|
+| `exactScore` (3) | ~~eliminado~~ | — |
+| `correctResult` (1) | `correctPrediction` (3) | 3 pts |
+| `exactKnockoutWithTie` (3) | ~~eliminado~~ | — |
+| `correctTieWinner` (1) | `correctTieWinner` (1) | 1 pt bonus |
+| `groupBonus` (5) | `groupBonus` (5) | sin cambio |
+| `bonusPrediction` (5) | `bonusPrediction` (5) | sin cambio |
+
+> El "bonus de grupos" se redefine: ya no es por más exactos, sino por **más predicciones correctas** en la fase de grupos (ver 14A-decisiones).
+
+#### Cloud Function `onMatchUpdated` — nueva lógica de scoring
+
+```
+1. Derivar matchResult: homeScore > awayScore → 'home' | homeScore < awayScore → 'away' | igual → 'draw'
+2. Para cada predicción del partido:
+   a. isCorrect = prediction.result === matchResult
+   b. points = isCorrect ? scoring.correctPrediction : 0
+   c. En eliminatorias con matchResult === 'draw' y prediction.result === 'draw':
+      - Si prediction.tieWinner === match.winner → points += scoring.correctTieWinner
+3. Aplicar delta (igual que antes) para no duplicar ni perder puntos en re-scorings
+```
+
+#### Migración de predicciones existentes
+
+Si el torneo aún no comenzó: no hay predicciones existentes — no se necesita migración.
+Si ya hay predicciones con `homeScore`/`awayScore`: escribir script de migración one-shot que derive `result` y limpie los campos obsoletos antes de activar la nueva CF.
+
+#### Archivos
+
+| Acción | Archivo |
+|--------|---------|
+| ✏️ Modificar | `src/types/Prediction.ts` — reemplazar campos de score por `result` + `isCorrect` |
+| ✏️ Modificar | `functions/src/index.ts` — nueva lógica en `onMatchUpdated` |
+| ✏️ Modificar | `functions/src/index.ts` — ajustar `checkAndAwardGroupBonus` (usar correctos en lugar de exactos) |
+| ✏️ Modificar | `src/services/firestorePredictions.ts` — adaptar escritura de predicciones al nuevo tipo |
+
+---
+
+### 14B — UI de pronósticos
+**Estado:** Pendiente ⏳
+
+Reemplaza el teclado numérico y los inputs de marcador por un selector de 3 opciones por partido.
+
+#### Diseño del selector por partido
+
+```
+┌─────────────────────────────────────────────────────┐
+│  🇲🇽  México          vs          Argentina  🇦🇷      │
+├──────────────┬──────────────┬───────────────────────┤
+│  [  LOCAL  ] │  [ EMPATE ]  │  [ VISITANTE ]        │
+│  México gana │     X        │   Argentina gana       │
+└──────────────┴──────────────┴───────────────────────┘
+```
+
+- Tres botones tipo pill/tab: **LOCAL · EMPATE · VISITANTE**
+- El botón activo lleva el color acento del tema con glow
+- En eliminatorias: si el usuario elige "EMPATE", aparece inline la pregunta `¿Quién pasa?` con dos botones (equipo local / equipo visitante) — igual que el `tieWinner` actual pero integrado en el mismo row
+- En partidos bloqueados (readOnly): los botones se muestran deshabilitados con opacidad, resaltando la selección hecha
+
+#### Eliminar
+
+- `NumericKeypad.tsx` — ya no se usa
+- `PredictionsSidebar.tsx` — reemplazar por un indicador de progreso simplificado (n de m partidos predichos)
+
+#### Indicador de progreso
+
+- Reemplaza la sidebar de desktop y el pill del keypad
+- Un `ProgressBar` horizontal arriba de la lista: `Pronósticos: 5 / 8`
+- En móvil: mismo componente sticky bajo el header de la jornada
+
+#### Archivos
+
+| Acción | Archivo |
+|--------|---------|
+| ✨ Crear | `src/components/ResultPicker.tsx` — selector de 3 opciones reutilizable |
+| ✨ Crear | `src/components/PredictionProgress.tsx` — barra de progreso (reemplaza sidebar + keypad pill) |
+| ✏️ Modificar | `src/pages/Predictions/MatchdayPredictions.tsx` — usar `ResultPicker` por partido, eliminar keypad |
+| 🗑️ Eliminar | `src/components/NumericKeypad.tsx` |
+| 🗑️ Eliminar | `src/pages/Predictions/PredictionsSidebar.tsx` |
+
+---
+
+### 14C — Post-jornada e historial
+**Estado:** Pendiente ⏳
+
+Adaptar todas las vistas que mostraban marcadores pronosticados al nuevo formato de resultado.
+
+#### Vista post-jornada (toggle "Ver todos")
+
+Antes: mostraba `2-1` (pronóstico) vs `2-0` (real).
+Ahora: muestra **LOCAL / EMPATE / VISITANTE** con ícono de equipo; resultado real como badge `2-0 · Local`.
+
+```
+México 🇲🇽  vs  Argentina 🇦🇷   Resultado real: 2-0
+  María:    [LOCAL ✓] +3pts
+  Carlos:   [EMPATE ✗] +0pts
+  Kuri:     [LOCAL ✓] +3pts
+```
+
+#### Modal de historial (`PlayerHistoryModal`)
+
+- Stat boxes: cambiar **"Exactos"** por **"Aciertos"** y **"Correctos"** desaparece (solo había exactos y correctos; ahora solo hay un tipo: correcto/incorrecto)
+- Stats nuevos: `totalCorrect` / `totalPredictions` / `accuracy %`
+- Acordeón por jornada: badge por partido cambia de `+3 / +1 / +0` a `✓ +3pts / ✗ +0pts`
+- Gráfica de evolución: sin cambios (sigue siendo puntos acumulados)
+
+#### `User.stats` — campos afectados
+
+```ts
+// Antes
+stats: {
+  totalPoints: number
+  exactPredictions: number    // ← eliminar
+  correctResults: number      // ← renombrar a correctPredictions
+  totalPredictions: number
+}
+
+// Después
+stats: {
+  totalPoints: number
+  correctPredictions: number  // ← renombrado
+  totalPredictions: number
+  accuracy?: number           // % calculado: correctPredictions / totalPredictions
+}
+```
+
+La CF `onMatchUpdated` actualiza `correctPredictions` en lugar de `exactPredictions` + `correctResults`.
+
+#### Archivos
+
+| Acción | Archivo |
+|--------|---------|
+| ✏️ Modificar | `src/types/User.ts` — actualizar `stats` |
+| ✏️ Modificar | `src/pages/Dashboard/PlayerHistoryModal.tsx` — nuevos stat boxes + badges |
+| ✏️ Modificar | `src/pages/Predictions/MatchdayPredictions.tsx` — vista post-jornada con nuevo formato |
+| ✏️ Modificar | `functions/src/index.ts` — actualizar stats en `onMatchUpdated` |
+
+---
+
+### 14D — Gamificación: ajuste de premios (impacto en Fase 13)
+**Estado:** Pendiente ⏳
+
+La Fase 13 (Premios de Jornada) depende del concepto de "exactos". Con el nuevo modo resultado, **"El Vidente"** (más marcadores exactos) deja de tener sentido. Se redefine así:
+
+#### Tabla de premios actualizada
+
+| # | Premio | Criterio anterior | Criterio nuevo |
+|---|--------|-------------------|----------------|
+| 1 | **El Sotanero** | Menos aciertos (exactos+correctos) | Menos aciertos — sin cambio conceptual |
+| 2 | **El Sabio** | Más aciertos (exactos+correctos) | Más aciertos — sin cambio conceptual |
+| 3 | **El Vidente** | Más marcadores exactos | ~~Eliminado~~ → reemplazado por **El Certero** |
+| 3 | **El Certero** 🎯 | *(nuevo)* | Mayor % de aciertos entre quienes predicaron todos los partidos de la jornada |
+| 4 | **El Enrachado** | Jornadas consecutivas con ≥1 exacto | Jornadas consecutivas con ≥1 acierto |
+| 5 | **El Inalcanzable** | Más puntos acumulados totales | Sin cambio |
+| 6 | **El MVP de la Jornada** | Más puntos esta jornada | Sin cambio |
+
+> **El Certero:** solo compite quien predicó los N partidos de la jornada. Entre ellos, gana quien tuvo mayor porcentaje de aciertos. En empate, gana quien tiene más puntos en la jornada.
+
+#### Cambios en `MatchdayAwards`
+
+```ts
+export interface MatchdayAwards {
+  el_mvp:           AwardEntry[]
+  el_certero:       AwardEntry[]   // reemplaza el_vidente
+  el_sabio:         AwardEntry[]
+  el_enrachado?:    AwardEntry[]
+  el_inalcanzable:  AwardEntry[]
+  el_sotanero:      AwardEntry[]
+  computedAt:       string
+}
+```
+
+`AwardEntry.value` para El Certero = porcentaje (0–100); `label` = `"8/8 partidos · 100%"`.
+
+#### Algoritmo de El Certero en `computeMatchdayAwards`
+
+```
+1. Contar total de partidos en la jornada (N)
+2. Filtrar usuarios que predijeron exactamente N partidos
+3. Calcular accuracy = correctCount / N para cada uno
+4. Ganador(es) = max(accuracy); empate desempatado por points
+```
+
+#### Archivos
+
+| Acción | Archivo |
+|--------|---------|
+| ✏️ Modificar | `src/types/Matchday.ts` — renombrar `el_vidente` → `el_certero` en `MatchdayAwards` |
+| ✏️ Modificar | `functions/src/index.ts` — `computeMatchdayAwards`: reemplazar lógica de exactos por accuracy + redefinir El Enrachado |
+| ✏️ Modificar | `src/pages/Dashboard/AwardsShowcase.tsx` — actualizar slide de El Certero (emoji 🎯, label de %) |
+
+---
+
+### Admin: ajustes al panel de configuración de puntos (`14E`)
+**Estado:** Pendiente ⏳
+
+- Eliminar campos `exactScore` y `exactKnockoutWithTie` del formulario `ScoringConfig`
+- Renombrar `correctResult` → `correctPrediction` con descripción actualizada
+- Añadir advertencia visible: "El torneo usa modo resultado simple. Los usuarios solo predicen Local / Empate / Visitante."
+
+#### Archivos
+
+| Acción | Archivo |
+|--------|---------|
+| ✏️ Modificar | `src/pages/Admin/ScoringConfig.tsx` — simplificar formulario |
+| ✏️ Modificar | `functions/src/index.ts` — actualizar `DEFAULT_SCORING` |
+
+---
+
+### Orden de implementación recomendado
+
+| Sub-fase | Qué implementar primero | Por qué |
+|----------|-------------------------|---------|
+| **14A** | Tipos + CF scoring | El resto del sistema depende del nuevo contrato de datos |
+| **14B** | UI de pronósticos | La parte más visible para usuarios |
+| **14C** | Post-jornada + historial | Lectura; no bloquea ingreso de predicciones |
+| **14D** | Premios (si Fase 13 está lista) | Solo si Fase 13 ya existe |
+| **14E** | Admin scoring config | Bajo impacto; se puede hacer al final |
+
+### Decisiones y restricciones
+
+- **El admin sigue ingresando marcadores:** La UI admin (`MatchdayDetail`) no cambia. El marcador real sigue siendo la fuente de verdad para derivar el resultado.
+- **Bonus de grupos:** Se redefine como el usuario con más **predicciones correctas** (no exactas) en la fase de grupos. Si hay empate en correctas, gana quien tenga más puntos totales al cierre de grupos.
+- **tieWinner en eliminatorias:** Se mantiene. Si el usuario predice "EMPATE" en una eliminatoria, el sistema sigue preguntando `¿Quién pasa?`. La CF evalúa `tieWinner` igual que antes.
+- **Predicciones antiguas:** Si ya hay jornadas calificadas bajo el sistema anterior, sus puntos no se recalculan. La nueva CF solo aplica al invocar con un resultado nuevo o modificado.
+- **`isExact` / `isCorrectResult`:** Eliminados del tipo. La CF escribe solo `isCorrect`. El cliente no debe leer los campos viejos.
+- **Fase 13 es independiente:** La Fase 13 (slideshow de premios) puede implementarse antes o después de la Fase 14. Si se hace antes, usar los tipos actuales; al llegar a 14D se migra `el_vidente → el_certero`.
