@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.evaluateBonusPredictions = exports.notifyResultsPublished = exports.sendDeadlineReminders = exports.getInvite = exports.onMatchUpdated = void 0;
+exports.evaluateBonusPredictions = exports.sendMassNotification = exports.notifyResultsPublished = exports.sendDeadlineReminders = exports.getInvite = exports.onMatchUpdated = void 0;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
@@ -323,6 +323,22 @@ exports.notifyResultsPublished = (0, firestore_1.onDocumentUpdated)('matchdays/{
         return;
     const tokens = await getFcmTokens();
     await sendPush(tokens, '🏆 Resultados disponibles', `Los resultados de ${after.name} ya están publicados`);
+});
+exports.sendMassNotification = (0, https_1.onCall)(async (request) => {
+    var _a;
+    if (!request.auth)
+        throw new https_1.HttpsError('unauthenticated', 'Not authenticated');
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (((_a = callerDoc.data()) === null || _a === void 0 ? void 0 : _a.role) !== 'admin') {
+        throw new https_1.HttpsError('permission-denied', 'Admins only');
+    }
+    const { title, body } = request.data;
+    if (!(title === null || title === void 0 ? void 0 : title.trim()) || !(body === null || body === void 0 ? void 0 : body.trim())) {
+        throw new https_1.HttpsError('invalid-argument', 'Título y mensaje requeridos');
+    }
+    const tokens = await getFcmTokens();
+    await sendPush(tokens, title.trim(), body.trim());
+    return { sent: tokens.length };
 });
 exports.evaluateBonusPredictions = (0, https_1.onCall)(async (request) => {
     var _a;
