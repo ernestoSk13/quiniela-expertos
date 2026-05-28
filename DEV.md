@@ -19,22 +19,24 @@ Necesitas **dos terminales** abiertas al mismo tiempo.
 npm run emulators
 ```
 
-| Servicio | URL |
-|----------|-----|
-| Auth | http://localhost:9099 |
+| Servicio  | URL                   |
+| --------- | --------------------- |
+| Auth      | http://localhost:9099 |
 | Firestore | http://localhost:8080 |
 | Functions | http://localhost:5001 |
-| Storage | http://localhost:9199 |
-| UI admin | http://localhost:4000 |
+| Storage   | http://localhost:9199 |
+| UI admin  | http://localhost:4000 |
 
 ### Terminal 2 — App
 
 Primera vez (o después de restaurar datos):
+
 ```bash
 npm run seed
 ```
 
 Luego:
+
 ```bash
 npm run dev
 ```
@@ -57,13 +59,16 @@ Para producción: `VITE_USE_EMULATORS=false` (y quitar `VITE_EMULATOR_HOST`).
 ## Setup inicial (primera vez con emuladores)
 
 ### 1. Agregar usuario permitido
+
 - Abre http://localhost:4000 → **Firestore**
 - En `allowedUsers`, crea un documento con ID = `tu@correo.com` (sin campos)
 
 ### 2. Crear usuario en Auth
+
 - En la UI → **Authentication** → agregar usuario con el mismo correo y contraseña
 
 ### 3. Hacer admin
+
 - En Firestore → `users/{uid}` → cambiar `role` a `"admin"`
 
 ---
@@ -82,18 +87,21 @@ npm run pull-from-prod -- --collections=teams       # Solo equipos
 ## Probar desde iPhone (misma red Wi-Fi)
 
 1. Obtener la IP local del Mac:
+
    ```bash
    ipconfig getifaddr en0
    # ej. 192.168.86.40
    ```
 
 2. Actualizar `.env.local`:
+
    ```bash
    VITE_USE_EMULATORS=true
    VITE_EMULATOR_HOST=192.168.86.40
    ```
 
 3. Iniciar el dev server escuchando en todas las interfaces:
+
    ```bash
    npm run dev -- --host
    ```
@@ -104,20 +112,20 @@ npm run pull-from-prod -- --collections=teams       # Solo equipos
 
 ## Rutas de la app
 
-| URL | Vista |
-|-----|-------|
-| `/login` | Login (email/contraseña o Google); lee `?email=` para pre-llenar desde invitación |
-| `/onboarding` | Nombre, foto, bonus predictions |
-| `/dashboard` | Tabla general, siguiente jornada, bonus, jornadas anteriores |
-| `/jornada/:id` | Pronósticos de una jornada; en jornadas cerradas/finalizadas incluye toggle "Ver todos" |
-| `/invite/:token` | Página pública de bienvenida para invitados; no requiere auth |
-| `/admin` | Panel admin — jornadas |
-| `/admin/jornada/:id` | Detalle de jornada — partidos y resultados |
-| `/admin/jugadores` | Perfiles de jugadores (onboarding + conteo de pronósticos) |
-| `/admin/bonus` | Evaluar bonus predictions al final del torneo |
-| `/admin/usuarios` | Gestión de correos con acceso + botón "Invitar" por correo |
-| `/admin/tabla` | Tabla general (solo desktop nav) — reutiliza LeaderboardTable + PlayerHistoryModal |
-| `/admin/config` | Configuración de puntos (solo desktop nav) — formulario por categoría con advertencia |
+| URL                  | Vista                                                                                   |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| `/login`             | Login (email/contraseña o Google); lee `?email=` para pre-llenar desde invitación       |
+| `/onboarding`        | Nombre, foto, bonus predictions                                                         |
+| `/dashboard`         | Tabla general, siguiente jornada, bonus, jornadas anteriores                            |
+| `/jornada/:id`       | Pronósticos de una jornada; en jornadas cerradas/finalizadas incluye toggle "Ver todos" |
+| `/invite/:token`     | Página pública de bienvenida para invitados; no requiere auth                           |
+| `/admin`             | Panel admin — jornadas                                                                  |
+| `/admin/jornada/:id` | Detalle de jornada — partidos y resultados                                              |
+| `/admin/jugadores`   | Perfiles de jugadores (onboarding + conteo de pronósticos)                              |
+| `/admin/bonus`       | Evaluar bonus predictions al final del torneo                                           |
+| `/admin/usuarios`    | Gestión de correos con acceso + botón "Invitar" por correo                              |
+| `/admin/tabla`       | Tabla general (solo desktop nav) — reutiliza LeaderboardTable + PlayerHistoryModal      |
+| `/admin/config`      | Configuración de puntos (solo desktop nav) — formulario por categoría con advertencia   |
 
 ---
 
@@ -192,6 +200,7 @@ npm run build:watch    # Watch mode durante desarrollo
 El emulador de Functions (`npm run emulators`) carga el código compilado desde `functions/lib/`. Necesitas hacer `build` antes de que los cambios se reflejen en el emulador; no hay hot-reload para functions.
 
 **Dependencias clave:**
+
 - `firebase-functions` ^7 — API gen2 (`firebase-functions/v2/firestore`, `/v2/https`)
 - `firebase-admin` ^13 — acceso a Firestore desde el servidor
 - Node.js 22
@@ -203,36 +212,39 @@ El emulador de Functions (`npm run emulators`) carga el código compilado desde 
 Los temas cambian el fondo, header, tarjetas y acentos de toda la app.
 
 **Archivos que definen los temas:**
+
 - `src/index.css` — CSS custom properties por tema (`:root`, `.theme-canada`, `.theme-usa`)
 - `src/lib/themes.ts` — array `THEMES` que alimenta el selector en el Dashboard
 
 **Para agregar un tema nuevo**, usar el skill de Claude Code:
+
 ```
 /add-theme
 ```
+
 El skill pregunta el país, deriva los colores de la bandera con la energía visual de la paleta FIFA WC 2026, y actualiza ambos archivos automáticamente.
 
 **Variables CSS disponibles en toda la app:**
 
-| Variable | Uso |
-|----------|-----|
-| `var(--accent)` | Botones, highlights, bordes activos |
-| `var(--accent-hover)` | Hover de botones |
-| `var(--accent-light)` | Texto de acento |
-| `var(--accent-dim)` | Fondo muy oscuro tintado (filas seleccionadas) |
-| `var(--accent-muted)` | `rgba` semi-transparente para cajas/bordes |
-| `var(--accent-deep)` | `rgba` muy semi-transparente para filas del leaderboard |
-| `var(--bg-base)` | Color base de la página |
-| `var(--surface-nav)` | Header y tab bar |
-| `var(--surface-card)` | Tarjetas y paneles |
+| Variable              | Uso                                                     |
+| --------------------- | ------------------------------------------------------- |
+| `var(--accent)`       | Botones, highlights, bordes activos                     |
+| `var(--accent-hover)` | Hover de botones                                        |
+| `var(--accent-light)` | Texto de acento                                         |
+| `var(--accent-dim)`   | Fondo muy oscuro tintado (filas seleccionadas)          |
+| `var(--accent-muted)` | `rgba` semi-transparente para cajas/bordes              |
+| `var(--accent-deep)`  | `rgba` muy semi-transparente para filas del leaderboard |
+| `var(--bg-base)`      | Color base de la página                                 |
+| `var(--surface-nav)`  | Header y tab bar                                        |
+| `var(--surface-card)` | Tarjetas y paneles                                      |
 
 **Clases utilitarias:**
 
-| Clase | Descripción |
-|-------|-------------|
-| `app-bg` | Fondo de página completo con blobs radiales temáticos |
-| `surface-nav` | Fondo para headers y navbars |
-| `surface-card` | Fondo para tarjetas/paneles |
+| Clase          | Descripción                                           |
+| -------------- | ----------------------------------------------------- |
+| `app-bg`       | Fondo de página completo con blobs radiales temáticos |
+| `surface-nav`  | Fondo para headers y navbars                          |
+| `surface-card` | Fondo para tarjetas/paneles                           |
 
 > Nunca usar `bg-emerald-*`, `bg-blue-*` etc. para colores de acento. Siempre `bg-[var(--accent)]`.
 
@@ -254,7 +266,7 @@ El skill pregunta el país, deriva los colores de la bandera con la energía vis
 - **`config/scoring`**: si el documento no existe en Firestore, todas las Cloud Functions usan `DEFAULT_SCORING` (3/1/3/1/5/5). Para inicializar en el emulador, ve a `/admin/config` y guarda sin cambios.
 - **AdminLayout MOBILE_NAV vs DESKTOP_NAV**: el tab bar móvil solo tiene 4 ítems (Jornadas/Jugadores/Bonus/Acceso). "Tabla" y "Puntos" solo están en el nav de escritorio. No agregar ítems al tab bar sin revisar el espacio disponible en pantallas pequeñas.
 - **LeaderboardRow** es un componente compartido (`src/components/LeaderboardRow.tsx`) con **inline styles** — esto es intencional para que html2canvas pueda capturarlo sin problemas. Si modificas el diseño, hazlo con `style={{...}}` y no con `className` para colores/dimensiones; clases solo para hover/cursor. Tres consumidores: `LeaderboardTable` (Dashboard + AdminLeaderboard), `LeaderboardPNGCard` (admin), y `LeaderboardShareCard` (dashboard, posición personal).
-- **html2canvas + avatares**: el componente carga `<img crossOrigin="anonymous">` para que el canvas no quede *tainted*. Antes de capturar, todos los share cards esperan a que las imágenes terminen de cargar (`Promise.all` sobre `img.onload/onerror`). Si un avatar viene de un dominio sin CORS, html2canvas lo omite y el resto del PNG sale correcto.
+- **html2canvas + avatares**: el componente carga `<img crossOrigin="anonymous">` para que el canvas no quede _tainted_. Antes de capturar, todos los share cards esperan a que las imágenes terminen de cargar (`Promise.all` sobre `img.onload/onerror`). Si un avatar viene de un dominio sin CORS, html2canvas lo omite y el resto del PNG sale correcto.
 
 ---
 

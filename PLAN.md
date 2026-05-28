@@ -12,8 +12,8 @@
 - [x] Link de invitación: admin genera token por correo, invitado llega a página de bienvenida
 - [x] Compartir como imagen: posición personal, resumen de jornada y tabla general (PNG)
 - [x] Leaderboard rediseñado tipo carta FIFA (mini-card con avatar) — componente compartido entre dashboard, admin y PNG card
-- [x] Rediseño visual completo: Onboarding, Pronósticos, Modal de historial, Preferencias (Fase 12)
-- [ ] **PENDIENTE**: Fix flujo mobile — Preferencias como tab inline en Dashboard (evitar que la tab bar desaparezca)
+- [x] Rediseño visual completo: Onboarding, Pronósticos, Modal de historial, Preferencias, Admin panel, Share Cards (Fase 12)
+- [x] Fix flujo mobile — Preferencias como tab inline en Dashboard (`PreferencesContent` named export)
 
 ---
 
@@ -254,18 +254,34 @@
 - [x] Colores hardcodeados en `COLORS` record (no CSS variables) para compatibilidad con html2canvas
 
 ### Preferencias
-**Estado:** Redesñado ✓ / **Deploy pendiente**
+**Estado:** Completado ✓ (desplegado)
 
 - [x] `Preferences.tsx` — header con "PREFERENCIAS" en Bebas Neue, `SectionHeader` con línea gradiente, tema con 3 cards (flag 4xl + glow acento al activo), sección instalación con chips pill + instrucciones numeradas, toggle de notificaciones 50×28px + borde izquierdo al activar + LockIcon si denegado, cuenta con iconos SVG (persona/mail), botón cerrar sesión rojo
-- [ ] **Deploy pendiente** junto con fix mobile de Dashboard.tsx
 
 ### Fix Mobile — Tab de Preferencias
-**Estado:** Pendiente
+**Estado:** Completado ✓ (desplegado)
 
-- [ ] `Dashboard.tsx`: cambiar `onClick={() => navigate('/preferencias')}` → `setActiveTab('preferences')` para el tab de móvil
-- [ ] Agregar panel `{activeTab === 'preferences' && <PreferencesContent />}` en la sección mobile del Dashboard
-- [ ] La ruta `/preferencias` permanece solo para acceso desktop (ícono engranaje del header)
-- [ ] Desplegar junto con Preferences.tsx redesignado
+- [x] `Dashboard.tsx`: `setActiveTab('preferences')` en el tab de móvil (ya no llama a `navigate`)
+- [x] `PreferencesContent` extraído como named export de `Preferences.tsx`; renderizado inline en el panel mobile del Dashboard
+- [x] La ruta `/preferencias` permanece solo para acceso desktop (ícono engranaje del header)
+
+### Admin panel completo
+**Estado:** Completado ✓ (desplegado)
+
+- [x] `AdminLayout.tsx` — header con franja accent 3px, "ADMIN" Bebas Neue, nav desktop con íconos SVG, mobile tab bar con íconos
+- [x] `MatchdayList.tsx` — borde izquierdo 4px en color de estado, skeleton shimmer, botones glass
+- [x] `MatchdayDetail.tsx` — headers de grupo Bebas Neue, banderas 1.6rem, score Bebas Neue 1.6rem
+- [x] `AllowedUsers.tsx` — badge de conteo, botón Invitar con animación de copia, chip verde "Copiado"
+- [x] `UserProfiles.tsx` — stats inline en header, badges onboarding/preds, formulario de edición expandible
+- [x] `ScoringConfig.tsx` — grupos con emoji, inputs numéricos Bebas Neue 1.3rem, warning amber dos pasos
+- [x] `BonusEvaluation.tsx` — card con franja accent, botón submit gradiente Bebas Neue
+- [x] `AdminLeaderboard.tsx` — header Bebas Neue, badge de conteo
+
+### Share Cards
+**Estado:** Completado ✓ (desplegado)
+
+- [x] `JornadaShareCard.tsx` — layout 2 columnas (evita imagen cortada), `createPortal` para evitar clipping por sticky parent
+- [x] `LeaderboardPNGCard.tsx` — hero header Bebas Neue con chip del líder, stat pills, footer de marca, `createPortal`
 
 ---
 
@@ -280,3 +296,256 @@
 - [x] CF `notifyResultsPublished` — trigger en `matchdays/{id}`, avisa al pasar a `closed`/`finished`
 - [x] Limpieza automática de tokens inválidos en Firestore tras envío fallido
 - [x] iOS Safari sin PWA: campana oculta (notificaciones no soportadas fuera de PWA)
+
+### Métricas de admin
+**Estado:** Completado ✓
+
+- [x] `AdminMetrics.tsx` — página `/admin/metricas` con 4 stat cards (activos, predicciones totales, promedio de puntos, tasa de exactos), barras de participación por jornada y tabla de partidos más difíciles (ordenados por tasa de exactos ascendente)
+- [x] Tab "Más" en la barra mobile del admin — panel slide-up con acceso a Bonus, Métricas, Notificaciones, Puntos
+
+### Notificaciones masivas
+**Estado:** Completado ✓
+
+- [x] `AdminNotifications.tsx` — página `/admin/notificaciones` con 4 plantillas predefinidas, editor de título/cuerpo (límites 50/150 chars), preview iOS en tiempo real, confirmación en dos pasos
+- [x] CF `sendMassNotification` — callable, solo admins; lee todos los `fcmToken`, llama `sendPush`, devuelve `{ sent }`
+- [x] `sendMassNotification()` en `cloudFunctions.ts`
+
+---
+
+## Fase 13 — Gamificación: Premios de Jornada + GIF Animado
+**Estado:** Pendiente ⏳
+
+Presenta los premios de cada jornada con un slideshow animado y un GIF compartible en WhatsApp/redes. El botón aparece en el Dashboard encima de la tabla general una vez que la jornada está calificada.
+
+### Premios (6 categorías)
+
+| # | Premio | Criterio | Emoji | Stat mostrada |
+|---|--------|----------|-------|---------------|
+| 1 | **El Sotanero** | Menos aciertos totales (exactos + correctos); excluye quienes no participaron | 😅 | `{n} aciertos` |
+| 2 | **El Sabio** | Más aciertos totales (exactos + correctos) | 🧠 | `{n} aciertos` |
+| 3 | **El Vidente** | Más pronósticos de marcador exacto | 🔮 | `{n} exactos` |
+| 4 | **El Enrachado** | Mayor racha activa (jornadas consecutivas terminando en la actual con ≥1 exacto); no aparece en la primera jornada del torneo | 🔥 | `{n} jornadas seguidas` |
+| 5 | **El Inalcanzable** | Más puntos acumulados en la tabla general | ⭐ | `{n} pts totales` |
+| 6 | **El MVP de la Jornada** | Más puntos en esta jornada | 🏆 | `+{n} pts` |
+
+**Empates:** se muestran todos los jugadores empatados en la misma slide (avatares en fila horizontal).
+
+### Modelo de datos
+
+#### `Matchday` — campo nuevo opcional
+
+```ts
+// src/types/Matchday.ts
+export interface AwardEntry {
+  uid: string
+  displayName: string
+  photoURL: string | null   // avatarUrl
+  value: number             // la stat principal (pts, count, streak)
+  label: string             // texto human-readable: "4 exactos", "+28 pts", "3 jornadas"
+}
+
+export interface MatchdayAwards {
+  el_mvp:           AwardEntry[]
+  el_vidente:       AwardEntry[]
+  el_sabio:         AwardEntry[]
+  el_enrachado?:    AwardEntry[]   // ausente si es la primera jornada del torneo
+  el_inalcanzable:  AwardEntry[]
+  el_sotanero:      AwardEntry[]
+  computedAt:       string         // ISO timestamp — para saber si ya fue calculado
+}
+
+// En Matchday agregar:
+awards?: MatchdayAwards
+```
+
+#### `User` — campos de racha
+
+```ts
+// src/types/User.ts — agregar:
+currentStreak?: number   // jornadas consecutivas activas con ≥1 exacto
+maxStreak?: number       // racha máxima histórica del usuario
+```
+
+### Cloud Function: `computeMatchdayAwards`
+
+Callable onCall, solo admins. Input: `{ matchdayId: string }`.
+
+**Algoritmo:**
+
+```
+1. Validar admin (request.auth + role === 'admin')
+2. Leer matchday → verificar status 'closed' o 'finished'
+3. Query: db.collection('predictions').where('matchdayId', '==', id)
+4. Agrupar por userId → Map<uid, { points, exactCount, correctCount }>
+   - points        = sum(prediction.points ?? 0)
+   - exactCount    = count donde isExact === true
+   - correctCount  = count donde isExact === true OR isCorrectResult === true
+   - participated  = tiene al menos 1 predicción scored (points != null)
+5. Leer todos los User docs para obtener displayName + avatarUrl
+6. Calcular ganadores por categoría:
+   - el_mvp:         max(points)            — todos los empatados
+   - el_vidente:     max(exactCount)        — todos los empatados
+   - el_sabio:       max(correctCount)      — todos los empatados
+   - el_sotanero:    min(correctCount)      — solo entre participated=true; todos los empatados
+   - el_inalcanzable: max(user.stats.totalPoints) — leer users collection, todos los empatados
+7. El Enrachado (solo si matchday.order > 1):
+   a. Leer matchdays anteriores ordenados por .order asc (filtrando status 'closed'/'finished')
+   b. Para cada usuario en el paso 4 con participated=true:
+      - Recorrer matchdays anteriores en orden DESCENDENTE desde (actual - 1)
+      - Por cada uno: query predictions donde matchdayId=X, userId=U, isExact=true (count)
+      - Si count > 0 → streak++; si count === 0 → stop
+      - Si también tuvo exactCount > 0 en la jornada actual → streak++ al inicio
+   c. El Enrachado = usuarios con mayor racha activa (mínimo streak ≥ 2 para mostrarse)
+   d. Actualizar batch: user.currentStreak y user.maxStreak
+8. Armar objeto MatchdayAwards y escribir en matchday.awards con merge
+9. Return { success: true, awards }
+```
+
+**Optimización de El Enrachado:** Para evitar N×M queries, cargar en chunks
+(`where('matchdayId', 'in', [...ids])`) y agregar en memoria.
+
+### UI: `AwardsShowcase.tsx`
+
+Modal full-screen (portal en `document.body`) con slideshow animado.
+
+**Flujo de slides:** Sotanero → Sabio → Vidente → Enrachado (si aplica) → Inalcanzable → MVP
+
+**Diseño de cada slide:**
+```
+┌────────────────────────────────┐
+│ JORNADA X · PREMIOS  [✕]       │  ← header fijo, Bebas Neue
+├────────────────────────────────┤
+│                                │
+│           🔮                   │  ← emoji: scale bounce entrada
+│                                │
+│       EL VIDENTE               │  ← Bebas Neue 40px, var(--accent)
+│                                │
+│   [ava]  [ava]  [ava]          │  ← avatares en fila (empates)
+│   Nombre Nombre Nombre         │  ← Bebas Neue 20px
+│                                │
+│      ▲ 4 EXACTOS               │  ← stat badge acento
+│                                │
+│  ●●○○○○  ← progress dots      │
+│  ◄  2/6  ►                    │  ← navegación manual
+│  ████░░░░░  ← barra auto-adv  │  ← 5s por slide
+└────────────────────────────────┘
+```
+
+**Animación de slides:**
+- Entrada: `translateX(+100%) → 0` + `opacity 0→1`, 320ms ease-out
+- Salida: `translateX(0 → -100%)` + fade, simultánea a la entrada
+- Emoji: `scale(0) → scale(1.25) → scale(1)`, 500ms con overshoot
+- Avatares: `scale(0.5) opacity-0 → scale(1) opacity-1`, staggered por índice
+- Auto-avance: barra de progreso CSS lineal 5s; se pausa al hover/touch
+- Swipe: `touchstart`/`touchend` con delta ≥ 50px
+
+**Cuando hay múltiples ganadores:**
+- Avatares circulares (56px) en fila horizontal centrada, máximo 5 visibles
+- Si hay más de 5: "y {n} más"
+- Cada avatar tiene tooltip/label con el nombre abajo
+
+### GIF Animado — Exportación
+
+**Stack:** `gif.js` + `@types/gif.js`
+```bash
+npm install gif.js
+npm install -D @types/gif.js
+```
+
+**`AwardsGifFrames.tsx` — frames off-screen (400×600px cada uno)**
+
+Mismas 6 slides en versión estática (sin animaciones CSS) para html2canvas:
+- Sin CSS variables — colores hardcoded de `COLORS[themeId]` (misma restricción que otros share cards)
+- Bebas Neue cargada vía `index.html` → `await document.fonts.ready`
+- `display: inline-block` + `verticalAlign: middle` para alineaciones verticales (no flexbox)
+
+**Flujo de generación:**
+```
+Click "Compartir GIF"
+  → setGifState('rendering')
+  → await document.fonts.ready
+  → capturar frames 0..N con html2canvas → canvas[]
+  → setGifState('encoding')
+  → new GIF({ workers: 2, quality: 10, width: 400, height: 600 })
+  → gif.addFrame(canvas, { delay: 3500 }) por cada frame
+  → gif.on('finished', blob => share/download(blob))
+  → gif.render()
+```
+
+**Compartir resultado:**
+- Mobile: `navigator.share({ files: [new File([blob], 'premios-jornada.gif', { type: 'image/gif' })] })`
+- Desktop: `<a download href={URL.createObjectURL(blob)}>` auto-click
+
+**Estados del botón:**
+```
+"Compartir GIF"  →  "Preparando..."  →  "Codificando GIF (40%)..."  →  compartir/descargar
+```
+
+### Integración en Dashboard
+
+**Lógica de visibilidad:**
+```ts
+// La jornada más reciente cerrada/finalizada con awards calculados
+const awardsMatchday = matchdays
+  .filter(md => (md.status === 'closed' || md.status === 'finished') && md.awards)
+  .sort((a, b) => b.order - a.order)[0]
+```
+
+**Posición:** Encima del `<h2>Tabla general</h2>` — tanto en tab "Tabla" mobile como en columna izquierda desktop.
+
+```tsx
+{awardsMatchday && (
+  <button onClick={() => setShowAwards(true)}>
+    🏆 Premios de la jornada — {awardsMatchday.name}
+  </button>
+)}
+{showAwards && awardsMatchday?.awards && (
+  <AwardsShowcase
+    awards={awardsMatchday.awards}
+    matchdayName={awardsMatchday.name}
+    matchdayOrder={awardsMatchday.order}
+    themeId={themeId}
+    onClose={() => setShowAwards(false)}
+  />
+)}
+```
+
+### Admin: Trigger en `MatchdayDetail`
+
+Sección al final de la página, solo visible cuando `matchday.status === 'closed' || 'finished'`:
+
+```tsx
+// Botón "Calcular premios" o "Recalcular premios" si awards ya existe
+// Badge "Premios calculados ✓ {fecha}" cuando matchday.awards?.computedAt existe
+// Estado: computing (spinner) + error banner rojo si falla
+```
+
+### Archivos
+
+| Acción | Archivo |
+|--------|---------|
+| ✨ Crear | `src/pages/Dashboard/AwardsShowcase.tsx` — modal slideshow animado |
+| ✨ Crear | `src/pages/Dashboard/AwardsGifFrames.tsx` — frames off-screen para html2canvas |
+| ✏️ Modificar | `src/types/Matchday.ts` — agregar `AwardEntry`, `MatchdayAwards`, campo `awards?` en `Matchday` |
+| ✏️ Modificar | `src/types/User.ts` — agregar `currentStreak?`, `maxStreak?` |
+| ✏️ Modificar | `functions/src/index.ts` — agregar CF `computeMatchdayAwards` |
+| ✏️ Modificar | `src/services/cloudFunctions.ts` — agregar callable `computeMatchdayAwards` |
+| ✏️ Modificar | `src/pages/Admin/MatchdayDetail.tsx` — agregar sección de trigger de premios |
+| ✏️ Modificar | `src/pages/Dashboard/Dashboard.tsx` — agregar botón + estado `showAwards` |
+| ✏️ Modificar | `package.json` + `package-lock.json` — agregar `gif.js` + `@types/gif.js` |
+
+### Fases de entrega
+
+| Fase | Qué incluye |
+|------|-------------|
+| **13A** | Tipos + CF `computeMatchdayAwards` + trigger en admin + `AwardsShowcase` (slideshow in-app) + integración en Dashboard |
+| **13B** | `AwardsGifFrames` + integración gif.js + botón "Compartir GIF" dentro del showcase |
+
+### Decisiones y restricciones técnicas
+
+- **html2canvas en AwardsGifFrames:** Sin CSS variables; colores hardcoded igual que en `JornadaShareCard` y `LeaderboardShareCard`. Usar el `COLORS` record del tema activo.
+- **gif.js web worker:** Necesita que el worker JS esté accesible en público. Opciones: copiar `gif.worker.js` a `public/`, o usar `workerScript` con un blob URL.
+- **Racha mínima para El Enrachado:** Solo se muestra si el ganador tiene streak ≥ 2 (si solo llevan 1 jornada con exactos no es "racha"). Si nadie tiene streak ≥ 2, la slide del Enrachado se omite aunque no sea J1.
+- **Empates masivos en el Sotanero:** Si todos fallan igual (p.ej. 0 aciertos todos), no se muestra el Sotanero (no tiene gracia mostrarlo si fallaron todos).
+- **Recálculo:** El admin puede volver a calcular los premios después (p.ej. si se corrigió un resultado). `computedAt` se actualiza; el cliente siempre lee el último valor.
+- **`awards` en Firestore:** Se guarda como campo directo en el documento `matchdays/{id}` (no subcollección) para que el hook `useMatchdays` existente lo levante automáticamente sin cambios.
