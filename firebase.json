@@ -19,7 +19,7 @@
     }
   ],
   "hosting": {
-    "site": "quinielaexpertos26-a7440",
+    "site": "quinielaexpertos26",
     "public": "dist",
     "ignore": [
       "firebase.json",

@@ -1,0 +1,7 @@
+[
+  {
+    "origin": ["https://quinielaexpertos26.web.app", "https://quinielaexpertos26.firebaseapp.com"],
+    "method": ["GET"],
+    "maxAgeSeconds": 3600
+  }
+]
