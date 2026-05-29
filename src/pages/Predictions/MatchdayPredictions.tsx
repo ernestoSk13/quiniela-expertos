@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useMatchday } from '@/hooks/useMatchdays'
@@ -39,6 +39,7 @@ export default function MatchdayPredictions() {
   const [preds, setPreds] = useState<Record<string, LocalPred>>({})
   const [savingMatchId, setSavingMatchId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'mine' | 'all'>('mine')
+  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   const { themeId } = useTheme()
 
@@ -60,7 +61,7 @@ export default function MatchdayPredictions() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [predsLoading])
 
-  async function autoSave(matchId: string, updated: LocalPred) {
+  const doSave = useCallback(async (matchId: string, updated: LocalPred) => {
     if (!user || readOnly) return
     if (!updated.result) return
     const match = matches.find(m => m.id === matchId)
@@ -76,18 +77,23 @@ export default function MatchdayPredictions() {
     } finally {
       setSavingMatchId(null)
     }
+  }, [user, readOnly, matches, matchdayId, predictions, refreshPredictions])
+
+  function scheduleSave(matchId: string, updated: LocalPred) {
+    clearTimeout(debounceTimers.current[matchId])
+    debounceTimers.current[matchId] = setTimeout(() => doSave(matchId, updated), 400)
   }
 
   function handleResult(matchId: string, result: PredictionResult) {
     const updated: LocalPred = { result, tieWinner: preds[matchId]?.tieWinner ?? null }
     setPreds(prev => ({ ...prev, [matchId]: updated }))
-    autoSave(matchId, updated)
+    scheduleSave(matchId, updated)
   }
 
   function handleTieWinner(matchId: string, code: string) {
     const updated: LocalPred = { ...preds[matchId], tieWinner: code }
     setPreds(prev => ({ ...prev, [matchId]: updated }))
-    autoSave(matchId, updated)
+    scheduleSave(matchId, updated)
   }
 
   const dirtyMatchIds = useMemo(() => {
