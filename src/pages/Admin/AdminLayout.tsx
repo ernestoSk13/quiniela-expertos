@@ -6,6 +6,8 @@ import { useAuth } from '@/context/AuthContext'
 import Avatar from '@/components/Avatar'
 import { resetAllData } from '@/services/firestoreAdmin'
 
+// ── Nav data ───────────────────────────────────────────────────────────────────
+
 const MOBILE_NAV = [
   { to: '/admin',            label: 'Jornadas', end: true },
   { to: '/admin/jugadores',  label: 'Jugadores' },
@@ -13,7 +15,6 @@ const MOBILE_NAV = [
   { to: '/admin/tabla',      label: 'Tabla' },
 ]
 
-// Secciones ocultas bajo "Más" en móvil
 const MORE_NAV = [
   { to: '/admin/bonus',           label: 'Bonus' },
   { to: '/admin/metricas',        label: 'Métricas' },
@@ -23,15 +24,30 @@ const MORE_NAV = [
 
 const MORE_PATHS = MORE_NAV.map(n => n.to)
 
-const DESKTOP_NAV = [
-  { to: '/admin',                   label: 'Jornadas',        end: true },
-  { to: '/admin/jugadores',         label: 'Jugadores' },
-  { to: '/admin/bonus',             label: 'Bonus' },
-  { to: '/admin/usuarios',          label: 'Acceso' },
-  { to: '/admin/tabla',             label: 'Tabla' },
-  { to: '/admin/metricas',          label: 'Métricas' },
-  { to: '/admin/notificaciones',    label: 'Notifs' },
-  { to: '/admin/config',            label: 'Puntos' },
+const SIDEBAR_SECTIONS = [
+  {
+    label: 'GESTIÓN',
+    items: [
+      { to: '/admin',           label: 'Jornadas',  end: true as const },
+      { to: '/admin/jugadores', label: 'Jugadores' },
+      { to: '/admin/usuarios',  label: 'Acceso' },
+    ],
+  },
+  {
+    label: 'REPORTES',
+    items: [
+      { to: '/admin/tabla',    label: 'Clasificación' },
+      { to: '/admin/metricas', label: 'Métricas' },
+    ],
+  },
+  {
+    label: 'CONFIG',
+    items: [
+      { to: '/admin/bonus',          label: 'Bonus' },
+      { to: '/admin/notificaciones', label: 'Notificaciones' },
+      { to: '/admin/config',         label: 'Puntos' },
+    ],
+  },
 ]
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
@@ -151,11 +167,14 @@ export default function AdminLayout() {
   const location = useLocation()
   const [resetting, setResetting] = useState(false)
   const [showMore, setShowMore] = useState(false)
+  const [showDanger, setShowDanger] = useState(false)
 
   const isMoreActive = MORE_PATHS.some(p => location.pathname.startsWith(p))
 
-  // Cierra el panel "Más" al navegar
-  useEffect(() => { setShowMore(false) }, [location.pathname])
+  useEffect(() => {
+    setShowMore(false)
+    setShowDanger(false)
+  }, [location.pathname])
 
   async function handleSignOut() {
     await signOut(auth)
@@ -171,12 +190,13 @@ export default function AdminLayout() {
       '· Todos los pronósticos → eliminados\n\n' +
       'Los perfiles, avatares y admins se conservan. Esta acción no se puede deshacer.',
     )
-    if (!confirmed) return
+    if (!confirmed) { setShowDanger(false); return }
     setResetting(true)
     try {
       await resetAllData()
     } finally {
       setResetting(false)
+      setShowDanger(false)
     }
   }
 
@@ -185,99 +205,85 @@ export default function AdminLayout() {
       <style>{styles}</style>
       <div className="min-h-screen app-bg text-white">
 
-        {/* ── Header ── */}
-        <header className="adm-header sticky top-0 z-10">
-          {/* 3px accent top stripe */}
-          <div style={{
-            height: 3,
-            background: 'linear-gradient(to right, var(--accent-light), var(--accent), transparent)',
-          }} />
+        {/* ── Desktop sidebar ── */}
+        <aside className="adm-sidebar hidden lg:flex flex-col fixed left-0 top-0 h-screen z-20">
 
-          <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+          {/* Brand */}
+          <div className="adm-sidebar-brand">
+            <Avatar url={user?.avatarUrl ?? ''} name={user?.displayName || 'Admin'} size="sm" />
+            <div>
+              <div className="adm-sidebar-brand-sub">Quiniela Expertos</div>
+              <div className="adm-sidebar-brand-title">ADMIN</div>
+            </div>
+          </div>
 
-            {/* Logo + desktop nav */}
-            <div className="flex items-center gap-6">
-              {/* Brand */}
-              <div className="flex items-center gap-2.5 shrink-0">
-                <Avatar url={user?.avatarUrl ?? ''} name={user?.displayName || 'Admin'} size="sm" />
-                <div>
-                  <div style={{
-                    fontSize: '0.55rem',
-                    letterSpacing: '0.2em',
-                    color: 'rgba(255,255,255,0.3)',
-                    textTransform: 'uppercase',
-                    lineHeight: 1,
-                    marginBottom: 2,
-                  }}>
-                    Quiniela Expertos
-                  </div>
-                  <div style={{
-                    fontFamily: "'Bebas Neue', Impact, 'Arial Narrow', sans-serif",
-                    fontSize: '1rem',
-                    letterSpacing: '0.12em',
-                    color: 'var(--accent-light)',
-                    lineHeight: 1,
-                  }}>
-                    ADMIN
-                  </div>
-                </div>
-              </div>
-
-              {/* Desktop nav */}
-              <nav className="hidden md:flex items-center gap-0">
-                {DESKTOP_NAV.map(({ to, label, end }) => (
+          {/* Nav sections */}
+          <nav className="flex-1 overflow-y-auto py-3">
+            {SIDEBAR_SECTIONS.map(section => (
+              <div key={section.label} className="adm-sidebar-section">
+                <div className="adm-sidebar-section-header">{section.label}</div>
+                {section.items.map(({ to, label, end }) => (
                   <NavLink
                     key={to}
                     to={to}
                     end={end}
                     className={({ isActive }) =>
-                      `adm-nav-item ${isActive ? 'adm-nav-active' : ''}`
+                      `adm-sidebar-item ${isActive ? 'adm-sidebar-active' : ''}`
                     }
                   >
-                    <span className="adm-nav-icon">{NAV_ICONS[to]}</span>
+                    <span className="adm-sidebar-icon">{NAV_ICONS[to]}</span>
                     {label}
                   </NavLink>
                 ))}
-              </nav>
-            </div>
+              </div>
+            ))}
+          </nav>
 
-            {/* Right side */}
-            <div className="flex items-center gap-2">
-              <span className="hidden sm:block text-xs truncate max-w-[140px]" style={{ color: 'rgba(255,255,255,0.28)' }}>
-                {user?.email}
-              </span>
-              <div className="hidden sm:block" style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)' }} />
+          {/* Footer */}
+          <div className="adm-sidebar-footer">
+            <span className="adm-sidebar-email" title={user?.email}>{user?.email}</span>
+            <button onClick={handleSignOut} className="adm-sidebar-btn-ghost">
+              Salir
+            </button>
+            {showDanger ? (
               <button
                 onClick={handleReset}
                 disabled={resetting}
-                className="adm-btn-danger"
+                className="adm-sidebar-btn-danger-confirm"
               >
-                {resetting ? '···' : 'Restaurar'}
+                {resetting ? 'Restaurando...' : '⚠️ Confirmar restauración'}
               </button>
-              <button
-                onClick={handleSignOut}
-                className="adm-btn-ghost"
-              >
-                Salir
+            ) : (
+              <button onClick={() => setShowDanger(true)} className="adm-sidebar-btn-restore">
+                Restaurar datos
               </button>
+            )}
+          </div>
+        </aside>
+
+        {/* ── Mobile header ── */}
+        <header className="lg:hidden adm-header-mobile fixed top-0 left-0 right-0 z-10">
+          <div className="px-4 h-12 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Avatar url={user?.avatarUrl ?? ''} name={user?.displayName || 'Admin'} size="sm" />
+              <div className="adm-sidebar-brand-title" style={{ fontSize: '0.95rem' }}>ADMIN</div>
             </div>
+            <button onClick={handleSignOut} className="adm-btn-ghost">Salir</button>
           </div>
         </header>
 
         {/* ── Content ── */}
-        <main className="max-w-6xl mx-auto px-4 py-8 pb-28 md:pb-10">
+        <main className="lg:ml-56 px-4 py-6 pt-16 lg:pt-8 pb-28 lg:pb-10">
           <Outlet />
         </main>
 
         {/* ── "Más" panel (slide-up sobre tab bar) ── */}
         {showMore && (
-          <div className="md:hidden">
-            {/* Backdrop */}
+          <div className="lg:hidden">
             <div
               className="fixed inset-0 z-30"
               onClick={() => setShowMore(false)}
             />
-            {/* Panel */}
             <div
               className="fixed left-3 right-3 z-40 rounded-2xl overflow-hidden adm-more-panel"
               style={{ bottom: 'calc(60px + env(safe-area-inset-bottom))' }}
@@ -300,7 +306,7 @@ export default function AdminLayout() {
 
         {/* ── Bottom tab bar (mobile) ── */}
         <nav
-          className="md:hidden fixed bottom-0 left-0 right-0 flex adm-tabbar"
+          className="lg:hidden fixed bottom-0 left-0 right-0 flex adm-tabbar"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
           {MOBILE_NAV.map(({ to, label, end }) => (
@@ -316,8 +322,6 @@ export default function AdminLayout() {
               <span>{label}</span>
             </NavLink>
           ))}
-
-          {/* Tab "Más" */}
           <button
             className={`adm-tab ${isMoreActive || showMore ? 'adm-tab-active' : ''}`}
             onClick={() => setShowMore(v => !v)}
@@ -335,57 +339,151 @@ export default function AdminLayout() {
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
 const styles = `
-  .adm-header {
+  /* ── Sidebar (desktop) ── */
+  .adm-sidebar {
+    width: 224px;
+    background: #0D0F14;
+    border-right: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .adm-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 16px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .adm-sidebar-brand-sub {
+    font-size: 0.52rem;
+    letter-spacing: 0.18em;
+    color: rgba(255,255,255,0.28);
+    text-transform: uppercase;
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+  .adm-sidebar-brand-title {
+    font-family: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.12em;
+    color: var(--accent-light);
+    line-height: 1;
+  }
+
+  .adm-sidebar-section {
+    padding: 0 8px;
+    margin-bottom: 4px;
+  }
+  .adm-sidebar-section-header {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    color: rgba(255,255,255,0.22);
+    text-transform: uppercase;
+    padding: 10px 8px 4px;
+  }
+  .adm-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 7px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.45);
+    text-decoration: none;
+    transition: color 0.15s ease, background 0.15s ease;
+    border-left: 3px solid transparent;
+    margin-bottom: 1px;
+  }
+  .adm-sidebar-item:hover {
+    color: rgba(255,255,255,0.85);
+    background: rgba(255,255,255,0.05);
+  }
+  .adm-sidebar-active {
+    color: var(--accent-light) !important;
+    background: #1E2433 !important;
+    border-left-color: var(--accent) !important;
+  }
+  .adm-sidebar-icon {
+    opacity: 0.5;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .adm-sidebar-active .adm-sidebar-icon { opacity: 1; }
+
+  .adm-sidebar-footer {
+    padding: 12px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .adm-sidebar-email {
+    font-size: 0.68rem;
+    color: rgba(255,255,255,0.22);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 2px;
+  }
+  .adm-sidebar-btn-ghost {
+    width: 100%;
+    text-align: left;
+    padding: 7px 10px;
+    border-radius: 7px;
+    border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.42);
+    background: transparent;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .adm-sidebar-btn-ghost:hover {
+    color: rgba(255,255,255,0.85);
+    border-color: rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.04);
+  }
+  .adm-sidebar-btn-restore {
+    width: 100%;
+    text-align: left;
+    padding: 6px 10px;
+    border-radius: 7px;
+    border: none;
+    color: rgba(255,255,255,0.2);
+    background: transparent;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: color 0.15s ease;
+  }
+  .adm-sidebar-btn-restore:hover { color: rgba(239,68,68,0.6); }
+  .adm-sidebar-btn-danger-confirm {
+    width: 100%;
+    text-align: left;
+    padding: 7px 10px;
+    border-radius: 7px;
+    border: 1px solid rgba(239,68,68,0.35);
+    color: rgba(239,68,68,0.85);
+    background: rgba(239,68,68,0.07);
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    animation: adm-danger-in 0.15s ease;
+  }
+  .adm-sidebar-btn-danger-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+  @keyframes adm-danger-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Mobile header ── */
+  .adm-header-mobile {
     background: var(--surface-nav);
     border-bottom: 1px solid rgba(255,255,255,0.06);
   }
 
-  .adm-nav-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 5px 8px;
-    border-radius: 7px;
-    font-size: 0.72rem;
-    font-weight: 500;
-    color: rgba(255,255,255,0.38);
-    text-decoration: none;
-    transition: color 0.15s ease, background 0.15s ease;
-    white-space: nowrap;
-  }
-  .adm-nav-item:hover {
-    color: rgba(255,255,255,0.8);
-    background: rgba(255,255,255,0.05);
-  }
-  .adm-nav-active {
-    color: var(--accent-light) !important;
-    background: var(--accent-deep) !important;
-  }
-  .adm-nav-icon {
-    opacity: 0.6;
-    display: flex;
-    align-items: center;
-  }
-  .adm-nav-active .adm-nav-icon { opacity: 1; }
-
-  .adm-btn-danger {
-    font-size: 0.7rem;
-    padding: 4px 10px;
-    border-radius: 7px;
-    border: 1px solid rgba(239,68,68,0.22);
-    color: rgba(239,68,68,0.5);
-    background: transparent;
-    transition: all 0.15s ease;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  .adm-btn-danger:hover:not(:disabled) {
-    color: #ef4444;
-    border-color: rgba(239,68,68,0.5);
-    background: rgba(239,68,68,0.07);
-  }
-  .adm-btn-danger:disabled { opacity: 0.35; cursor: not-allowed; }
-
+  /* ── Shared button styles (mobile header) ── */
   .adm-btn-ghost {
     font-size: 0.7rem;
     padding: 4px 10px;
@@ -395,7 +493,6 @@ const styles = `
     background: transparent;
     transition: all 0.15s ease;
     cursor: pointer;
-    white-space: nowrap;
   }
   .adm-btn-ghost:hover {
     color: rgba(255,255,255,0.8);
@@ -403,6 +500,7 @@ const styles = `
     background: rgba(255,255,255,0.04);
   }
 
+  /* ── Tab bar (mobile) ── */
   .adm-tabbar {
     background: var(--surface-nav);
     border-top: 1px solid rgba(255,255,255,0.06);
