@@ -80,7 +80,6 @@ export async function ensureUserDoc(fbUser: FirebaseUser): Promise<void> {
     },
     stats: {
       totalPoints: 0,
-      exactPredictions: 0,
       correctPredictions: 0,
       totalPredictions: 0,
     },

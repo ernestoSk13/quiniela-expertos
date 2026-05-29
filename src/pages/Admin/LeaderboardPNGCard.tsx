@@ -61,7 +61,7 @@ export default function LeaderboardPNGCard({ players }: Props) {
   )
 
   const topPlayer = players[0] ?? null
-  const totalExactos = players.reduce((acc, p) => acc + p.stats.exactPredictions, 0)
+  const totalAciertos = players.reduce((acc, p) => acc + p.stats.correctPredictions, 0)
 
   async function handleShare() {
     if (!cardRef.current) return
@@ -151,7 +151,7 @@ export default function LeaderboardPNGCard({ players }: Props) {
               borderRadius: 99, padding: '3px 7px',
             }}>
               <span style={{ fontSize: 8, color: c.accentLight, fontFamily: SYS, letterSpacing: '0.06em' }}>
-                {totalExactos} exactos
+                {totalAciertos} aciertos
               </span>
             </div>
           </div>

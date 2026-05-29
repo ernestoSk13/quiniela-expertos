@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useMatchday } from '@/hooks/useMatchdays'
@@ -6,21 +6,24 @@ import { useMatchesByMatchday } from '@/hooks/useMatches'
 import { usePredictions } from '@/hooks/usePredictions'
 import { useTeamsMap } from '@/hooks/useTeams'
 import { savePredictions, type PredictionDraft } from '@/services/firestorePredictions'
-import CompactMatchRow from './CompactMatchRow'
-import NumericKeypad from './NumericKeypad'
-import PredictionsSidebar from './PredictionsSidebar'
 import PostMatchdayView from './PostMatchdayView'
 import JornadaShareCard from './JornadaShareCard'
 import { useTheme } from '@/context/ThemeContext'
+import type { PredictionResult } from '@/types'
 
-type SelectedCell = { matchId: string; side: 'home' | 'away' } | null
-type LocalScore = { home: number | null; away: number | null; tieWinner: string | null }
+type LocalPred = { result: PredictionResult | null; tieWinner: string | null }
 
 function formatDeadline(ts: any) {
   return ts?.toDate().toLocaleString('es-MX', {
     day: 'numeric', month: 'long',
     hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
   }) ?? '—'
+}
+
+function resultLabel(r: PredictionResult): string {
+  if (r === 'home') return 'LOCAL'
+  if (r === 'draw') return 'EMPATE'
+  return 'VISITANTE'
 }
 
 export default function MatchdayPredictions() {
@@ -33,14 +36,9 @@ export default function MatchdayPredictions() {
   const { predictions, loading: predsLoading, refresh: refreshPredictions } = usePredictions(user?.uid ?? '', matchdayId)
   const { teamsMap } = useTeamsMap()
 
-  const [scores, setScores] = useState<Record<string, LocalScore>>({})
-  const [selectedCell, setSelectedCell] = useState<SelectedCell>(null)
+  const [preds, setPreds] = useState<Record<string, LocalPred>>({})
   const [saving, setSaving] = useState(false)
-  const [expandedForEdit, setExpandedForEdit] = useState<Set<string>>(new Set())
   const [viewMode, setViewMode] = useState<'mine' | 'all'>('mine')
-  const [isDesktop, setIsDesktop] = useState(() =>
-    typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : false
-  )
 
   const { themeId } = useTheme()
 
@@ -51,143 +49,63 @@ export default function MatchdayPredictions() {
   const readOnly = !isOpen || deadlinePassed
   const canViewAll = matchday?.status === 'closed' || matchday?.status === 'finished'
 
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 768px)')
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [])
-
-  // Initialize local scores from saved predictions once loaded
+  // Initialize local state from saved predictions
   useEffect(() => {
     if (predsLoading) return
-    const init: Record<string, LocalScore> = {}
+    const init: Record<string, LocalPred> = {}
     for (const [matchId, p] of Object.entries(predictions)) {
-      init[matchId] = { home: p.homeScore, away: p.awayScore, tieWinner: p.tieWinner }
+      init[matchId] = { result: p.result, tieWinner: p.tieWinner }
     }
-    setScores(init)
-    if (!readOnly && matches.length > 0) {
-      const firstUnsaved = matches.find(m => !predictions[m.id])
-      setSelectedCell({ matchId: (firstUnsaved ?? matches[0]).id, side: 'home' })
-    }
+    setPreds(init)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [predsLoading])
 
-  // Mobile: auto-scroll to selected match above the keypad
-  useEffect(() => {
-    if (!selectedCell || isDesktop) return
-    const el = document.querySelector(`[data-match="${selectedCell.matchId}"]`) as HTMLElement | null
-    if (!el) return
-    const keypadHeight = 210
-    const rect = el.getBoundingClientRect()
-    const targetScrollTop = window.scrollY + rect.top - (window.innerHeight - keypadHeight - rect.height) / 2
-    window.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' })
-  }, [selectedCell?.matchId, isDesktop])
-
-  function getScore(matchId: string, side: 'home' | 'away'): number | null {
-    return scores[matchId]?.[side] ?? null
-  }
-
-  function updateScore(matchId: string, side: 'home' | 'away', value: number | null) {
-    setScores(prev => ({
+  function handleResult(matchId: string, result: PredictionResult) {
+    setPreds(prev => ({
       ...prev,
-      [matchId]: {
-        ...(prev[matchId] ?? { home: null, away: null, tieWinner: null }),
-        [side]: value,
-      },
+      [matchId]: { result, tieWinner: prev[matchId]?.tieWinner ?? null },
     }))
   }
 
-  function handleDigit(d: number) {
-    if (!selectedCell) return
-    const { matchId, side } = selectedCell
-    const current = getScore(matchId, side)
-    let next: number
-    if (current === null) next = d
-    else if (current < 10) next = current * 10 + d > 99 ? d : current * 10 + d
-    else next = d
-    updateScore(matchId, side, next)
-  }
-
-  function handleDelete() {
-    if (!selectedCell) return
-    const { matchId, side } = selectedCell
-    const current = getScore(matchId, side)
-    if (current === null) return
-    updateScore(matchId, side, current >= 10 ? Math.floor(current / 10) : null)
-  }
-
   function handleTieWinner(matchId: string, code: string) {
-    setScores(prev => ({
+    setPreds(prev => ({
       ...prev,
       [matchId]: { ...prev[matchId], tieWinner: code },
     }))
   }
 
-  const handleEditSaved = useCallback((matchId: string) => {
-    setExpandedForEdit(prev => new Set([...prev, matchId]))
-    setSelectedCell({ matchId, side: 'home' })
-    setTimeout(() => {
-      const el = document.querySelector(`[data-match="${matchId}"]`) as HTMLElement | null
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }, 50)
-  }, [])
-
   const dirtyMatchIds = useMemo(() => {
     return matches
       .filter(m => {
-        const s = scores[m.id]
-        if (!s || (s.home === null && s.away === null)) return false
+        const s = preds[m.id]
+        if (!s?.result) return false
         const p = predictions[m.id]
-        if (!p) return s.home !== null || s.away !== null
-        return s.home !== p.homeScore || s.away !== p.awayScore
+        if (!p) return true
+        return s.result !== p.result || s.tieWinner !== p.tieWinner
       })
       .map(m => m.id)
-  }, [scores, predictions, matches])
+  }, [preds, predictions, matches])
 
-  const savedMatchIds = useMemo(() =>
-    matches
-      .filter(m => predictions[m.id] && !dirtyMatchIds.includes(m.id))
-      .map(m => m.id),
-    [matches, predictions, dirtyMatchIds]
-  )
-
-  async function handleSave() {
+  async function handleSave(matchId: string) {
     if (!user || readOnly) return
+    const s = preds[matchId]
+    if (!s?.result) return
+    const match = matches.find(m => m.id === matchId)
+    if (!match) return
+    if (match.scheduledAt && match.scheduledAt.toDate() <= new Date()) return
+    const isKnockout = match.phase !== 'group_stage'
+    if (isKnockout && s.result === 'draw' && !s.tieWinner) return
 
-    const now = new Date()
-    const drafts: PredictionDraft[] = []
-    for (const matchId of dirtyMatchIds) {
-      const s = scores[matchId]
-      if (s.home === null || s.away === null) continue
-      const match = matches.find(m => m.id === matchId)
-      if (!match) continue
-      // No guardar si el partido ya inició
-      if (match.scheduledAt && match.scheduledAt.toDate() <= now) continue
-      const isKnockout = match.phase !== 'group_stage'
-      const isDraw = s.home === s.away
-      if (isKnockout && isDraw && !s.tieWinner) continue
-      drafts.push({
-        matchId,
-        matchdayId,
-        homeScore: s.home,
-        awayScore: s.away,
-        tieWinner: s.tieWinner,
-      })
+    const draft: PredictionDraft = {
+      matchId,
+      matchdayId,
+      result: s.result,
+      tieWinner: s.tieWinner,
     }
-
-    if (drafts.length === 0) return
     setSaving(true)
     try {
-      await savePredictions(user.uid, drafts, predictions)
+      await savePredictions(user.uid, [draft], predictions)
       await refreshPredictions()
-      // Collapse matches that were just saved
-      const justSaved = new Set(drafts.map(d => d.matchId))
-      setExpandedForEdit(prev => {
-        const next = new Set(prev)
-        for (const id of justSaved) next.delete(id)
-        return next
-      })
     } finally {
       setSaving(false)
     }
@@ -211,7 +129,7 @@ export default function MatchdayPredictions() {
     )
   }
 
-  const bottomPadding = readOnly ? 'pb-6' : 'pb-72 md:pb-6'
+  const savedCount = matches.filter(m => predictions[m.id]).length
 
   return (
     <div className="min-h-screen app-bg text-white">
@@ -227,7 +145,7 @@ export default function MatchdayPredictions() {
           <div className="flex-1 min-w-0">
             <p className="font-semibold truncate">{matchday.name}</p>
             {!readOnly && (
-              <p className="text-xs text-gray-500 truncate md:hidden">
+              <p className="text-xs text-gray-500 truncate">
                 Cierra: {formatDeadline(matchday.predictionDeadline)}
               </p>
             )}
@@ -239,6 +157,26 @@ export default function MatchdayPredictions() {
           )}
         </div>
       </header>
+
+      {/* Progress bar (edit mode only) */}
+      {!readOnly && (
+        <div className="sticky top-14 z-10 border-b border-gray-800 surface-nav">
+          <div className="max-w-5xl mx-auto px-4 py-2 flex items-center gap-3">
+            <span className="text-xs text-gray-400">
+              Pronósticos: <span className="text-white font-semibold">{savedCount}/{matches.length}</span>
+            </span>
+            <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: matches.length > 0 ? `${(savedCount / matches.length) * 100}%` : '0%',
+                  background: 'var(--accent)',
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* View toggle — only for closed/finished matchdays */}
       {canViewAll && (
@@ -271,100 +209,133 @@ export default function MatchdayPredictions() {
         </div>
       )}
 
-      {/* Body — single column on mobile, 2/3 + sidebar on desktop */}
+      {/* Body */}
       <div className="max-w-5xl mx-auto px-3 py-3 md:px-4 md:py-4">
         {viewMode === 'all' ? (
           <PostMatchdayView matchdayId={matchdayId} matches={matches} teamsMap={teamsMap} />
         ) : (
-        <div className="md:grid md:grid-cols-3 md:gap-6">
-
-          {/* Match list */}
-          <div className={`md:col-span-2 flex flex-col ${bottomPadding}`}>
+          <div className="flex flex-col gap-2">
             {matches.length === 0 && (
               <p className="text-gray-500 text-sm text-center py-8">No hay partidos en esta jornada.</p>
             )}
             {matches.map(match => {
-              const s = scores[match.id]
-              const isSaved = savedMatchIds.includes(match.id)
-              // Solo colapsar en modo edición (no en readOnly donde no hay sidebar para re-expandir)
-              const isCollapsed = !readOnly && isDesktop && isSaved && !expandedForEdit.has(match.id)
-              // Bloquear edición si el partido ya inició, independientemente del deadline de la jornada
+              const s = preds[match.id]
+              const saved = predictions[match.id]
               const matchStarted = match.scheduledAt ? match.scheduledAt.toDate() <= new Date() : false
               const matchReadOnly = readOnly || matchStarted
-              const selectedSide = selectedCell?.matchId === match.id ? selectedCell.side : null
               const homeFlag = teamsMap[match.homeTeamCode]?.flag ?? '🏳️'
               const awayFlag = teamsMap[match.awayTeamCode]?.flag ?? '🏳️'
+              const isKnockout = match.phase !== 'group_stage'
+              const isDirty = dirtyMatchIds.includes(match.id)
+              const isSaved = !!saved && !isDirty
 
               return (
                 <div
                   key={match.id}
-                  data-match={match.id}
-                  className="overflow-hidden"
+                  className="rounded-xl overflow-hidden"
                   style={{
-                    maxHeight: isCollapsed ? '0px' : '300px',
-                    opacity: isCollapsed ? 0 : 1,
-                    marginBottom: isCollapsed ? '0px' : '6px',
-                    transition: 'max-height 350ms ease, opacity 250ms ease, margin-bottom 350ms ease',
+                    background: 'var(--surface-card)',
+                    border: isSaved
+                      ? '1px solid rgba(var(--accent-rgb, 0,200,83), 0.25)'
+                      : '1px solid rgba(255,255,255,0.06)',
                   }}
                 >
-                  <CompactMatchRow
-                    homeTeam={match.homeTeam}
-                    awayTeam={match.awayTeam}
-                    homeCode={match.homeTeamCode}
-                    awayCode={match.awayTeamCode}
-                    homeFlag={homeFlag}
-                    awayFlag={awayFlag}
-                    homeScore={s?.home ?? null}
-                    awayScore={s?.away ?? null}
-                    selectedSide={selectedSide}
-                    saved={isSaved}
-                    isKnockout={match.phase !== 'group_stage'}
-                    tieWinner={s?.tieWinner ?? null}
-                    readOnly={matchReadOnly}
-                    onSelectHome={() => setSelectedCell({ matchId: match.id, side: 'home' })}
-                    onSelectAway={() => setSelectedCell({ matchId: match.id, side: 'away' })}
-                    onDirectHomeChange={v => updateScore(match.id, 'home', v)}
-                    onDirectAwayChange={v => updateScore(match.id, 'away', v)}
-                    onSelectTieWinner={code => handleTieWinner(match.id, code)}
-                  />
+                  {/* Match header */}
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5">
+                    <span className="text-lg">{homeFlag}</span>
+                    <span className="text-xs font-bold tracking-widest text-white/70 uppercase flex-1">
+                      {match.homeTeamCode}
+                    </span>
+                    <span className="text-xs text-white/30 tracking-widest">vs</span>
+                    <span className="text-xs font-bold tracking-widest text-white/70 uppercase flex-1 text-right">
+                      {match.awayTeamCode}
+                    </span>
+                    <span className="text-lg">{awayFlag}</span>
+                    {isSaved && (
+                      <span className="text-[10px] text-green-400 ml-1">✓</span>
+                    )}
+                  </div>
+
+                  {/* Result picker */}
+                  <div className="px-3 py-3 flex gap-2">
+                    {(['home', 'draw', 'away'] as PredictionResult[]).map(opt => {
+                      const isActive = s?.result === opt
+                      const wasSaved = saved?.result === opt
+                      return (
+                        <button
+                          key={opt}
+                          disabled={matchReadOnly}
+                          onClick={() => handleResult(match.id, opt)}
+                          className="flex-1 py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-all"
+                          style={{
+                            background: isActive
+                              ? 'var(--accent)'
+                              : wasSaved && matchReadOnly
+                              ? 'rgba(255,255,255,0.08)'
+                              : 'rgba(255,255,255,0.04)',
+                            color: isActive
+                              ? '#000'
+                              : wasSaved && matchReadOnly
+                              ? 'rgba(255,255,255,0.7)'
+                              : 'rgba(255,255,255,0.35)',
+                            border: isActive
+                              ? 'none'
+                              : '1px solid rgba(255,255,255,0.08)',
+                            cursor: matchReadOnly ? 'default' : 'pointer',
+                            opacity: matchReadOnly && !wasSaved && !isActive ? 0.4 : 1,
+                          }}
+                        >
+                          {resultLabel(opt)}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {/* Tie winner — knockout + draw selected */}
+                  {isKnockout && s?.result === 'draw' && !matchReadOnly && (
+                    <div className="px-3 pb-3">
+                      <p className="text-xs text-white/40 mb-2">¿Quién pasa?</p>
+                      <div className="flex gap-2">
+                        {[
+                          { code: match.homeTeamCode, flag: homeFlag },
+                          { code: match.awayTeamCode, flag: awayFlag },
+                        ].map(({ code, flag }) => (
+                          <button
+                            key={code}
+                            onClick={() => handleTieWinner(match.id, code)}
+                            className="flex-1 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-all"
+                            style={{
+                              background: s.tieWinner === code ? 'var(--accent)' : 'rgba(255,255,255,0.04)',
+                              color: s.tieWinner === code ? '#000' : 'rgba(255,255,255,0.5)',
+                              border: s.tieWinner === code ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                            }}
+                          >
+                            {flag} {code}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Save button — shown when dirty and not read-only */}
+                  {isDirty && !matchReadOnly && (
+                    <div className="px-3 pb-3">
+                      <button
+                        onClick={() => handleSave(match.id)}
+                        disabled={saving || (isKnockout && s?.result === 'draw' && !s?.tieWinner)}
+                        className="w-full py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-all disabled:opacity-40"
+                        style={{ background: 'var(--accent)', color: '#000' }}
+                      >
+                        {saving ? 'Guardando...' : 'Guardar'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )
             })}
           </div>
-
-          {/* Sticky sidebar — desktop only, edit mode only */}
-          {!readOnly && (
-            <div className="hidden md:block">
-              <div className="sticky top-20">
-                <PredictionsSidebar
-                  matches={matches}
-                  scores={scores}
-                  dirtyMatchIds={dirtyMatchIds}
-                  savedMatchIds={savedMatchIds}
-                  matchday={matchday}
-                  teamsMap={teamsMap}
-                  saving={saving}
-                  onSave={handleSave}
-                  onEditSaved={handleEditSaved}
-                />
-              </div>
-            </div>
-          )}
-
-        </div>
-        )} {/* end viewMode === 'mine' */}
+        )}
       </div>
-
-      {/* Numeric keypad — hidden in read-only mode */}
-      {!readOnly && (
-        <NumericKeypad
-          onDigit={handleDigit}
-          onDelete={handleDelete}
-          onSave={handleSave}
-          dirtyCount={dirtyMatchIds.length}
-          saving={saving}
-        />
-      )}
     </div>
   )
 }

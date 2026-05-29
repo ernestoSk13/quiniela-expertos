@@ -13,7 +13,6 @@ export interface BonusPredictions {
 
 export interface UserStats {
   totalPoints: number
-  exactPredictions: number
   correctPredictions: number
   totalPredictions: number
 }
@@ -30,4 +29,6 @@ export interface User {
   stats: UserStats
   theme?: ThemeId
   fcmToken?: string
+  currentStreak?: number
+  maxStreak?: number
 }

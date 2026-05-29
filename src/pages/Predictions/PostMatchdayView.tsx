@@ -2,7 +2,14 @@ import { useMemo } from 'react'
 import Avatar from '@/components/Avatar'
 import { useAllMatchdayPredictions } from '@/hooks/useAllMatchdayPredictions'
 import { useLeaderboard } from '@/hooks/useLeaderboard'
-import type { Match, Prediction, Team } from '@/types'
+import type { Match, Prediction, PredictionResult, Team } from '@/types'
+
+function resultLabel(r: PredictionResult | null): string {
+  if (r === 'home') return 'LOCAL'
+  if (r === 'draw') return 'EMPATE'
+  if (r === 'away') return 'VISIT.'
+  return '—'
+}
 
 interface Props {
   matchdayId: string
@@ -12,7 +19,7 @@ interface Props {
 
 // ── Points badge ───────────────────────────────────────────────────────────────
 
-function PointsBadge({ points, isExact }: { points: number | null; isExact: boolean | null }) {
+function PointsBadge({ points, isCorrect }: { points: number | null; isCorrect: boolean | null }) {
   if (points === null) {
     return (
       <span style={{ color: 'rgba(255,255,255,0.18)', fontSize: '0.75rem', width: 32, textAlign: 'right', flexShrink: 0 }}>
@@ -20,7 +27,7 @@ function PointsBadge({ points, isExact }: { points: number | null; isExact: bool
       </span>
     )
   }
-  if (isExact) {
+  if (isCorrect) {
     return (
       <span style={{
         display: 'inline-flex',
@@ -262,12 +269,12 @@ export default function PostMatchdayView({ matchdayId, matches, teamsMap }: Prop
               <div>
                 {sortedPlayers.map((player, idx) => {
                   const pred = matchPreds?.get(player.uid)
-                  const isExactRow = pred?.isExact === true
-                  const isCorrectRow = pred?.points === 1
+                  const isCorrectRow = pred?.isCorrect === true
+                  const hasTieBonus = !isCorrectRow && (pred?.points ?? 0) > 0
 
-                  const scoreColor = isExactRow
+                  const scoreColor = isCorrectRow
                     ? 'var(--accent-light)'
-                    : isCorrectRow
+                    : hasTieBonus
                     ? 'rgba(255,200,50,0.85)'
                     : 'rgba(255,255,255,0.65)'
 
@@ -280,7 +287,7 @@ export default function PostMatchdayView({ matchdayId, matches, teamsMap }: Prop
                         gap: 9,
                         padding: '8px 12px',
                         borderTop: idx === 0 ? 'none' : '1px solid rgba(255,255,255,0.04)',
-                        background: isExactRow ? 'rgba(0,200,83,0.04)' : 'transparent',
+                        background: isCorrectRow ? 'rgba(0,200,83,0.04)' : 'transparent',
                         transition: 'background 0.15s ease',
                       }}
                     >
@@ -307,9 +314,9 @@ export default function PostMatchdayView({ matchdayId, matches, teamsMap }: Prop
                             color: scoreColor,
                             flexShrink: 0,
                           }}>
-                            {pred.homeScore}–{pred.awayScore}
+                            {resultLabel(pred.result)}
                           </span>
-                          <PointsBadge points={pred.points} isExact={pred.isExact} />
+                          <PointsBadge points={pred.points} isCorrect={pred.isCorrect} />
                         </>
                       ) : (
                         <span style={{

@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react'
-import type { User, Team } from '@/types'
+import type { User, Team, PredictionResult } from '@/types'
 import { usePlayerHistory, type MatchdayHistory, type PredictionWithMatch } from '@/hooks/usePlayerHistory'
+
+function resultLabel(r: PredictionResult | null): string {
+  if (r === 'home') return 'LOCAL'
+  if (r === 'draw') return 'EMPATE'
+  if (r === 'away') return 'VISITANTE'
+  return '—'
+}
 
 const MEDAL_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32']
 
@@ -149,15 +156,15 @@ function PredRow({ pwm, teamsMap }: { pwm: PredictionWithMatch; teamsMap: Record
   let ptsText: string
   let dotGlow: string
 
-  if (p.isExact) {
+  if (p.isCorrect) {
     dotColor = 'var(--accent)'
     ptsColor = 'var(--accent-light)'
-    ptsText = '3'
+    ptsText = String(p.points ?? 3)
     dotGlow = '0 0 5px var(--accent)'
-  } else if (p.isCorrectResult) {
+  } else if ((p.points ?? 0) > 0) {
     dotColor = 'rgba(255,200,0,0.85)'
     ptsColor = 'rgba(255,210,55,0.85)'
-    ptsText = '1'
+    ptsText = String(p.points)
     dotGlow = 'none'
   } else {
     dotColor = 'rgba(255,255,255,0.14)'
@@ -210,7 +217,7 @@ function PredRow({ pwm, teamsMap }: { pwm: PredictionWithMatch; teamsMap: Record
             letterSpacing: '0.03em',
           }}
         >
-          [{p.homeScore}–{p.awayScore}]
+          {resultLabel(p.result)}
         </span>
       </div>
 
@@ -430,8 +437,7 @@ export default function PlayerHistoryModal({ player, position, isOwnProfile, tea
 
   const statItems = [
     { label: 'Puntos',   value: stats.totalPoints,                                  accent: true  },
-    { label: 'Aciertos', value: stats.exactPredictions + stats.correctPredictions,  accent: false },
-    { label: 'Exactos',  value: stats.exactPredictions,                             accent: false },
+    { label: 'Aciertos', value: stats.correctPredictions,  accent: false },
   ]
 
   return (

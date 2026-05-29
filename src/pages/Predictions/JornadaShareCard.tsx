@@ -2,8 +2,14 @@ import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { captureAndShare } from '@/hooks/useShareImage'
 import type { ThemeId } from '@/lib/themes'
-import type { Match } from '@/types'
-import type { Prediction } from '@/types'
+import type { Match, Prediction, PredictionResult } from '@/types'
+
+function resultLabel(r: PredictionResult | null | undefined): string {
+  if (r === 'home') return 'LOCAL'
+  if (r === 'draw') return 'EMPATE'
+  if (r === 'away') return 'VISIT.'
+  return '—'
+}
 
 const COLORS: Record<ThemeId, {
   bg: string; surface: string; accent: string; border: string
@@ -60,8 +66,7 @@ export default function JornadaShareCard({ matchdayName, matches, predictions, t
 
   const scoredMatches = matches.filter(m => predictions[m.id]?.points != null)
   const totalPts = scoredMatches.reduce((acc, m) => acc + (predictions[m.id]?.points ?? 0), 0)
-  const exactos = scoredMatches.filter(m => predictions[m.id]?.isExact).length
-  const correctos = scoredMatches.filter(m => predictions[m.id]?.isCorrectResult && !predictions[m.id]?.isExact).length
+  const aciertos = scoredMatches.filter(m => predictions[m.id]?.isCorrect).length
 
   if (scoredMatches.length === 0) return null
 
@@ -184,7 +189,7 @@ export default function JornadaShareCard({ matchdayName, matches, predictions, t
                     fontFamily: BEBAS, fontSize: 12, color: '#ffffff',
                     letterSpacing: '0.04em', flexShrink: 0,
                   }}>
-                    {pred?.homeScore ?? '—'}–{pred?.awayScore ?? '—'}
+                    {resultLabel(pred?.result)}
                   </span>
                   {/* Points pill */}
                   <PointsPill pts={pts} />
@@ -209,18 +214,18 @@ export default function JornadaShareCard({ matchdayName, matches, predictions, t
         </div>
         <div style={{ flex: 1, backgroundColor: c.surface, borderRadius: 10, padding: '9px 6px', textAlign: 'center' }}>
           <div style={{ fontFamily: BEBAS, fontSize: 24, color: c.accent, letterSpacing: '0.04em', lineHeight: 1 }}>
-            {exactos}
+            {aciertos}
           </div>
           <div style={{ fontSize: 7, fontFamily: SYS, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.32)', marginTop: 3 }}>
-            Exactos
+            Aciertos
           </div>
         </div>
         <div style={{ flex: 1, backgroundColor: c.surface, borderRadius: 10, padding: '9px 6px', textAlign: 'center' }}>
           <div style={{ fontFamily: BEBAS, fontSize: 24, color: c.accent, letterSpacing: '0.04em', lineHeight: 1 }}>
-            {correctos}
+            {scoredMatches.length}
           </div>
           <div style={{ fontSize: 7, fontFamily: SYS, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.32)', marginTop: 3 }}>
-            Correctos
+            Partidos
           </div>
         </div>
       </div>

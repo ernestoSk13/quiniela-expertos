@@ -262,10 +262,9 @@ export default function Dashboard() {
       <h2 className="text-lg font-bold mb-4">Mi historial</h2>
       <div className="grid grid-cols-4 gap-2 mb-2">
         {[
-          { label: 'Puntos',    value: user.stats.totalPoints,       accent: true  },
-          { label: 'Exactos',   value: user.stats.exactPredictions,  accent: false },
-          { label: 'Correctos', value: user.stats.correctPredictions, accent: false },
-          { label: 'Enviados',  value: user.stats.totalPredictions,  accent: false },
+          { label: 'Puntos',    value: user.stats.totalPoints,         accent: true  },
+          { label: 'Aciertos',  value: user.stats.correctPredictions,  accent: false },
+          { label: 'Enviados',  value: user.stats.totalPredictions,    accent: false },
         ].map(({ label, value, accent }) => (
           <div key={label} className="bg-gray-900/60 rounded-xl px-2 py-3 text-center">
             <p className={`text-xl font-black tabular-nums ${accent ? 'text-[var(--accent-light)]' : 'text-white'}`}>

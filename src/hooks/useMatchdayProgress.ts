@@ -18,8 +18,8 @@ export function useMatchdayProgress(matchdayId: string, userId: string) {
       ])
       if (cancelled) return
       const filledCount = predsSnap.docs.filter(d => {
-        const { homeScore, awayScore } = d.data()
-        return homeScore != null && awayScore != null
+        const { result } = d.data()
+        return result != null
       }).length
       setTotal(matchesSnap.size)
       setFilled(filledCount)

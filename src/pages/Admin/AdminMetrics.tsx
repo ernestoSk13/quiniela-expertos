@@ -26,7 +26,7 @@ interface Metrics {
   activePlayers: number
   totalPredictions: number
   avgPoints: number
-  exactRate: number
+  correctRate: number
   matchdayRows: MatchdayRow[]
   hardestMatches: MatchRow[]
 }
@@ -53,9 +53,9 @@ async function loadMetrics(): Promise<Metrics> {
   const totalPredictions = preds.length
   const sumPoints  = activePlayers.reduce((s, u) => s + u.stats.totalPoints, 0)
   const avgPoints  = activePlayers.length > 0 ? sumPoints / activePlayers.length : 0
-  const sumExact   = activePlayers.reduce((s, u) => s + u.stats.exactPredictions, 0)
+  const sumCorrect = activePlayers.reduce((s, u) => s + u.stats.correctPredictions, 0)
   const sumPreds   = activePlayers.reduce((s, u) => s + u.stats.totalPredictions, 0)
-  const exactRate  = sumPreds > 0 ? sumExact / sumPreds : 0
+  const correctRate = sumPreds > 0 ? sumCorrect / sumPreds : 0
 
   // Group predictions by matchday and by match
   const predsByMatchday = new Map<string, Prediction[]>()
@@ -75,8 +75,7 @@ async function loadMetrics(): Promise<Metrics> {
       const mdPreds       = predsByMatchday.get(md.id) ?? []
       const participants  = new Set(mdPreds.map(p => p.userId)).size
       const totalPoints   = mdPreds.reduce((s, p) => s + (p.points ?? 0), 0)
-      const exactCount    = mdPreds.filter(p => p.isExact).length
-      const correctCount  = mdPreds.filter(p => p.isCorrectResult && !p.isExact).length
+      const correctCount  = mdPreds.filter(p => p.isCorrect).length
       return {
         matchday: md,
         totalMatches: mdMatches.length,
@@ -84,7 +83,7 @@ async function loadMetrics(): Promise<Metrics> {
         participants,
         totalPredictions: mdPreds.length,
         totalPoints,
-        exactCount,
+        exactCount: 0,
         correctCount,
       }
     })
@@ -95,7 +94,7 @@ async function loadMetrics(): Promise<Metrics> {
     .filter(m => m.homeScore !== null)
     .map(m => {
       const mPreds    = predsByMatch.get(m.id) ?? []
-      const exactCount = mPreds.filter(p => p.isExact).length
+      const exactCount = mPreds.filter(p => p.isCorrect).length
       return { match: m, totalPredictions: mPreds.length, exactCount }
     })
     .filter(r => r.totalPredictions > 0)
@@ -106,7 +105,7 @@ async function loadMetrics(): Promise<Metrics> {
     activePlayers: activePlayers.length,
     totalPredictions,
     avgPoints: Math.round(avgPoints * 10) / 10,
-    exactRate,
+    correctRate,
     matchdayRows,
     hardestMatches,
   }
@@ -177,8 +176,8 @@ export default function AdminMetrics() {
         />
         <StatCard
           icon="🎯"
-          value={`${(metrics.exactRate * 100).toFixed(1)}%`}
-          label="Tasa de exactos"
+          value={`${(metrics.correctRate * 100).toFixed(1)}%`}
+          label="Tasa de aciertos"
         />
       </div>
 
@@ -206,7 +205,7 @@ export default function AdminMetrics() {
           {/* ── Partidos más difíciles ── */}
           {metrics.hardestMatches.length > 0 && (
             <>
-              <SectionHeader title="PARTIDOS MÁS DIFÍCILES" subtitle="menor tasa de exactos" />
+              <SectionHeader title="PARTIDOS MÁS DIFÍCILES" subtitle="menor tasa de aciertos" />
               <div className="met-section-body">
                 {metrics.hardestMatches.map((row, i) => (
                   <HardMatchRow key={row.match.id} row={row} rank={i + 1} />
@@ -253,8 +252,8 @@ function MatchdayMetricsRow({
   const avgPts = row.participants > 0
     ? (row.totalPoints / row.participants).toFixed(1)
     : '—'
-  const exactRate = row.totalPredictions > 0
-    ? ((row.exactCount / row.totalPredictions) * 100).toFixed(1)
+  const correctRate = row.totalPredictions > 0
+    ? ((row.correctCount / row.totalPredictions) * 100).toFixed(1)
     : '—'
 
   return (
@@ -281,8 +280,7 @@ function MatchdayMetricsRow({
       {/* Bottom stats */}
       <div className="met-jornada-stats">
         <Pill label="Pts promedio" value={avgPts} />
-        <Pill label="Exactos" value={`${row.exactCount} (${exactRate}%)`} green />
-        <Pill label="Correctos" value={row.correctCount} />
+        <Pill label="Aciertos" value={`${row.correctCount} (${correctRate}%)`} green />
         <Pill label="Partidos" value={`${row.finishedMatches}/${row.totalMatches}`} />
       </div>
     </div>
@@ -291,24 +289,21 @@ function MatchdayMetricsRow({
 
 function HardMatchRow({ row, rank }: { row: MatchRow; rank: number }) {
   const { match, totalPredictions, exactCount } = row
-  const exactRate = totalPredictions > 0 ? exactCount / totalPredictions : 0
+  const correctRate = totalPredictions > 0 ? exactCount / totalPredictions : 0
   const score = match.homeScore !== null
     ? `${match.homeScore}–${match.awayScore}`
     : '?–?'
 
-  // Difficulty color: red = 0%, amber = 25%, green = 50%+
-  const diffColor = exactRate < 0.1
+  const diffColor = correctRate < 0.1
     ? 'rgba(239,68,68,0.8)'
-    : exactRate < 0.25
+    : correctRate < 0.25
       ? 'rgba(250,204,21,0.75)'
       : 'rgba(74,222,128,0.7)'
 
   return (
     <div className="met-match-row">
-      {/* Rank */}
       <div className="met-match-rank">#{rank}</div>
 
-      {/* Fixture */}
       <div className="met-match-fixture">
         <span className="met-match-codes">
           {match.homeTeamCode} <span className="met-match-vs">vs</span> {match.awayTeamCode}
@@ -316,16 +311,14 @@ function HardMatchRow({ row, rank }: { row: MatchRow; rank: number }) {
         <span className="met-match-score">{score}</span>
       </div>
 
-      {/* Exactos count + bar */}
       <div className="met-match-right">
         <span className="met-match-exact-count" style={{ color: diffColor }}>
-          {exactCount}/{totalPredictions} exactos
+          {exactCount}/{totalPredictions} aciertos
         </span>
         <div className="met-bar-track met-bar-track-sm">
-          {/* Full bar in muted (shows difficulty) */}
           <div
             className="met-bar-fill-difficulty"
-            style={{ width: `${exactRate * 100}%`, background: diffColor }}
+            style={{ width: `${correctRate * 100}%`, background: diffColor }}
           />
         </div>
       </div>

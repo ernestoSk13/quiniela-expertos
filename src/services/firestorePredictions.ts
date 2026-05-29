@@ -8,7 +8,7 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import type { Prediction } from '@/types'
+import type { Prediction, PredictionResult } from '@/types'
 
 export async function getUserPredictions(userId: string): Promise<Prediction[]> {
   const q = query(collection(db, 'predictions'), where('userId', '==', userId))
@@ -39,8 +39,7 @@ export function predictionId(userId: string, matchId: string): string {
 export interface PredictionDraft {
   matchId: string
   matchdayId: string
-  homeScore: number
-  awayScore: number
+  result: PredictionResult
   tieWinner: string | null
 }
 
@@ -66,14 +65,12 @@ export async function savePredictions(
         userId,
         matchId: draft.matchId,
         matchdayId: draft.matchdayId,
-        homeScore: draft.homeScore,
-        awayScore: draft.awayScore,
+        result: draft.result,
         tieWinner: draft.tieWinner,
         submittedAt: isNew ? serverTimestamp() : existing[draft.matchId].submittedAt,
         updatedAt: serverTimestamp(),
         points: null,
-        isExact: null,
-        isCorrectResult: null,
+        isCorrect: null,
       })
     }
     await batch.commit()

@@ -16,30 +16,26 @@ interface MatchData {
   status: string
 }
 
+type PredictionResult = 'home' | 'draw' | 'away'
+
 interface PredictionData {
   userId: string
   matchId: string
-  homeScore: number
-  awayScore: number
+  result: PredictionResult | null
   tieWinner: string | null
   points: number | null
-  isExact: boolean | null
-  isCorrectResult: boolean | null
+  isCorrect: boolean | null
 }
 
 interface ScoringConfig {
-  exactScore: number
-  correctResult: number
-  exactKnockoutWithTie: number
+  correctPrediction: number
   correctTieWinner: number
   groupBonus: number
   bonusPrediction: number
 }
 
 const DEFAULT_SCORING: ScoringConfig = {
-  exactScore: 3,
-  correctResult: 1,
-  exactKnockoutWithTie: 3,
+  correctPrediction: 3,
   correctTieWinner: 1,
   groupBonus: 5,
   bonusPrediction: 5,
@@ -53,8 +49,13 @@ async function getScoringConfig(): Promise<ScoringConfig> {
 
 interface PointsResult {
   points: number
-  isExact: boolean
-  isCorrectResult: boolean
+  isCorrect: boolean
+}
+
+function deriveResult(homeScore: number, awayScore: number): PredictionResult {
+  if (homeScore > awayScore) return 'home'
+  if (awayScore > homeScore) return 'away'
+  return 'draw'
 }
 
 function computePoints(
@@ -62,38 +63,25 @@ function computePoints(
   awayScore: number,
   winner: string | null,
   phase: string,
-  predHome: number,
-  predAway: number,
+  predResult: PredictionResult | null,
   predTieWinner: string | null,
   cfg: ScoringConfig,
 ): PointsResult {
+  if (!predResult) return { points: 0, isCorrect: false }
+
+  const matchResult = deriveResult(homeScore, awayScore)
   const isKnockout = phase !== 'group_stage'
-  const isDraw = homeScore === awayScore
+  const isCorrect = predResult === matchResult
 
-  // Knockout draw at 90': exact = score + tieWinner, correct = tieWinner only
-  if (isKnockout && isDraw) {
+  if (isKnockout && matchResult === 'draw') {
+    // Knockout draw at 90': correct result + tieWinner bonus
+    if (!isCorrect) return { points: 0, isCorrect: false }
     const rightTie = winner != null && predTieWinner === winner
-    const rightScore = predHome === homeScore && predAway === awayScore
-    if (rightScore && rightTie) return { points: cfg.exactKnockoutWithTie, isExact: true, isCorrectResult: true }
-    if (rightTie) return { points: cfg.correctTieWinner, isExact: false, isCorrectResult: true }
-    return { points: 0, isExact: false, isCorrectResult: false }
+    return { points: cfg.correctPrediction + (rightTie ? cfg.correctTieWinner : 0), isCorrect: true }
   }
 
-  // Group stage or knockout non-draw: exact = score, correct = result (G/E/P or winner)
-  if (predHome === homeScore && predAway === awayScore) {
-    return { points: cfg.exactScore, isExact: true, isCorrectResult: true }
-  }
-
-  let rightResult: boolean
-  if (isDraw) {
-    rightResult = predHome === predAway
-  } else {
-    const homeWon = homeScore > awayScore
-    rightResult = homeWon ? predHome > predAway : predHome < predAway
-  }
-
-  if (rightResult) return { points: cfg.correctResult, isExact: false, isCorrectResult: true }
-  return { points: 0, isExact: false, isCorrectResult: false }
+  if (isCorrect) return { points: cfg.correctPrediction, isCorrect: true }
+  return { points: 0, isCorrect: false }
 }
 
 async function scoreMatchPredictions(match: MatchData, cfg: ScoringConfig): Promise<void> {
@@ -109,19 +97,17 @@ async function scoreMatchPredictions(match: MatchData, cfg: ScoringConfig): Prom
   const batch = db.batch()
   for (const predDoc of predsSnap.docs) {
     const pred = predDoc.data() as PredictionData
-    const result = computePoints(
+    const scored = computePoints(
       homeScore, awayScore, winner, match.phase,
-      pred.homeScore, pred.awayScore, pred.tieWinner, cfg,
+      pred.result, pred.tieWinner, cfg,
     )
     batch.update(predDoc.ref, {
-      points: result.points,
-      isExact: result.isExact,
-      isCorrectResult: result.isCorrectResult,
+      points: scored.points,
+      isCorrect: scored.isCorrect,
     })
     batch.update(db.collection('users').doc(pred.userId), {
-      'stats.totalPoints': FieldValue.increment(result.points),
-      'stats.exactPredictions': FieldValue.increment(result.isExact ? 1 : 0),
-      'stats.correctPredictions': FieldValue.increment(result.isCorrectResult ? 1 : 0),
+      'stats.totalPoints': FieldValue.increment(scored.points),
+      'stats.correctPredictions': FieldValue.increment(scored.isCorrect ? 1 : 0),
     })
   }
   await batch.commit()
@@ -139,11 +125,10 @@ async function resetMatchPredictions(matchId: string): Promise<void> {
   for (const predDoc of scored) {
     const pred = predDoc.data() as PredictionData
     const pts = pred.points ?? 0
-    batch.update(predDoc.ref, { points: null, isExact: null, isCorrectResult: null })
+    batch.update(predDoc.ref, { points: null, isCorrect: null })
     batch.update(db.collection('users').doc(pred.userId), {
       'stats.totalPoints': FieldValue.increment(-pts),
-      'stats.exactPredictions': FieldValue.increment(pred.isExact ? -1 : 0),
-      'stats.correctPredictions': FieldValue.increment(pred.isCorrectResult ? -1 : 0),
+      'stats.correctPredictions': FieldValue.increment(pred.isCorrect ? -1 : 0),
     })
   }
   await batch.commit()
@@ -162,24 +147,21 @@ async function rescoreMatchPredictions(oldMatch: MatchData, newMatch: MatchData,
   const batch = db.batch()
   for (const predDoc of predsSnap.docs) {
     const pred = predDoc.data() as PredictionData
-    const newResult = computePoints(
+    const newScored = computePoints(
       newHome, newAway, newWinner, newMatch.phase,
-      pred.homeScore, pred.awayScore, pred.tieWinner, cfg,
+      pred.result, pred.tieWinner, cfg,
     )
     const oldPts = pred.points ?? 0
-    const ptsDelta = newResult.points - oldPts
-    const exactDelta = (newResult.isExact ? 1 : 0) - (pred.isExact ? 1 : 0)
-    const correctDelta = (newResult.isCorrectResult ? 1 : 0) - (pred.isCorrectResult ? 1 : 0)
+    const ptsDelta = newScored.points - oldPts
+    const correctDelta = (newScored.isCorrect ? 1 : 0) - (pred.isCorrect ? 1 : 0)
 
     batch.update(predDoc.ref, {
-      points: newResult.points,
-      isExact: newResult.isExact,
-      isCorrectResult: newResult.isCorrectResult,
+      points: newScored.points,
+      isCorrect: newScored.isCorrect,
     })
-    if (ptsDelta !== 0 || exactDelta !== 0 || correctDelta !== 0) {
+    if (ptsDelta !== 0 || correctDelta !== 0) {
       batch.update(db.collection('users').doc(pred.userId), {
         'stats.totalPoints': FieldValue.increment(ptsDelta),
-        'stats.exactPredictions': FieldValue.increment(exactDelta),
         'stats.correctPredictions': FieldValue.increment(correctDelta),
       })
     }
@@ -212,25 +194,25 @@ async function checkAndAwardGroupBonus(bonusPts: number): Promise<void> {
   if (!claimed) return
 
   const matchIds = matchesSnap.docs.map(d => d.id)
-  const exactCountsByUser: Record<string, number> = {}
+  const correctCountsByUser: Record<string, number> = {}
   const CHUNK = 30
   for (let i = 0; i < matchIds.length; i += CHUNK) {
     const chunk = matchIds.slice(i, i + CHUNK)
     const predsSnap = await db.collection('predictions')
       .where('matchId', 'in', chunk)
-      .where('isExact', '==', true)
+      .where('isCorrect', '==', true)
       .get()
     predsSnap.docs.forEach(d => {
       const uid = d.data().userId as string
-      exactCountsByUser[uid] = (exactCountsByUser[uid] ?? 0) + 1
+      correctCountsByUser[uid] = (correctCountsByUser[uid] ?? 0) + 1
     })
   }
 
-  if (Object.keys(exactCountsByUser).length === 0) return
+  if (Object.keys(correctCountsByUser).length === 0) return
 
-  const maxExact = Math.max(...Object.values(exactCountsByUser))
-  const winners = Object.entries(exactCountsByUser)
-    .filter(([, count]) => count === maxExact)
+  const maxCorrect = Math.max(...Object.values(correctCountsByUser))
+  const winners = Object.entries(correctCountsByUser)
+    .filter(([, count]) => count === maxCorrect)
     .map(([uid]) => uid)
 
   const batch = db.batch()

@@ -51,9 +51,8 @@ export default function LeaderboardShareCard({ position, player, themeId }: Prop
   const posColor  = hasMedal ? MEDAL_BG[position - 1] : 'rgba(255,255,255,0.15)'
 
   const statItems = [
-    { label: 'Puntos',   value: player.stats.totalPoints,                                         accent: true  },
-    { label: 'Aciertos', value: player.stats.exactPredictions + player.stats.correctPredictions,  accent: false },
-    { label: 'Exactos',  value: player.stats.exactPredictions,                                    accent: false },
+    { label: 'Puntos',   value: player.stats.totalPoints,          accent: true  },
+    { label: 'Aciertos', value: player.stats.correctPredictions,   accent: false },
   ]
 
   const offScreenCard = (

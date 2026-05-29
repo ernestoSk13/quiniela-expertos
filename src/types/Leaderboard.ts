@@ -5,7 +5,6 @@ export interface LeaderboardEntry {
   displayName: string
   avatarUrl: string
   totalPoints: number
-  exactPredictions: number
   correctPredictions: number
   rank: number
 }

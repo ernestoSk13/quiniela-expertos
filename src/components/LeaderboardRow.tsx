@@ -156,7 +156,7 @@ export default function LeaderboardRow({ player, position, themeId, isCurrentUse
           lineHeight: 1.3,
           marginTop: 2,
         }}>
-          {player.stats.exactPredictions} {player.stats.exactPredictions === 1 ? 'marcador exacto' : 'marcadores exactos'}
+          {player.stats.correctPredictions} {player.stats.correctPredictions === 1 ? 'acierto' : 'aciertos'}
         </div>
       </div>
 

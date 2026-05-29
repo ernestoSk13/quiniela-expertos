@@ -29,7 +29,6 @@ export async function resetAllData(): Promise<void> {
         onboardingCompleted: false,
         stats: {
           totalPoints: 0,
-          exactPredictions: 0,
           correctPredictions: 0,
           totalPredictions: 0,
         },
