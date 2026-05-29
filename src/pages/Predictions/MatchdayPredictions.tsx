@@ -8,6 +8,7 @@ import { useTeamsMap } from '@/hooks/useTeams'
 import { savePredictions } from '@/services/firestorePredictions'
 import PostMatchdayView from './PostMatchdayView'
 import JornadaShareCard from './JornadaShareCard'
+import ResultPicker from './ResultPicker'
 import { useTheme } from '@/context/ThemeContext'
 import type { PredictionResult } from '@/types'
 
@@ -18,12 +19,6 @@ function formatDeadline(ts: any) {
     day: 'numeric', month: 'long',
     hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
   }) ?? '—'
-}
-
-function resultLabel(r: PredictionResult): string {
-  if (r === 'home') return 'LOCAL'
-  if (r === 'draw') return 'EMPATE'
-  return 'VISITANTE'
 }
 
 export default function MatchdayPredictions() {
@@ -258,39 +253,12 @@ export default function MatchdayPredictions() {
                   </div>
 
                   {/* Result picker */}
-                  <div className="px-3 py-3 flex gap-2">
-                    {(['home', 'draw', 'away'] as PredictionResult[]).map(opt => {
-                      const isActive = s?.result === opt
-                      const wasSaved = saved?.result === opt
-                      return (
-                        <button
-                          key={opt}
-                          disabled={matchReadOnly}
-                          onClick={() => handleResult(match.id, opt)}
-                          className="flex-1 py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-all"
-                          style={{
-                            background: isActive
-                              ? 'var(--accent)'
-                              : wasSaved && matchReadOnly
-                              ? 'rgba(255,255,255,0.08)'
-                              : 'rgba(255,255,255,0.04)',
-                            color: isActive
-                              ? '#000'
-                              : wasSaved && matchReadOnly
-                              ? 'rgba(255,255,255,0.7)'
-                              : 'rgba(255,255,255,0.35)',
-                            border: isActive
-                              ? 'none'
-                              : '1px solid rgba(255,255,255,0.08)',
-                            cursor: matchReadOnly ? 'default' : 'pointer',
-                            opacity: matchReadOnly && !wasSaved && !isActive ? 0.4 : 1,
-                          }}
-                        >
-                          {resultLabel(opt)}
-                        </button>
-                      )
-                    })}
-                  </div>
+                  <ResultPicker
+                    value={s?.result ?? null}
+                    savedValue={saved?.result ?? null}
+                    disabled={matchReadOnly}
+                    onChange={result => handleResult(match.id, result)}
+                  />
 
                   {/* Tie winner — knockout + draw selected */}
                   {isKnockout && s?.result === 'draw' && !matchReadOnly && (
