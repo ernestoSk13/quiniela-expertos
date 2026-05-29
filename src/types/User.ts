@@ -1,7 +1,7 @@
 import { Timestamp } from 'firebase/firestore'
 import type { ThemeId } from '@/lib/themes'
 
-export type UserRole = 'player' | 'admin'
+export type UserRole = 'player' | 'admin' | 'observer'
 
 export interface BonusPredictions {
   topScorer: string

@@ -281,6 +281,7 @@ export default function UserProfiles() {
                       >
                         <option value="player">player</option>
                         <option value="admin">admin</option>
+                        <option value="observer">observer</option>
                       </select>
                     </div>
 

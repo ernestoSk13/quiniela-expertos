@@ -103,6 +103,7 @@ export default function MatchdayPredictions() {
       .map(m => m.id)
   }, [preds, predictions, matches])
 
+  const isObserver = user?.role === 'observer'
   const loading = mdLoading || matchesLoading || predsLoading
 
   if (loading) {
@@ -117,6 +118,26 @@ export default function MatchdayPredictions() {
     return (
       <div className="min-h-screen app-bg text-white flex items-center justify-center">
         <p className="text-gray-500">Jornada no encontrada.</p>
+      </div>
+    )
+  }
+
+  if (isObserver) {
+    return (
+      <div className="min-h-screen app-bg text-white flex flex-col items-center justify-center gap-3 px-6 text-center">
+        <span className="text-4xl">👁️</span>
+        <h2 className="font-bold text-lg" style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", letterSpacing: '0.1em' }}>
+          Modo Observador
+        </h2>
+        <p className="text-gray-400 text-sm max-w-xs">
+          Puedes ver la quiniela, pero los observadores no participan en pronósticos ni en la tabla general.
+        </p>
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="mt-2 text-xs text-gray-500 hover:text-white transition-colors"
+        >
+          ← Volver al dashboard
+        </button>
       </div>
     )
   }

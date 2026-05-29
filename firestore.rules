@@ -17,6 +17,11 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    function isObserver() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'observer';
+    }
+
     // El admin pre-registra correos; usuarios autenticados pueden leer su propio entry
     match /allowedUsers/{email} {
       allow read: if isAuthenticated();
@@ -59,6 +64,7 @@ service cloud.firestore {
         get(/databases/$(database)/documents/matchdays/$(resource.data.matchdayId)).data.status in ['closed', 'finished']
       );
       allow create, update: if isAllowedUser() &&
+        !isObserver() &&
         request.resource.data.userId == request.auth.uid;
       allow delete: if false;
     }
