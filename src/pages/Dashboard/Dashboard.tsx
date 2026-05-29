@@ -77,7 +77,8 @@ export default function Dashboard() {
   const { teamsMap } = useTeamsMap()
   const navigate = useNavigate()
   const [selectedPlayer, setSelectedPlayer] = useState<{ player: User; position: number } | null>(null)
-  const [activeTab, setActiveTab] = useState<TabId>('predictions')
+  const isObserver = user?.role === 'observer'
+  const [activeTab, setActiveTab] = useState<TabId>(isObserver ? 'leaderboard' : 'predictions')
   const push = usePushNotifications()
 
   async function handleSignOut() {
@@ -352,7 +353,12 @@ export default function Dashboard() {
         {activeTab === 'predictions' && (
           <div className="space-y-4">
             <TournamentCountdown />
-            {nextMatchdayCard}
+            {isObserver && (
+              <div className="rounded-xl px-4 py-3 text-center text-sm text-gray-500 border border-gray-800" style={{ background: 'var(--surface-card)' }}>
+                👁️ Modo Observador — no participas en pronósticos ni en la tabla
+              </div>
+            )}
+            {!isObserver && nextMatchdayCard}
             {user?.bonusPredictions && (
               <BonusSummary
                 bonus={user.bonusPredictions}
@@ -393,7 +399,7 @@ export default function Dashboard() {
 
           {/* Sidebar — 1/3 */}
           <div className="space-y-4">
-            {nextMatchdayCard}
+            {!isObserver && nextMatchdayCard}
             {user?.bonusPredictions && (
               <BonusSummary
                 bonus={user.bonusPredictions}

@@ -11,7 +11,7 @@ export function useLeaderboard() {
     return onSnapshot(collection(db, 'users'), (snap) => {
       const list = snap.docs
         .map(d => d.data() as User)
-        .filter(u => u.onboardingCompleted)
+        .filter(u => u.onboardingCompleted && u.role !== 'observer')
         .sort((a, b) => {
           const byPoints = b.stats.totalPoints - a.stats.totalPoints
           if (byPoints !== 0) return byPoints
