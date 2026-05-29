@@ -270,6 +270,24 @@ El skill pregunta el país, deriva los colores de la bandera con la energía vis
 - **LeaderboardRow** es un componente compartido (`src/components/LeaderboardRow.tsx`) con **inline styles** — esto es intencional para que html2canvas pueda capturarlo sin problemas. Si modificas el diseño, hazlo con `style={{...}}` y no con `className` para colores/dimensiones; clases solo para hover/cursor. Tres consumidores: `LeaderboardTable` (Dashboard + AdminLeaderboard), `LeaderboardPNGCard` (admin), y `LeaderboardShareCard` (dashboard, posición personal).
 - **html2canvas + avatares**: el componente carga `<img crossOrigin="anonymous">` para que el canvas no quede _tainted_. Antes de capturar, todos los share cards esperan a que las imágenes terminen de cargar (`Promise.all` sobre `img.onload/onerror`). Si un avatar viene de un dominio sin CORS, html2canvas lo omite y el resto del PNG sale correcto.
 
+## Flujo de prueba de premios de jornada (Fase 13)
+
+1. Pre-requisitos: una jornada con `status: 'closed'` o `'finished'` y al menos un partido con resultado ingresado y predicciones calificadas
+2. En `/admin/jornada/:id` → al final de la página aparece el botón **"Calcular premios"** (solo cuando la jornada está cerrada/finalizada)
+3. Al presionar el botón: spinner durante el cálculo → badge **"Premios calculados ✓ {fecha}"** al terminar
+4. Verifica en http://localhost:4000 → Firestore → `matchdays/{id}` que el campo `awards` fue escrito con las categorías `el_sabio`, `el_certero`, `el_enrachado` (si aplica), `el_inalcanzable`, `el_sotanero` (si aplica), `el_mvp` y `computedAt`
+5. En el Dashboard → encima de la tabla general debe aparecer el botón **"🏆 Premios de la jornada — {nombre}"**
+6. Al abrir el modal: verifica que las slides aparezcan en orden Sabio → Certero → Enrachado → Inalcanzable → Sotanero → MVP → Tu jornada
+7. Slide **"Tu jornada"** (última): muestra posición en la tabla con delta (↑↓), aciertos de la jornada con comparativa grupal, puntos ganados y badge del premio obtenido (o frase motivacional si no ganaste ninguno)
+8. Botón **"Compartir resumen"** dentro del modal: genera PNG con html2canvas y lo comparte (Web Share API en móvil) o descarga en desktop
+9. Audio: el botón 🔊 en el header del modal activa/silencia la fanfarria de 0.5s al revelar cada ganador
+
+**Edge cases a probar:**
+- Jornada con menos de 3 jugadores que predicaron ≥75% de partidos → slide de El Certero omitida
+- Todos los participantes con 0 aciertos → slide de El Sotanero omitida
+- Primera jornada del torneo → slide de El Enrachado omitida (no hay historial)
+- Empate entre 2+ jugadores en un premio → todos sus avatares aparecen en la misma slide
+
 ---
 
 ## Deploy a producción

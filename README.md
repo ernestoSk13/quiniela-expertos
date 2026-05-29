@@ -27,6 +27,8 @@ Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios predicen 
 - **Pronósticos** — selector de resultado por partido: **LOCAL · EMPATE · VISITANTE**; tres botones tipo pill, el activo lleva color de acento; en fases eliminatorias con empate aparece inline la pregunta `¿Quién pasa?`; barra de progreso (n/m partidos predichos); bloqueo automático por partido en cuanto inicia (`scheduledAt`)
 - **Historial personal** — al tocar cualquier fila del leaderboard: card de avatar, stats del jugador (puntos, aciertos, % de aciertos), gráfica de evolución de puntos con área degradada y desglose de pronósticos por jornada; accordion por jornada con resultado real, pronóstico y puntos
 - **Ver predicciones post-jornada** — cuando una jornada cierra, toggle "Ver todos" muestra qué resultado pronosticó cada jugador partido a partido (LOCAL/EMPATE/VISITANTE) con indicador de puntos obtenidos
+- **Premios de jornada** — slideshow animado con 6 categorías (El Sabio 🧠, El Certero 🎯, El Enrachado 🔥, El Inalcanzable ⭐, El Sotanero 😅, El MVP 🏆) más una slide personal "Tu jornada" al final; aparece en el Dashboard cuando la jornada está calificada
+- **Compartir resumen de premios** — imagen PNG con los 6 premios de la jornada, compartible vía Web Share API en móvil o descarga directa en desktop
 - **Compartir como imagen** — botones para generar PNG del resumen de una jornada cerrada y de la tabla general; usa Web Share API en móvil o descarga directa en desktop
 - **Temas por país sede** — México 🇲🇽, Canadá 🇨🇦, EUA 🇺🇸 — fondo, header, tarjetas y acentos cambian con la paleta FIFA WC 2026
 - **Preferencias** — cambiar tema, instalar PWA, activar notificaciones push, gestionar cuenta; accesible como tab en móvil (sin perder contexto)
@@ -39,6 +41,7 @@ Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios predicen 
 - **Gestión de acceso** — agregar/eliminar correos permitidos; generar link de invitación por correo con TTL de 7 días
 - **Tabla general (`/admin/tabla`)** — vista completa del leaderboard con historial de cualquier jugador y botón para descargar la tabla como PNG en formato móvil
 - **Configuración de puntos (`/admin/config`)** — editar todos los valores de scoring desde la UI; cambios aplican a calificaciones futuras (no recalifica predicciones puntuadas previamente)
+- **Calcular premios de jornada** — botón en `/admin/jornada/:id` (jornadas cerradas/finalizadas) que ejecuta la CF `computeMatchdayAwards`; muestra badge con fecha de último cálculo
 - **Restaurar datos** — reset completo de puntos, pronósticos, resultados y onboarding (preserva admins)
 
 ---
@@ -118,6 +121,7 @@ Al iniciar sesión por primera vez el usuario configura:
 | `order` | `number` | Para ordenar |
 | `predictionDeadline` | `Timestamp` | Límite para pronósticos |
 | `status` | `'upcoming' \| 'open' \| 'closed' \| 'finished'` | |
+| `awards` | `MatchdayAwards \| undefined` | Calculado por admin vía CF `computeMatchdayAwards` |
 
 ### `matches/{matchId}`
 

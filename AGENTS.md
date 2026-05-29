@@ -4,7 +4,7 @@ Instrucciones para contribuir a **Quiniela Expertos del Mundial 2026** como agen
 
 ## Contexto del Proyecto
 
-App de quiniela de fútbol para el Mundial 2026. Los usuarios pronostican marcadores por jornada y acumulan puntos. Stack: **React 19 + TypeScript + Vite 6** + **Firebase** (Auth, Firestore, Storage, Hosting, Cloud Functions gen2) + **Tailwind CSS v4**.
+App de quiniela de fútbol para el Mundial 2026. Los usuarios predicen el **resultado** de cada partido (LOCAL / EMPATE / VISITANTE) y acumulan puntos según sus aciertos. Stack: **React 19 + TypeScript + Vite 6** + **Firebase** (Auth, Firestore, Storage, Hosting, Cloud Functions gen2) + **Tailwind CSS v4**.
 
 Lee el `README.md` completo para entender las reglas del negocio y los modelos de datos antes de hacer cambios.
 
@@ -16,10 +16,10 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 - [x] Autenticación — email/contraseña + Google, lista de correos permitidos
 - [x] Onboarding — display name, avatar, bonus predictions (3 pasos: perfil, bonus, instalar PWA); rediseñado con estética "Tournament Registration"
 - [x] Dashboard — tabla de posiciones en tiempo real, siguiente jornada, sección de bonus, countdown al torneo, jornadas anteriores; tab bar en móvil con 4 pestañas (pronósticos / tabla / historial / preferencias)
-- [x] Pronósticos — keypad numérico rediseñado (frosted-glass) en móvil; sidebar de desktop rediseñado; bloqueo por `scheduledAt` individual además del deadline de jornada
+- [x] Pronósticos — selector LOCAL/EMPATE/VISITANTE por partido con auto-save (debounce 400ms); bloqueo por `scheduledAt` individual además del deadline de jornada; componente `ResultPicker.tsx` reutilizable
 - [x] Panel de Admin — jornadas, resultados, jugadores, bonus, acceso; tabla general (`/admin/tabla`); configuración de puntos (`/admin/config`); nav desktop con 6 ítems, tab bar móvil con 4
 - [x] Temas por país — México / Canadá / EUA (paleta FIFA WC 2026), skill `/add-theme` para agregar nuevos
-- [x] Cloud Functions gen2 — `onMatchUpdated` (scoring + config dinámica), `evaluateBonusPredictions` (bonus + config dinámica), `getInvite` (valida tokens de invitación sin auth)
+- [x] Cloud Functions gen2 — `onMatchUpdated` (scoring por resultado: 3pts acierto + 1pt tieWinner bonus), `evaluateBonusPredictions`, `getInvite`, `sendDeadlineReminders`, `notifyResultsPublished`, `sendMassNotification`
 - [x] Historial por jugador — `PlayerHistoryModal`: bottom-sheet/modal con card avatar rectangular, badge de posición, stat bar Bebas Neue, gráfica SVG con área de relleno, acordeón por jornada con PredRow detallado
 - [x] Post-jornada — toggle "Ver todos" en jornadas cerradas/finalizadas muestra predicciones de todos los jugadores partido a partido con badges de puntos
 - [x] Puntos configurables — `config/scoring` en Firestore; admin edita desde `/admin/config`; Cloud Functions leen config con fallback a `DEFAULT_SCORING`
@@ -27,7 +27,7 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 - [x] Compartir como imagen — `useShareImage` (html2canvas + Web Share API con `forceDownload` opcional); `LeaderboardShareCard` (botón "Compartir mi posición" comentado temporalmente), `JornadaShareCard` post-jornada, `LeaderboardPNGCard` en `/admin/tabla`
 - [x] Leaderboard estilo carta FIFA — componente `LeaderboardRow` compartido entre dashboard, admin y PNG card; filas alternadas con fondo transparente del acento del tema
 - [x] `Preferences.tsx` rediseñado — header Bebas Neue, theme cards con glow, toggle premium, account con iconos SVG; **pendiente de deploy junto con el fix de mobile tab**
-- [ ] **PENDIENTE**: `Dashboard.tsx` — cambiar tab de Preferencias de `navigate('/preferencias')` a `setActiveTab('preferences')` con contenido inline para mantener tab bar visible en móvil
+- [ ] **PENDIENTE**: Fase 13 — Premios de jornada (slideshow animado + PNG compartible)
 
 ---
 
@@ -145,12 +145,10 @@ src/
 │   ├── Preferences/
 │   │   └── Preferences.tsx          # /preferencias — acceso desde gear icon desktop; en móvil se renderiza inline como tab en Dashboard
 │   └── Predictions/
-│       ├── CompactMatchRow.tsx
 │       ├── JornadaShareCard.tsx     # Botón "Compartir" en post-jornada → PNG con resumen de pronósticos
-│       ├── MatchdayPredictions.tsx
-│       ├── NumericKeypad.tsx        # Keypad fijo en móvil (frosted-glass, botones con gradiente interno)
+│       ├── MatchdayPredictions.tsx  # Selector LOCAL/EMPATE/VISITANTE con auto-save debounce 400ms
 │       ├── PostMatchdayView.tsx     # Vista post-jornada: predicciones de todos × partido
-│       └── PredictionsSidebar.tsx  # Sidebar de desktop (barra de progreso con glow, marcadores en Bebas Neue)
+│       └── ResultPicker.tsx        # Selector reutilizable de resultado (home/draw/away)
 ├── services/
 │   ├── cloudFunctions.ts           # Wrappers callables: evaluateBonusPredictions, getInvite
 │   ├── firestoreAdmin.ts           # resetAllData()
@@ -179,7 +177,7 @@ Las funciones viven en `functions/src/index.ts` y se despliegan en `us-central1`
 ### `onMatchUpdated` — Trigger de Firestore
 Se dispara en cualquier actualización a `matches/{matchId}`. Detecta tres casos:
 
-- **Score nuevo** (`!wasFinished && isFinished`): califica todas las predicciones del partido con `computePoints()`, escribe `points / isExact / isCorrectResult` en cada predicción, e incrementa `stats` del usuario con `FieldValue.increment()`. Si el partido es de `group_stage`, llama a `checkAndAwardGroupBonus()`.
+- **Score nuevo** (`!wasFinished && isFinished`): deriva el resultado del marcador (`home`/`draw`/`away`), compara contra `prediction.result`, escribe `points` e `isCorrect` en cada predicción, incrementa `stats.totalPoints` y `stats.correctPredictions` del usuario. Si es `group_stage`, llama a `checkAndAwardGroupBonus()`.
 - **Corrección de score** (ambos `finished` con scores distintos): recalcula y aplica el delta de puntos.
 - **Revert** (`wasFinished && !isFinished`): borra puntos de predicciones y los resta de stats.
 
@@ -192,14 +190,18 @@ Recibe `{ token }`. Lee `invites/{token}` via Admin SDK (bypassa rules). Valida 
 ### `checkAndAwardGroupBonus` — Helper interno
 Otorga `cfg.groupBonus` pts (default 5) al usuario (o usuarios empatados) con más predicciones exactas en la fase de grupos, cuando todos los partidos de grupos están `finished`. Protegido por `config/tournament.groupBonusAwarded` (transacción Firestore para evitar doble ejecución).
 
-### Lógica de puntuación (`computePoints`)
-Los valores de puntos se leen de `config/scoring` al inicio de cada calificación. Si el documento no existe se usa `DEFAULT_SCORING`.
+### `checkAndAwardGroupBonus` — Helper interno
+Otorga `cfg.groupBonus` pts (default 5) al usuario con más aciertos (`isCorrect === true`) en la fase de grupos, cuando todos los partidos de grupos están `finished`. Transacción Firestore para evitar doble ejecución (`config/tournament.groupBonusAwarded`).
 
-| Caso | Exacto (`cfg.exactScore`) | Resultado correcto (`cfg.correctResult`) |
-|------|--------------------------|------------------------------------------|
-| Fase de grupos | home+away exactos | G/E/P correcto |
-| Eliminatoria sin empate al 90' | home+away exactos | ganador correcto |
-| Eliminatoria con empate al 90' | home+away + tieWinner (`cfg.exactKnockoutWithTie`) | solo tieWinner (`cfg.correctTieWinner`) |
+### Lógica de puntuación (`computePoints`)
+Los valores se leen de `config/scoring`. Si no existe el documento se usa `DEFAULT_SCORING`.
+
+| Campo | Default | Descripción |
+|-------|---------|-------------|
+| `correctPrediction` | 3 | Resultado correcto (LOCAL/EMPATE/VISITANTE) |
+| `correctTieWinner` | 1 | Bonus por tieWinner correcto en eliminatoria con empate al 90' |
+| `groupBonus` | 5 | Bonus al jugador con más aciertos en fase de grupos |
+| `bonusPrediction` | 5 | Cada acierto de bonus prediction |
 
 ---
 
@@ -310,3 +312,49 @@ npm run build            # Compilar TypeScript → lib/
 - No usar `var(--accent)` ni CSS variables en cards off-screen para html2canvas — usar colores hardcodeados del `COLORS` record.
 - No restaurar el botón "Compartir mi posición" en `LeaderboardShareCard.tsx` sin confirmación explícita del desarrollador — fue comentado intencionalmente.
 - En móvil, el tab de Preferencias debe renderizarse **inline en Dashboard** (no navegar a `/preferencias`); la ruta `/preferencias` es solo para desktop.
+- **No hacer commit directo a `main`** — siempre crear rama (`feat/<fase>-<descripcion>`), hacer commits ahí y abrir PR en GitHub con descripción.
+
+---
+
+## Flujo de Trabajo Multi-Agente
+
+Este proyecto usa múltiples agentes especializados de Claude Code para planear e implementar cada fase. Los agentes corren en **background** (no consumen contexto del agente principal) y se coordinan desde la conversación principal.
+
+### Agentes disponibles
+
+| Agente | Cuándo usarlo |
+|--------|---------------|
+| `chief-architect` | Al iniciar cualquier fase nueva: descompone en PRs, detecta dependencias, evalúa si algo ya está hecho |
+| `prompt-token-optimizer` | En paralelo con chief-architect: estima tokens por tarea, recomienda orden y qué dejar para la próxima sesión |
+| `ui-ux-reviewer` | Al planear fases con componentes visuales nuevos: revisa criterios de diseño, edge cases de UI, propone mejoras |
+| `technical-writer` | Al terminar fases: actualiza README.md, DEV.md y AGENTS.md |
+| `security-guardian` | Al tocar auth, rules de Firestore, variables de entorno o dependencias nuevas |
+| `firebase-firestore-auditor` | Al agregar queries, índices o cambios en el modelo de datos de Firestore |
+
+### Flujo estándar de planificación
+
+```
+1. Usuario pide iniciar Fase N
+2. Lanzar en paralelo (mismo mensaje):
+   - chief-architect → lee archivos relevantes, propone PRs con ramas
+   - prompt-token-optimizer → estima tokens por tarea, recomienda orden
+   - ui-ux-reviewer (si aplica) → revisa diseño y propone mejoras
+3. Esperar notificaciones de completion (automáticas)
+4. Integrar resultados → decidir qué implementar en la sesión actual
+5. Implementar PR por PR en ramas separadas
+6. Al terminar la fase → lanzar technical-writer para actualizar docs
+```
+
+### Convenciones de ramas y PRs
+
+- Rama: `feat/<fase>-<descripcion-corta>` — ej. `feat/14B-result-picker`, `feat/13A-awards-types`
+- Título PR: corto y descriptivo (< 70 chars) — ej. `feat(gamification): add awards slideshow (13A)`
+- Descripción: bullet points de qué cambió y por qué; incluir sección de pruebas
+- Merge a `main` solo después de que el desarrollador haya probado en local
+
+### Eficiencia de tokens
+
+- Los agentes en background consumen tokens de su propia sesión, no del contexto principal — úsalos para investigación y documentación
+- Lanzar agentes siempre en **paralelo** cuando sean independientes (mismo mensaje, múltiples `Agent()` calls)
+- Si quedan <30% de tokens: delegar trabajo de documentación al `technical-writer` y cerrar la sesión
+- Leer archivos grandes **una sola vez** al inicio de una tarea y extraer todo lo necesario en ese read
