@@ -5,7 +5,7 @@ import { useMatchday } from '@/hooks/useMatchdays'
 import { useMatchesByMatchday } from '@/hooks/useMatches'
 import { usePredictions } from '@/hooks/usePredictions'
 import { useTeamsMap } from '@/hooks/useTeams'
-import { savePredictions, type PredictionDraft } from '@/services/firestorePredictions'
+import { savePredictions } from '@/services/firestorePredictions'
 import PostMatchdayView from './PostMatchdayView'
 import JornadaShareCard from './JornadaShareCard'
 import { useTheme } from '@/context/ThemeContext'
@@ -37,7 +37,7 @@ export default function MatchdayPredictions() {
   const { teamsMap } = useTeamsMap()
 
   const [preds, setPreds] = useState<Record<string, LocalPred>>({})
-  const [saving, setSaving] = useState(false)
+  const [savingMatchId, setSavingMatchId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'mine' | 'all'>('mine')
 
   const { themeId } = useTheme()
@@ -60,18 +60,34 @@ export default function MatchdayPredictions() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [predsLoading])
 
+  async function autoSave(matchId: string, updated: LocalPred) {
+    if (!user || readOnly) return
+    if (!updated.result) return
+    const match = matches.find(m => m.id === matchId)
+    if (!match) return
+    if (match.scheduledAt && match.scheduledAt.toDate() <= new Date()) return
+    const isKnockout = match.phase !== 'group_stage'
+    if (isKnockout && updated.result === 'draw' && !updated.tieWinner) return
+
+    setSavingMatchId(matchId)
+    try {
+      await savePredictions(user.uid, [{ matchId, matchdayId, result: updated.result, tieWinner: updated.tieWinner }], predictions)
+      await refreshPredictions()
+    } finally {
+      setSavingMatchId(null)
+    }
+  }
+
   function handleResult(matchId: string, result: PredictionResult) {
-    setPreds(prev => ({
-      ...prev,
-      [matchId]: { result, tieWinner: prev[matchId]?.tieWinner ?? null },
-    }))
+    const updated: LocalPred = { result, tieWinner: preds[matchId]?.tieWinner ?? null }
+    setPreds(prev => ({ ...prev, [matchId]: updated }))
+    autoSave(matchId, updated)
   }
 
   function handleTieWinner(matchId: string, code: string) {
-    setPreds(prev => ({
-      ...prev,
-      [matchId]: { ...prev[matchId], tieWinner: code },
-    }))
+    const updated: LocalPred = { ...preds[matchId], tieWinner: code }
+    setPreds(prev => ({ ...prev, [matchId]: updated }))
+    autoSave(matchId, updated)
   }
 
   const dirtyMatchIds = useMemo(() => {
@@ -85,31 +101,6 @@ export default function MatchdayPredictions() {
       })
       .map(m => m.id)
   }, [preds, predictions, matches])
-
-  async function handleSave(matchId: string) {
-    if (!user || readOnly) return
-    const s = preds[matchId]
-    if (!s?.result) return
-    const match = matches.find(m => m.id === matchId)
-    if (!match) return
-    if (match.scheduledAt && match.scheduledAt.toDate() <= new Date()) return
-    const isKnockout = match.phase !== 'group_stage'
-    if (isKnockout && s.result === 'draw' && !s.tieWinner) return
-
-    const draft: PredictionDraft = {
-      matchId,
-      matchdayId,
-      result: s.result,
-      tieWinner: s.tieWinner,
-    }
-    setSaving(true)
-    try {
-      await savePredictions(user.uid, [draft], predictions)
-      await refreshPredictions()
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const loading = mdLoading || matchesLoading || predsLoading
 
@@ -227,7 +218,8 @@ export default function MatchdayPredictions() {
               const awayFlag = teamsMap[match.awayTeamCode]?.flag ?? '🏳️'
               const isKnockout = match.phase !== 'group_stage'
               const isDirty = dirtyMatchIds.includes(match.id)
-              const isSaved = !!saved && !isDirty
+              const isSaving = savingMatchId === match.id
+              const isSaved = !!saved && !isDirty && !isSaving
 
               return (
                 <div
@@ -251,7 +243,10 @@ export default function MatchdayPredictions() {
                       {match.awayTeamCode}
                     </span>
                     <span className="text-lg">{awayFlag}</span>
-                    {isSaved && (
+                    {isSaving && (
+                      <span className="text-[10px] text-white/30 ml-1 animate-pulse">●</span>
+                    )}
+                    {isSaved && !isSaving && (
                       <span className="text-[10px] text-green-400 ml-1">✓</span>
                     )}
                   </div>
@@ -317,19 +312,6 @@ export default function MatchdayPredictions() {
                     </div>
                   )}
 
-                  {/* Save button — shown when dirty and not read-only */}
-                  {isDirty && !matchReadOnly && (
-                    <div className="px-3 pb-3">
-                      <button
-                        onClick={() => handleSave(match.id)}
-                        disabled={saving || (isKnockout && s?.result === 'draw' && !s?.tieWinner)}
-                        className="w-full py-2 rounded-lg text-xs font-bold tracking-widest uppercase transition-all disabled:opacity-40"
-                        style={{ background: 'var(--accent)', color: '#000' }}
-                      >
-                        {saving ? 'Guardando...' : 'Guardar'}
-                      </button>
-                    </div>
-                  )}
                 </div>
               )
             })}
