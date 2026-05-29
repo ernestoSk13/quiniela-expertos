@@ -313,23 +313,28 @@
 
 ---
 
-## Fase 13 — Gamificación: Premios de Jornada + GIF Animado
+## Fase 13 — Gamificación: Premios de Jornada + Imagen Compartible
 **Estado:** Pendiente ⏳
 
-Presenta los premios de cada jornada con un slideshow animado y un GIF compartible en WhatsApp/redes. El botón aparece en el Dashboard encima de la tabla general una vez que la jornada está calificada.
+Presenta los premios de cada jornada con un slideshow animado y una imagen PNG compartible en WhatsApp/redes. El botón aparece en el Dashboard encima de la tabla general una vez que la jornada está calificada.
 
-### Premios (6 categorías)
+> **Contexto de modelo:** El sistema usa predicciones de resultado (`'home' | 'draw' | 'away'`). No existen marcadores exactos. `Prediction.isCorrect` es la única fuente de verdad sobre acierto. `UserStats.correctPredictions` cuenta resultados correctos. Los campos `isExact`, `isCorrectResult`, `homeScore` y `awayScore` fueron eliminados del tipo `Prediction`.
+
+### Premios (6 categorías + slide personal)
 
 | # | Premio | Criterio | Emoji | Stat mostrada |
 |---|--------|----------|-------|---------------|
-| 1 | **El Sotanero** | Menos aciertos totales (exactos + correctos); excluye quienes no participaron | 😅 | `{n} aciertos` |
-| 2 | **El Sabio** | Más aciertos totales (exactos + correctos) | 🧠 | `{n} aciertos` |
-| 3 | **El Vidente** | Más pronósticos de marcador exacto | 🔮 | `{n} exactos` |
-| 4 | **El Enrachado** | Mayor racha activa (jornadas consecutivas terminando en la actual con ≥1 exacto); no aparece en la primera jornada del torneo | 🔥 | `{n} jornadas seguidas` |
-| 5 | **El Inalcanzable** | Más puntos acumulados en la tabla general | ⭐ | `{n} pts totales` |
+| 1 | **El Sabio** | Más aciertos en la jornada; excluye no participantes. Desempate: mayor % sobre predichos → mayor puntuación de jornada | 🧠 | `{n} aciertos` |
+| 2 | **El Certero** | Mayor % de aciertos entre quienes predijeron ≥75% de los partidos (mín. redondeado arriba). Desempate: mayor puntuación de jornada. Omitir slide si menos de 3 jugadores califican | 🎯 | `{n}/{N} · {pct}%` |
+| 3 | **El Enrachado** | Mayor racha activa: jornadas consecutivas hasta la actual con ≥1 acierto. Omitir en J1 o si nadie alcanza ≥2 | 🔥 | `{n} jornadas seguidas` |
+| 4 | **El Inalcanzable** | Más puntos acumulados en la tabla general | ⭐ | `{n} pts totales` |
+| 5 | **El Sotanero** | Menos aciertos entre participantes. Desempate: menor % → menor puntuación. Omitir si todos empataron en 0 | 😅 | `{n} aciertos` |
 | 6 | **El MVP de la Jornada** | Más puntos en esta jornada | 🏆 | `+{n} pts` |
+| 7 | **Tu jornada** | Slide personal de cierre: posición en tabla (con delta ↑↓), aciertos con comparativa grupal, puntos ganados, badge del premio si aplica | 👤 | siempre visible |
 
-**Empates:** se muestran todos los jugadores empatados en la misma slide (avatares en fila horizontal).
+**Empates:** todos los jugadores empatados en la misma slide. Avatares circulares (56px) en fila, máx. 5 — si hay más: chip `+N` con fondo acento.
+
+**Orden de presentación:** Sabio → Certero (si califica) → Enrachado (si aplica) → Inalcanzable → Sotanero (si aplica) → MVP → Tu jornada
 
 ### Modelo de datos
 
@@ -340,30 +345,31 @@ Presenta los premios de cada jornada con un slideshow animado y un GIF compartib
 export interface AwardEntry {
   uid: string
   displayName: string
-  photoURL: string | null   // avatarUrl
-  value: number             // la stat principal (pts, count, streak)
-  label: string             // texto human-readable: "4 exactos", "+28 pts", "3 jornadas"
+  avatarUrl: string | null
+  value: number    // stat principal: pts, count, streak, pct*100 para El Certero
+  label: string    // human-readable: "6 aciertos", "+28 pts", "3 jornadas", "6/8 · 75%"
 }
 
 export interface MatchdayAwards {
-  el_mvp:           AwardEntry[]
-  el_vidente:       AwardEntry[]
   el_sabio:         AwardEntry[]
-  el_enrachado?:    AwardEntry[]   // ausente si es la primera jornada del torneo
+  el_certero:       AwardEntry[]   // vacío si menos de 3 jugadores califican
+  el_enrachado?:    AwardEntry[]   // ausente si J1 o nadie llega a streak ≥2
   el_inalcanzable:  AwardEntry[]
-  el_sotanero:      AwardEntry[]
-  computedAt:       string         // ISO timestamp — para saber si ya fue calculado
+  el_sotanero?:     AwardEntry[]   // ausente si todos empataron en 0 aciertos
+  el_mvp:           AwardEntry[]
+  totalMatches:     number         // N partidos de la jornada (denominador de El Certero)
+  computedAt:       string         // ISO timestamp
 }
 
 // En Matchday agregar:
 awards?: MatchdayAwards
 ```
 
-#### `User` — campos de racha
+#### `User` — campos de racha (ya presentes en producción desde Fase 14A)
 
 ```ts
-// src/types/User.ts — agregar:
-currentStreak?: number   // jornadas consecutivas activas con ≥1 exacto
+// src/types/User.ts — ya existen:
+currentStreak?: number   // jornadas consecutivas activas con ≥1 acierto
 maxStreak?: number       // racha máxima histórica del usuario
 ```
 
@@ -375,60 +381,92 @@ Callable onCall, solo admins. Input: `{ matchdayId: string }`.
 
 ```
 1. Validar admin (request.auth + role === 'admin')
-2. Leer matchday → verificar status 'closed' o 'finished'
-3. Query: db.collection('predictions').where('matchdayId', '==', id)
-4. Agrupar por userId → Map<uid, { points, exactCount, correctCount }>
-   - points        = sum(prediction.points ?? 0)
-   - exactCount    = count donde isExact === true
-   - correctCount  = count donde isExact === true OR isCorrectResult === true
-   - participated  = tiene al menos 1 predicción scored (points != null)
-5. Leer todos los User docs para obtener displayName + avatarUrl
-6. Calcular ganadores por categoría:
-   - el_mvp:         max(points)            — todos los empatados
-   - el_vidente:     max(exactCount)        — todos los empatados
-   - el_sabio:       max(correctCount)      — todos los empatados
-   - el_sotanero:    min(correctCount)      — solo entre participated=true; todos los empatados
-   - el_inalcanzable: max(user.stats.totalPoints) — leer users collection, todos los empatados
-7. El Enrachado (solo si matchday.order > 1):
-   a. Leer matchdays anteriores ordenados por .order asc (filtrando status 'closed'/'finished')
-   b. Para cada usuario en el paso 4 con participated=true:
+2. Leer matchday → verificar status === 'closed' || 'finished'
+3. Contar partidos de la jornada: N = matches donde matchdayId === id
+4. Query: db.collection('predictions').where('matchdayId', '==', id)
+5. Agrupar por userId → Map<uid, { points, correctCount, totalPredicted }>
+   - points         = sum(prediction.points ?? 0)
+   - correctCount   = count donde isCorrect === true
+   - totalPredicted = count donde points !== null  (predicciones calificadas)
+   - participated   = totalPredicted > 0
+6. Leer todos los User docs → displayName, avatarUrl, stats.totalPoints
+7. Calcular ganadores por categoría:
+   - el_sabio:
+       max(correctCount) entre participated=true
+       desempate: mayor (correctCount/totalPredicted) → mayor points
+       todos los empatados al final
+   - el_certero:
+       umbral = ceil(N * 0.75)   // mín. 75% de partidos predichos
+       filtrar usuarios con totalPredicted >= umbral
+       pct = correctCount / totalPredicted para cada uno
+       max(pct); desempate: mayor points
+       si menos de 3 calificados → el_certero = []  (slide omitida)
+       label = "{correctCount}/{totalPredicted} · {round(pct*100)}%"
+   - el_sotanero:
+       min(correctCount) entre participated=true
+       desempate: menor (correctCount/totalPredicted) → menor points
+       omitir si min === 0 Y todos los participated tienen correctCount === 0
+   - el_inalcanzable: max(user.stats.totalPoints); todos los empatados
+   - el_mvp:          max(points) entre participated=true; todos los empatados
+8. El Enrachado (solo si matchday.order > 1):
+   a. Leer IDs de matchdays anteriores (status 'closed'/'finished') ordenados por .order ASC
+   b. Cargar en chunks: query predictions where matchdayId IN [...ids]
+      agregar en memoria: Map<userId, Map<matchdayId, hasCorrect: bool>>
+   c. Para cada usuario con participated=true:
       - Recorrer matchdays anteriores en orden DESCENDENTE desde (actual - 1)
-      - Por cada uno: query predictions donde matchdayId=X, userId=U, isExact=true (count)
-      - Si count > 0 → streak++; si count === 0 → stop
-      - Si también tuvo exactCount > 0 en la jornada actual → streak++ al inicio
-   c. El Enrachado = usuarios con mayor racha activa (mínimo streak ≥ 2 para mostrarse)
-   d. Actualizar batch: user.currentStreak y user.maxStreak
-8. Armar objeto MatchdayAwards y escribir en matchday.awards con merge
-9. Return { success: true, awards }
+      - Si tuvo ≥1 isCorrect en esa jornada → streak++; si no → stop
+      - Sumar 1 si correctCount > 0 en la jornada actual
+   d. El Enrachado = usuarios con mayor streak; mínimo streak ≥ 2 para mostrarse
+      si nadie llega a 2 → el_enrachado omitido
+   e. Batch update: user.currentStreak = streak; user.maxStreak = max(actual, histórico)
+9. Armar objeto MatchdayAwards (con totalMatches = N) → escribir en matchday.awards (merge)
+10. Return { success: true, awards }
 ```
 
-**Optimización de El Enrachado:** Para evitar N×M queries, cargar en chunks
-(`where('matchdayId', 'in', [...ids])`) y agregar en memoria.
+**Optimización de El Enrachado:** Un único query por chunks (`where('matchdayId', 'in', [...ids])`) — agrupación en memoria. Evita N×M queries.
 
 ### UI: `AwardsShowcase.tsx`
 
 Modal full-screen (portal en `document.body`) con slideshow animado.
 
-**Flujo de slides:** Sotanero → Sabio → Vidente → Enrachado (si aplica) → Inalcanzable → MVP
+**Orden de slides:** Sabio → Certero (si el_certero.length ≥ 3) → Enrachado (si aplica) → Inalcanzable → Sotanero (si aplica) → MVP → **Tu jornada** (siempre al final)
 
-**Diseño de cada slide:**
+**Diseño de cada slide (premios):**
 ```
 ┌────────────────────────────────┐
-│ JORNADA X · PREMIOS  [✕]       │  ← header fijo, Bebas Neue
+│ JORNADA X · PREMIOS  [🔊] [✕]  │  ← header fijo, Bebas Neue
 ├────────────────────────────────┤
 │                                │
-│           🔮                   │  ← emoji: scale bounce entrada
+│           🎯                   │  ← emoji: scale bounce entrada
 │                                │
-│       EL VIDENTE               │  ← Bebas Neue 40px, var(--accent)
+│       EL CERTERO               │  ← Bebas Neue 40px, var(--accent)
 │                                │
-│   [ava]  [ava]  [ava]          │  ← avatares en fila (empates)
-│   Nombre Nombre Nombre         │  ← Bebas Neue 20px
+│   [ava]  [ava]                 │  ← avatares circulares 56px en fila
+│   Nombre Nombre                │  ← Bebas Neue 20px
 │                                │
-│      ▲ 4 EXACTOS               │  ← stat badge acento
+│      ▲ 8/8 · 100%              │  ← stat badge acento
 │                                │
-│  ●●○○○○  ← progress dots      │
-│  ◄  2/6  ►                    │  ← navegación manual
-│  ████░░░░░  ← barra auto-adv  │  ← 5s por slide
+│  ●●○○○○○  ← progress dots     │
+│  ◄  2/7  ►                    │  ← navegación manual
+│  ████░░░░  ← barra auto-adv   │  ← 5s por slide
+└────────────────────────────────┘
+```
+
+**Slide "Tu jornada" (última, siempre visible):**
+```
+┌────────────────────────────────┐
+│ JORNADA X · PREMIOS  [🔊] [✕]  │
+├────────────────────────────────┤
+│          👤                    │
+│       TU JORNADA               │
+│                                │
+│   #3 en la jornada  ↑2         │  ← posición con delta vs jornada anterior
+│   6 de 8 aciertos              │  ← mejor que el 73% del grupo
+│   +18 pts esta jornada         │
+│                                │
+│   🏆 MVP de la Jornada         │  ← badge si ganó algún premio (o frase motivacional)
+│                                │
+│  ●●●●●●●  ← último dot        │
 └────────────────────────────────┘
 ```
 
@@ -440,46 +478,44 @@ Modal full-screen (portal en `document.body`) con slideshow animado.
 - Auto-avance: barra de progreso CSS lineal 5s; se pausa al hover/touch
 - Swipe: `touchstart`/`touchend` con delta ≥ 50px
 
+**Audio (activable):**
+- Botón 🔊 en el header (ON por defecto, silenciable)
+- Al revelar el ganador de cada slide: fanfarria de 0.5s generada con Web Audio API (sin assets externos)
+- No aplica en la slide "Tu jornada"
+
 **Cuando hay múltiples ganadores:**
 - Avatares circulares (56px) en fila horizontal centrada, máximo 5 visibles
-- Si hay más de 5: "y {n} más"
-- Cada avatar tiene tooltip/label con el nombre abajo
+- Si hay más de 5: chip `+N` con fondo acento al final de la fila
+- Nombre de cada jugador debajo del avatar en Bebas Neue 16px
 
-### GIF Animado — Exportación
+### Imagen compartible — Exportación (Fase 13B)
 
-**Stack:** `gif.js` + `@types/gif.js`
-```bash
-npm install gif.js
-npm install -D @types/gif.js
-```
+> **Decisión:** El GIF animado se descartó. Sin marcadores exactos no hay narrativa visual de "el vidente adivinando el score". Se reemplaza por una imagen estática PNG que consolida los premios en un resumen visual práctico para WhatsApp. No se instala `gif.js`.
 
-**`AwardsGifFrames.tsx` — frames off-screen (400×600px cada uno)**
+**Stack:** solo `html2canvas` (ya disponible en el proyecto).
 
-Mismas 6 slides en versión estática (sin animaciones CSS) para html2canvas:
-- Sin CSS variables — colores hardcoded de `COLORS[themeId]` (misma restricción que otros share cards)
+**`AwardsSummaryCard.tsx` — frame off-screen (400×700px)**
+
+Imagen estática con los premios en formato compacto:
+- Sin CSS variables — colores hardcoded de `COLORS[themeId]` (misma restricción que `LeaderboardShareCard`)
 - Bebas Neue cargada vía `index.html` → `await document.fonts.ready`
-- `display: inline-block` + `verticalAlign: middle` para alineaciones verticales (no flexbox)
+- Layout vertical: header "JORNADA X · PREMIOS", luego una fila por premio con emoji + título + avatar(es) + stat
+- `display: inline-block` + `verticalAlign: middle` (sin flexbox — requisito html2canvas)
 
 **Flujo de generación:**
 ```
-Click "Compartir GIF"
-  → setGifState('rendering')
+Click "Compartir resumen"
+  → setShareState('rendering')
   → await document.fonts.ready
-  → capturar frames 0..N con html2canvas → canvas[]
-  → setGifState('encoding')
-  → new GIF({ workers: 2, quality: 10, width: 400, height: 600 })
-  → gif.addFrame(canvas, { delay: 3500 }) por cada frame
-  → gif.on('finished', blob => share/download(blob))
-  → gif.render()
+  → html2canvas(AwardsSummaryCard ref) → canvas
+  → canvas.toBlob('image/png') → blob
+  → Mobile: navigator.share({ files: [new File([blob], 'premios-jornada.png')] })
+  → Desktop: <a download> auto-click
 ```
-
-**Compartir resultado:**
-- Mobile: `navigator.share({ files: [new File([blob], 'premios-jornada.gif', { type: 'image/gif' })] })`
-- Desktop: `<a download href={URL.createObjectURL(blob)}>` auto-click
 
 **Estados del botón:**
 ```
-"Compartir GIF"  →  "Preparando..."  →  "Codificando GIF (40%)..."  →  compartir/descargar
+"Compartir resumen"  →  "Preparando..."  →  compartir/descargar
 ```
 
 ### Integración en Dashboard
@@ -525,31 +561,33 @@ Sección al final de la página, solo visible cuando `matchday.status === 'close
 
 | Acción | Archivo |
 |--------|---------|
-| ✨ Crear | `src/pages/Dashboard/AwardsShowcase.tsx` — modal slideshow animado |
-| ✨ Crear | `src/pages/Dashboard/AwardsGifFrames.tsx` — frames off-screen para html2canvas |
+| ✨ Crear | `src/pages/Dashboard/AwardsShowcase.tsx` — modal slideshow + slide "Tu jornada" |
+| ✨ Crear | `src/pages/Dashboard/AwardsSummaryCard.tsx` — frame off-screen PNG para html2canvas |
 | ✏️ Modificar | `src/types/Matchday.ts` — agregar `AwardEntry`, `MatchdayAwards`, campo `awards?` en `Matchday` |
-| ✏️ Modificar | `src/types/User.ts` — agregar `currentStreak?`, `maxStreak?` |
 | ✏️ Modificar | `functions/src/index.ts` — agregar CF `computeMatchdayAwards` |
 | ✏️ Modificar | `src/services/cloudFunctions.ts` — agregar callable `computeMatchdayAwards` |
 | ✏️ Modificar | `src/pages/Admin/MatchdayDetail.tsx` — agregar sección de trigger de premios |
 | ✏️ Modificar | `src/pages/Dashboard/Dashboard.tsx` — agregar botón + estado `showAwards` |
-| ✏️ Modificar | `package.json` + `package-lock.json` — agregar `gif.js` + `@types/gif.js` |
+
+> `src/types/User.ts` ya contiene `currentStreak?` y `maxStreak?` desde Fase 14A — no requiere modificación.
 
 ### Fases de entrega
 
 | Fase | Qué incluye |
 |------|-------------|
-| **13A** | Tipos + CF `computeMatchdayAwards` + trigger en admin + `AwardsShowcase` (slideshow in-app) + integración en Dashboard |
-| **13B** | `AwardsGifFrames` + integración gif.js + botón "Compartir GIF" dentro del showcase |
+| **13A** | Tipos + CF `computeMatchdayAwards` + trigger en admin + `AwardsShowcase` (slideshow + slide "Tu jornada" + audio) + integración en Dashboard |
+| **13B** | `AwardsSummaryCard` + captura html2canvas + botón "Compartir resumen" dentro del showcase |
 
 ### Decisiones y restricciones técnicas
 
-- **html2canvas en AwardsGifFrames:** Sin CSS variables; colores hardcoded igual que en `JornadaShareCard` y `LeaderboardShareCard`. Usar el `COLORS` record del tema activo.
-- **gif.js web worker:** Necesita que el worker JS esté accesible en público. Opciones: copiar `gif.worker.js` a `public/`, o usar `workerScript` con un blob URL.
-- **Racha mínima para El Enrachado:** Solo se muestra si el ganador tiene streak ≥ 2 (si solo llevan 1 jornada con exactos no es "racha"). Si nadie tiene streak ≥ 2, la slide del Enrachado se omite aunque no sea J1.
-- **Empates masivos en el Sotanero:** Si todos fallan igual (p.ej. 0 aciertos todos), no se muestra el Sotanero (no tiene gracia mostrarlo si fallaron todos).
-- **Recálculo:** El admin puede volver a calcular los premios después (p.ej. si se corrigió un resultado). `computedAt` se actualiza; el cliente siempre lee el último valor.
-- **`awards` en Firestore:** Se guarda como campo directo en el documento `matchdays/{id}` (no subcollección) para que el hook `useMatchdays` existente lo levante automáticamente sin cambios.
+- **Sin GIF:** Descartado. Sin marcadores exactos el GIF no tiene narrativa. html2canvas ya existe en el proyecto.
+- **El Certero — umbral 75%:** `ceil(N * 0.75)` predicciones mínimas. Si menos de 3 jugadores califican, la slide se omite. El denominador del % es `totalPredicted` del usuario, no N — para reflejar sus oportunidades reales.
+- **El Sotanero — empate total en 0:** Si todos los participantes tienen `correctCount === 0`, la slide se omite.
+- **Racha mínima para El Enrachado:** Streak ≥ 2. Una sola jornada acertada no es racha. Si nadie alcanza 2, la slide se omite aunque no sea J1.
+- **Audio Web Audio API:** Fanfarria de 0.5s generada programáticamente (sin assets externos). Botón 🔊 en el header del modal — ON por defecto, silenciable. No aplica en slide "Tu jornada".
+- **Slide "Tu jornada":** Datos calculados en cliente desde los datos ya cargados en Dashboard. `currentUserId` se pasa como prop a `AwardsShowcase`. Si el usuario ganó un premio, se muestra su emoji + nombre. Si no, frase motivacional corta.
+- **Recálculo:** El admin puede recalcular en cualquier momento. `computedAt` se actualiza; el cliente siempre lee el valor más reciente.
+- **`awards` en Firestore:** Campo directo en `matchdays/{id}` (no subcollección) para que `useMatchdays` lo cargue sin cambios.
 
 ---
 
@@ -728,9 +766,11 @@ La CF `onMatchUpdated` actualiza `correctPredictions` en lugar de `exactPredicti
 ---
 
 ### 14D — Gamificación: ajuste de premios (impacto en Fase 13)
-**Estado:** Pendiente ⏳
+**Estado:** Absorbida en Fase 13 ✓
 
-La Fase 13 (Premios de Jornada) depende del concepto de "exactos". Con el nuevo modo resultado, **"El Vidente"** (más marcadores exactos) deja de tener sentido. Se redefine así:
+Los cambios de esta sub-fase (reemplazar "El Vidente" por "El Certero", ajustar "El Enrachado" a ≥1 acierto, actualizar algoritmos) fueron incorporados directamente en la redefinición de la Fase 13 (Mayo 2026). No requiere trabajo adicional — la Fase 13 ya incluye el modelo correcto desde el inicio.
+
+> Lo que sigue es el registro histórico original de la decisión:
 
 #### Tabla de premios actualizada
 
