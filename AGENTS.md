@@ -27,7 +27,11 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 - [x] Compartir como imagen — `useShareImage` (html2canvas + Web Share API con `forceDownload` opcional); `LeaderboardShareCard` (botón "Compartir mi posición" comentado temporalmente), `JornadaShareCard` post-jornada, `LeaderboardPNGCard` en `/admin/tabla`
 - [x] Leaderboard estilo carta FIFA — componente `LeaderboardRow` compartido entre dashboard, admin y PNG card; filas alternadas con fondo transparente del acento del tema
 - [x] `Preferences.tsx` rediseñado — header Bebas Neue, theme cards con glow, toggle premium, account con iconos SVG; **pendiente de deploy junto con el fix de mobile tab**
+- [x] Modo resultado simple (Fase 14A-C) — predicciones de resultado LOCAL/EMPATE/VISITANTE; auto-save con debounce 400ms; `ResultPicker.tsx` extraído
+- [x] Rol `observer` — acceso sin participar en tabla ni pronósticos; bloqueado a nivel de Firestore rules
+- [x] Admin sidebar vertical — sidebar 224px con secciones GESTIÓN/REPORTES/CONFIG; Restaurar con 2 pasos; mobile tab bar sin cambios
 - [ ] **PENDIENTE**: Fase 13 — Premios de jornada (slideshow animado + PNG compartible)
+- [ ] **PENDIENTE**: Fase 14E — Simplificar ScoringConfig admin (eliminar campos exactScore)
 
 ---
 
@@ -118,7 +122,7 @@ src/
 │   └── themes.ts                    # THEMES array + themeClassName()
 ├── pages/
 │   ├── Admin/
-│   │   ├── AdminLayout.tsx          # DESKTOP_NAV (6 ítems) + MOBILE_NAV (4 ítems, tab bar)
+│   │   ├── AdminLayout.tsx          # Sidebar 224px desktop (GESTIÓN/REPORTES/CONFIG) + MOBILE_NAV (4 ítems, tab bar)
 │   │   ├── AdminLeaderboard.tsx     # /admin/tabla — reutiliza LeaderboardTable + PlayerHistoryModal + LeaderboardPNGCard
 │   │   ├── AllowedUsers.tsx         # + botón "Invitar" que genera token y copia link
 │   │   ├── BonusEvaluation.tsx      # Evalúa bonus predictions via Cloud Function

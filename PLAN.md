@@ -601,7 +601,7 @@ El admin **sigue ingresando el marcador real** (homeScore / awayScore) para dete
 ---
 
 ### 14A — Modelo de datos + Cloud Function de scoring
-**Estado:** Pendiente ⏳
+**Estado:** Completada ✓ (desplegado)
 
 #### Cambios en tipos
 
@@ -665,7 +665,7 @@ Si ya hay predicciones con `homeScore`/`awayScore`: escribir script de migració
 ---
 
 ### 14B — UI de pronósticos
-**Estado:** Pendiente ⏳
+**Estado:** Completada ✓ (desplegado)
 
 Reemplaza el teclado numérico y los inputs de marcador por un selector de 3 opciones por partido.
 
@@ -709,7 +709,7 @@ Reemplaza el teclado numérico y los inputs de marcador por un selector de 3 opc
 ---
 
 ### 14C — Post-jornada e historial
-**Estado:** Pendiente ⏳
+**Estado:** Completada ✓ (parte de 14A)
 
 Adaptar todas las vistas que mostraban marcadores pronosticados al nuevo formato de resultado.
 
@@ -822,7 +822,7 @@ export interface MatchdayAwards {
 ---
 
 ### Admin: ajustes al panel de configuración de puntos (`14E`)
-**Estado:** Pendiente ⏳
+**Estado:** Pendiente ⏳ (siguiente sesión)
 
 - Eliminar campos `exactScore` y `exactKnockoutWithTie` del formulario `ScoringConfig`
 - Renombrar `correctResult` → `correctPrediction` con descripción actualizada

@@ -34,9 +34,10 @@ Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios predicen 
 - **Preferencias** — cambiar tema, instalar PWA, activar notificaciones push, gestionar cuenta; accesible como tab en móvil (sin perder contexto)
 
 ### Para administradores
+- **Navegación** — sidebar vertical fija en desktop (224px) con secciones GESTIÓN / REPORTES / CONFIG; tab bar en móvil sin cambios
 - **Gestión de jornadas** — crear, editar, cambiar estado (upcoming/open/closed/finished), modificar deadline de pronósticos
 - **Ingreso de resultados** — marcador por partido; en fases eliminatorias: especificar equipo ganador
-- **Gestión de jugadores** — editar nombre, avatar y rol; monitoreo de onboarding y conteo de pronósticos por jugador
+- **Gestión de jugadores** — editar nombre, avatar y rol (`player` / `admin` / `observer`); monitoreo de onboarding y conteo de pronósticos por jugador
 - **Evaluación de bonus** — ingresar resultados finales del torneo para otorgar puntos bonus automáticamente
 - **Gestión de acceso** — agregar/eliminar correos permitidos; generar link de invitación por correo con TTL de 7 días
 - **Tabla general (`/admin/tabla`)** — vista completa del leaderboard con historial de cualquier jugador y botón para descargar la tabla como PNG en formato móvil
@@ -49,7 +50,7 @@ Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios predicen 
 ## Reglas del Juego
 
 ### Acceso
-Solo pueden iniciar sesión usuarios cuyo correo fue registrado previamente por el administrador (colección `allowedUsers`).
+Solo pueden iniciar sesión usuarios cuyo correo fue registrado previamente por el administrador (colección `allowedUsers`). Los roles disponibles son `player` (participa en pronósticos y tabla), `admin` (gestiona el torneo) y `observer` (acceso de lectura, no aparece en tabla ni puede hacer pronósticos).
 
 ### Onboarding
 Al iniciar sesión por primera vez el usuario configura:
