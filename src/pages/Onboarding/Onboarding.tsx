@@ -4,6 +4,7 @@ import { useTeamsMap } from '@/hooks/useTeams'
 import { getAvatarUrl, uploadAvatar } from '@/services/storageAvatars'
 import { updateUserProfile } from '@/services/firestoreUsers'
 import StepProfile from './StepProfile'
+import StepDemo from './StepDemo'
 import StepBonus from './StepBonus'
 import StepInstall from './StepInstall'
 import type { BonusPredictions } from '@/types/User'
@@ -23,16 +24,17 @@ const EMPTY_BONUS: BonusPredictions = {
 
 const STEP_LABELS: Record<number, string> = {
   1: 'PERFIL',
-  2: 'PRONÓSTICOS',
-  3: 'INSTALAR',
+  2: 'DEMO',
+  3: 'BONUS',
+  4: 'INSTALAR',
 }
 
 export default function Onboarding() {
   const { user } = useAuth()
   const { teamsMap, loading: teamsLoading } = useTeamsMap()
 
-  const [step, setStep] = useState<1 | 2 | 3>(1)
-  const totalSteps = isStandalone ? 2 : 3
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
+  const totalSteps = isStandalone ? 3 : 4
   const [displayName, setDisplayName] = useState(user?.displayName ?? '')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState(user?.avatarUrl ?? '')
@@ -81,7 +83,7 @@ export default function Onboarding() {
           avatarUrl,
           bonusPredictions: { ...bonus, pointsAwarded: false },
         })
-        setStep(3)
+        setStep(4)
         setLoading(false)
       }
     } catch (err) {
@@ -243,16 +245,19 @@ export default function Onboarding() {
                 />
               )}
               {step === 2 && (
+                <StepDemo onContinue={() => setStep(3)} />
+              )}
+              {step === 3 && (
                 <StepBonus
                   bonus={bonus}
                   teams={teamsLoading ? [] : teams}
                   onBonusChange={setBonus}
-                  onBack={() => setStep(1)}
+                  onBack={() => setStep(2)}
                   onSubmit={handleBonusSubmit}
                   loading={loading}
                 />
               )}
-              {step === 3 && (
+              {step === 4 && (
                 <StepInstall onDone={handleInstallDone} />
               )}
             </div>
