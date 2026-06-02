@@ -11,22 +11,38 @@ function detectPlatform(): 'ios' | 'android' | 'desktop' {
 
 const INSTRUCTIONS = {
   ios: [
-    { text: 'Abre Safari y toca el botón Compartir (cuadro con flecha)' },
-    { text: 'Desplázate y selecciona "Añadir a pantalla de inicio"' },
-    { text: 'Toca "Añadir" para confirmar' },
+    { text: 'Toca el botón Compartir (cuadro con flecha ↑) en Safari' },
+    { text: 'Desplázate y selecciona "Añadir marcador"' },
+    { text: 'Elige "Favoritos" y toca "Guardar"' },
   ],
   android: [
-    { text: 'Toca el menú (tres puntos) en la esquina superior de Chrome' },
-    { text: 'Selecciona "Añadir a pantalla de inicio" o "Instalar app"' },
-    { text: 'Confirma tocando "Añadir" o "Instalar"' },
+    { text: 'Toca el menú (⋮) en la esquina superior derecha de Chrome' },
+    { text: 'Toca el ícono ⭐ o selecciona "Añadir a marcadores"' },
   ],
   desktop: [
-    { text: 'Haz clic en el ícono de instalación (⊕) en la barra de direcciones' },
-    { text: 'Confirma haciendo clic en "Instalar"' },
+    { text: 'Presiona Ctrl+D (Windows / Linux) o ⌘+D (Mac)' },
+    { text: 'Selecciona "Favoritos" y confirma para guardar' },
   ],
 }
 
-function LightningIcon() {
+function StarIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+    </svg>
+  )
+}
+
+function LinkIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+    </svg>
+  )
+}
+
+function ZapIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
       <path d="M13 2L4.5 13H11L10 22L20.5 11H14L13 2Z"/>
@@ -34,28 +50,10 @@ function LightningIcon() {
   )
 }
 
-function BellIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-    </svg>
-  )
-}
-
-function PhoneIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
-      <line x1="12" y1="18" x2="12.01" y2="18"/>
-    </svg>
-  )
-}
-
 const BENEFITS = [
-  { label: 'Acceso rápido',    Icon: LightningIcon },
-  { label: 'Notificaciones',   Icon: BellIcon      },
-  { label: 'Sin navegador',    Icon: PhoneIcon     },
+  { label: 'Acceso rápido',    Icon: ZapIcon  },
+  { label: 'Siempre a mano',   Icon: StarIcon },
+  { label: 'Sin perder la URL', Icon: LinkIcon },
 ]
 
 export default function StepInstall({ onDone }: Props) {
@@ -65,17 +63,17 @@ export default function StepInstall({ onDone }: Props) {
   return (
     <>
       <style>{`
-        @keyframes si-phone-glow {
+        @keyframes si-star-glow {
           0%, 100% {
             filter: drop-shadow(0 0 8px var(--accent))
                     drop-shadow(0 0 24px var(--accent-muted));
           }
           50% {
-            filter: drop-shadow(0 0 14px var(--accent-light))
-                    drop-shadow(0 0 36px var(--accent-muted));
+            filter: drop-shadow(0 0 16px var(--accent-light))
+                    drop-shadow(0 0 40px var(--accent-muted));
           }
         }
-        .si-phone { animation: si-phone-glow 2.6s ease-in-out infinite; }
+        .si-star { animation: si-star-glow 2.6s ease-in-out infinite; }
 
         .si-chip {
           display: inline-flex;
@@ -112,56 +110,32 @@ export default function StepInstall({ onDone }: Props) {
 
       <div className="space-y-5">
 
-        {/* ── Phone illustration ── */}
+        {/* ── Bookmark illustration ── */}
         <div className="flex justify-center py-2 select-none">
-          <div className="si-phone">
-            <svg width="68" height="94" viewBox="0 0 68 94" fill="none">
-              {/* Phone shell */}
-              <rect x="1.5" y="1.5" width="65" height="91" rx="12"
-                fill="rgba(0,0,0,0.55)"
+          <div className="si-star">
+            <svg width="72" height="88" viewBox="0 0 72 88" fill="none">
+              {/* Bookmark ribbon shape */}
+              <path
+                d="M6 2 H66 Q70 2 70 6 V84 L36 68 L2 84 V6 Q2 2 6 2 Z"
+                fill="rgba(0,0,0,0.45)"
                 stroke="var(--accent)"
                 strokeWidth="1.5"
               />
-              {/* Screen */}
-              <rect x="8" y="13" width="52" height="62" rx="6"
+              {/* Inner highlight */}
+              <path
+                d="M12 8 H60 Q64 8 64 12 V72 L36 60 L8 72 V12 Q8 8 12 8 Z"
                 fill="var(--accent-deep)"
-                stroke="var(--accent)"
-                strokeWidth="0.5"
-                opacity="0.75"
+                opacity="0.6"
               />
-              {/* App icon background */}
-              <rect x="23" y="28" width="22" height="22" rx="6"
+              {/* Star icon centered */}
+              <path
+                d="M36 24 l3.6 7.3 8.1 1.2 -5.9 5.7 1.4 8 -7.2-3.8 -7.2 3.8 1.4-8 -5.9-5.7 8.1-1.2 z"
                 fill="var(--accent)"
                 opacity="0.9"
               />
-              {/* Trophy inside icon */}
-              <text x="34" y="43" textAnchor="middle" fontSize="11">🏆</text>
-              {/* App name label */}
-              <text
-                x="34" y="62"
-                textAnchor="middle"
-                fontSize="5.5"
-                fill="var(--accent-light)"
-                opacity="0.65"
-                fontFamily="system-ui, sans-serif"
-                fontWeight="700"
-                letterSpacing="0.8"
-              >
-                QUINIELA
-              </text>
-              {/* Home bar */}
-              <rect x="27" y="81" width="14" height="3" rx="1.5"
-                fill="var(--accent)"
-                opacity="0.35"
-              />
-              {/* Speaker notch */}
-              <rect x="26" y="6.5" width="16" height="3" rx="1.5"
-                fill="rgba(255,255,255,0.08)"
-              />
-              {/* Subtle screen shine */}
-              <rect x="8" y="13" width="18" height="62" rx="6"
-                fill="rgba(255,255,255,0.02)"
-              />
+              {/* Bottom V-cut accent line */}
+              <line x1="2" y1="84" x2="36" y2="68" stroke="var(--accent)" strokeWidth="0.5" opacity="0.4"/>
+              <line x1="70" y1="84" x2="36" y2="68" stroke="var(--accent)" strokeWidth="0.5" opacity="0.4"/>
             </svg>
           </div>
         </div>
@@ -188,11 +162,10 @@ export default function StepInstall({ onDone }: Props) {
             className="text-[9px] font-semibold tracking-[0.25em] uppercase"
             style={{ color: 'rgba(255,255,255,0.22)' }}
           >
-            Cómo instalar
+            Cómo guardar el acceso
           </p>
           {steps.map((s, i) => (
             <div key={i} className="flex items-start gap-3">
-              {/* Numbered circle */}
               <div
                 className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center mt-0.5"
                 style={{
@@ -206,10 +179,7 @@ export default function StepInstall({ onDone }: Props) {
               >
                 {i + 1}
               </div>
-              <p
-                className="text-sm leading-relaxed"
-                style={{ color: 'rgba(255,255,255,0.6)' }}
-              >
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
                 {s.text}
               </p>
             </div>
@@ -219,7 +189,7 @@ export default function StepInstall({ onDone }: Props) {
         {/* ── Actions ── */}
         <div className="space-y-2 pt-1">
           <button onClick={onDone} className="si-done">
-            Entendido, ya la instalé
+            Listo, ya lo guardé
           </button>
           <button
             onClick={onDone}

@@ -26,7 +26,7 @@ const STEP_LABELS: Record<number, string> = {
   1: 'PERFIL',
   2: 'DEMO',
   3: 'BONUS',
-  4: 'INSTALAR',
+  4: 'ACCESO',
 }
 
 export default function Onboarding() {
