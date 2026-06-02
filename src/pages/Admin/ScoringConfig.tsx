@@ -48,8 +48,7 @@ export default function ScoringConfig() {
 
   function handleChange(key: keyof ScoringConfig, value: string) {
     const n = parseInt(value, 10)
-    if (isNaN(n) || n < 0) return
-    setForm(f => ({ ...f, [key]: n }))
+    setForm(f => ({ ...f, [key]: isNaN(n) || n < 0 ? 0 : n }))
     setSaved(false)
   }
 
