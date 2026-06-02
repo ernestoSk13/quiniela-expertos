@@ -22,6 +22,10 @@ const COLORS: Record<ThemeId, ThemeColors> = {
   belgium:      { accent: '#EF3340', rowDark: 'rgba(239,51,64,0.14)',   rowLight: 'rgba(239,51,64,0.05)' },
   'ivory-coast':{ accent: '#F77F00', rowDark: 'rgba(247,127,0,0.14)',   rowLight: 'rgba(247,127,0,0.05)' },
   brazil:       { accent: '#009C3B', rowDark: 'rgba(0,156,59,0.14)',    rowLight: 'rgba(0,156,59,0.05)' },
+  portugal:     { accent: '#C8102E', rowDark: 'rgba(200,16,46,0.14)',   rowLight: 'rgba(200,16,46,0.05)' },
+  netherlands:  { accent: '#FF6C00', rowDark: 'rgba(255,108,0,0.16)',   rowLight: 'rgba(255,108,0,0.06)' },
+  japan:        { accent: '#BC002D', rowDark: 'rgba(188,0,45,0.14)',    rowLight: 'rgba(188,0,45,0.05)' },
+  england:      { accent: '#CF142B', rowDark: 'rgba(207,20,43,0.14)',   rowLight: 'rgba(207,20,43,0.05)' },
 }
 
 const MEDAL_BORDER = ['#FFD700', '#C0C0C0', '#CD7F32']

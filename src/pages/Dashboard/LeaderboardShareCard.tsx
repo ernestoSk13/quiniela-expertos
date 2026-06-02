@@ -17,6 +17,10 @@ const COLORS: Record<ThemeId, { bg: string; surface: string; accent: string; bor
   belgium:      { bg: '#0a0102', surface: '#200a0c', accent: '#EF3340', border: 'rgba(239,51,64,0.25)',   heroStripe: 'rgba(239,51,64,0.13)' },
   'ivory-coast':{ bg: '#0a0500', surface: '#221500', accent: '#F77F00', border: 'rgba(247,127,0,0.25)',   heroStripe: 'rgba(247,127,0,0.13)' },
   brazil:       { bg: '#010801', surface: '#0a1a0a', accent: '#009C3B', border: 'rgba(0,156,59,0.25)',    heroStripe: 'rgba(0,156,59,0.13)' },
+  portugal:     { bg: '#0a0101', surface: '#200c0c', accent: '#C8102E', border: 'rgba(200,16,46,0.25)',   heroStripe: 'rgba(200,16,46,0.13)' },
+  netherlands:  { bg: '#0a0500', surface: '#221600', accent: '#FF6C00', border: 'rgba(255,108,0,0.25)',   heroStripe: 'rgba(255,108,0,0.13)' },
+  japan:        { bg: '#0a0002', surface: '#200810', accent: '#BC002D', border: 'rgba(188,0,45,0.25)',    heroStripe: 'rgba(188,0,45,0.13)' },
+  england:      { bg: '#0a0102', surface: '#200a10', accent: '#CF142B', border: 'rgba(207,20,43,0.25)',   heroStripe: 'rgba(207,20,43,0.13)' },
 }
 
 interface Props {

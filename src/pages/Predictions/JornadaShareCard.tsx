@@ -25,6 +25,10 @@ const COLORS: Record<ThemeId, {
   belgium:      { bg: '#0a0102', surface: '#200a0c', accent: '#EF3340', border: 'rgba(239,51,64,0.25)',   heroStripe: 'rgba(239,51,64,0.13)',   accentLight: '#FF7080' },
   'ivory-coast':{ bg: '#0a0500', surface: '#221500', accent: '#F77F00', border: 'rgba(247,127,0,0.25)',   heroStripe: 'rgba(247,127,0,0.13)',   accentLight: '#FFB366' },
   brazil:       { bg: '#010801', surface: '#0a1a0a', accent: '#009C3B', border: 'rgba(0,156,59,0.25)',    heroStripe: 'rgba(0,156,59,0.13)',    accentLight: '#33D668' },
+  portugal:     { bg: '#0a0101', surface: '#200c0c', accent: '#C8102E', border: 'rgba(200,16,46,0.25)',   heroStripe: 'rgba(200,16,46,0.13)',   accentLight: '#FF6677' },
+  netherlands:  { bg: '#0a0500', surface: '#221600', accent: '#FF6C00', border: 'rgba(255,108,0,0.25)',   heroStripe: 'rgba(255,108,0,0.13)',   accentLight: '#FFAA55' },
+  japan:        { bg: '#0a0002', surface: '#200810', accent: '#BC002D', border: 'rgba(188,0,45,0.25)',    heroStripe: 'rgba(188,0,45,0.13)',    accentLight: '#FF5577' },
+  england:      { bg: '#0a0102', surface: '#200a10', accent: '#CF142B', border: 'rgba(207,20,43,0.25)',   heroStripe: 'rgba(207,20,43,0.13)',   accentLight: '#FF5566' },
 }
 
 const BEBAS = "'Bebas Neue', Impact, 'Arial Narrow', sans-serif"

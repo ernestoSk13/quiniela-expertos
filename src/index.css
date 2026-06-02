@@ -161,6 +161,70 @@
   --blob-c:       rgba(0,39,118,0.34);
 }
 
+.theme-portugal {
+  /* Portugal — rojo + verde */
+  --accent:       #C8102E;
+  --accent-hover: #A00E26;
+  --accent-light: #FF6677;
+  --accent-dim:   #5A0A14;
+  --accent-muted: rgba(200,16,46,0.2);
+  --accent-deep:  rgba(90,10,20,0.4);
+  --bg-base:      #0a0101;
+  --surface-nav:  #180506;
+  --surface-card: #200c0c;
+  --blob-a:       rgba(200,16,46,0.32);
+  --blob-b:       rgba(0,102,0,0.26);
+  --blob-c:       rgba(200,16,46,0.18);
+}
+
+.theme-netherlands {
+  /* Países Bajos — naranja oranje + azul + rojo */
+  --accent:       #FF6C00;
+  --accent-hover: #D85C00;
+  --accent-light: #FFAA55;
+  --accent-dim:   #6A3000;
+  --accent-muted: rgba(255,108,0,0.2);
+  --accent-deep:  rgba(106,48,0,0.4);
+  --bg-base:      #0a0500;
+  --surface-nav:  #180e00;
+  --surface-card: #221600;
+  --blob-a:       rgba(255,108,0,0.32);
+  --blob-b:       rgba(33,70,139,0.28);
+  --blob-c:       rgba(174,28,40,0.22);
+}
+
+.theme-japan {
+  /* Japón — carmesí + blanco */
+  --accent:       #BC002D;
+  --accent-hover: #960024;
+  --accent-light: #FF5577;
+  --accent-dim:   #4A0012;
+  --accent-muted: rgba(188,0,45,0.2);
+  --accent-deep:  rgba(74,0,18,0.4);
+  --bg-base:      #0a0002;
+  --surface-nav:  #180308;
+  --surface-card: #200810;
+  --blob-a:       rgba(188,0,45,0.34);
+  --blob-b:       rgba(230,218,218,0.13);
+  --blob-c:       rgba(188,0,45,0.20);
+}
+
+.theme-england {
+  /* Inglaterra — rojo + navy + blanco */
+  --accent:       #CF142B;
+  --accent-hover: #A81022;
+  --accent-light: #FF5566;
+  --accent-dim:   #580A14;
+  --accent-muted: rgba(207,20,43,0.2);
+  --accent-deep:  rgba(88,10,20,0.4);
+  --bg-base:      #0a0102;
+  --surface-nav:  #180406;
+  --surface-card: #200a10;
+  --blob-a:       rgba(207,20,43,0.32);
+  --blob-b:       rgba(0,33,96,0.28);
+  --blob-c:       rgba(218,212,218,0.12);
+}
+
 /* ── Global base background ─────────────────────────────────────── */
 html, body {
   background-color: var(--bg-base);

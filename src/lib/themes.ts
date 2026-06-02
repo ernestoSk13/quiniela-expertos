@@ -1,4 +1,4 @@
-export type ThemeId = 'mexico' | 'canada' | 'usa' | 'germany' | 'france' | 'argentina' | 'spain' | 'belgium' | 'ivory-coast' | 'brazil'
+export type ThemeId = 'mexico' | 'canada' | 'usa' | 'germany' | 'france' | 'argentina' | 'spain' | 'belgium' | 'ivory-coast' | 'brazil' | 'portugal' | 'netherlands' | 'japan' | 'england'
 
 export interface Theme {
   id: ThemeId
@@ -18,6 +18,10 @@ export const THEMES: Theme[] = [
   { id: 'belgium',     label: 'Bélgica',          flag: '🇧🇪', className: 'theme-belgium' },
   { id: 'ivory-coast', label: 'Costa de Marfil',  flag: '🇨🇮', className: 'theme-ivory-coast' },
   { id: 'brazil',      label: 'Brasil',           flag: '🇧🇷', className: 'theme-brazil' },
+  { id: 'portugal',    label: 'Portugal',         flag: '🇵🇹', className: 'theme-portugal' },
+  { id: 'netherlands', label: 'Países Bajos',     flag: '🇳🇱', className: 'theme-netherlands' },
+  { id: 'japan',       label: 'Japón',            flag: '🇯🇵', className: 'theme-japan' },
+  { id: 'england',     label: 'Inglaterra',       flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', className: 'theme-england' },
 ]
 
 export function themeClassName(id: ThemeId | undefined): string {
