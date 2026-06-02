@@ -1,5 +1,4 @@
 import { useRef } from 'react'
-import Avatar from '@/components/Avatar'
 
 interface Props {
   displayName: string
@@ -123,49 +122,37 @@ export default function StepProfile({
             Agrega tu avatar
           </p>
 
-          {/* Outer ring + avatar */}
-          <div className="relative" style={{ width: 104, height: 104 }}>
-
-            {/* Dashed outer orbit ring */}
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              viewBox="0 0 104 104"
-            >
-              <circle
-                cx="52" cy="52" r="50"
-                fill="none"
-                stroke="var(--accent)"
-                strokeWidth="0.8"
-                strokeDasharray="4 7"
-                opacity="0.35"
+          {/* Portrait rectangle avatar */}
+          <div
+            style={{
+              width: 96, height: 128,
+              borderRadius: 10,
+              overflow: 'hidden',
+              border: '2px solid var(--accent)',
+              boxShadow: '0 0 20px var(--accent-muted)',
+              background: 'rgba(255,255,255,0.04)',
+              flexShrink: 0,
+            }}
+          >
+            {previewUrl ? (
+              <img
+                src={previewUrl}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                alt="Avatar"
               />
-              {/* 4 accent corner dots */}
-              {[0, 90, 180, 270].map(deg => {
-                const rad = (deg * Math.PI) / 180
-                return (
-                  <circle
-                    key={deg}
-                    cx={52 + 50 * Math.cos(rad)}
-                    cy={52 + 50 * Math.sin(rad)}
-                    r="2.5"
-                    fill="var(--accent)"
-                    opacity="0.55"
-                  />
-                )
-              })}
-            </svg>
-
-            {/* Avatar — clipped inside accent border ring */}
-            <div
-              className="absolute overflow-hidden rounded-full"
-              style={{
-                inset: 10,
-                border: '2px solid var(--accent)',
-                boxShadow: '0 0 12px var(--accent-muted)',
-              }}
-            >
-              <Avatar url={previewUrl} name={displayName || '?'} size="xl" />
-            </div>
+            ) : (
+              <div style={{
+                width: '100%', height: '100%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: "'Bebas Neue', Impact, 'Arial Narrow', sans-serif",
+                fontSize: '3.5rem',
+                color: 'var(--accent)',
+                opacity: 0.7,
+                userSelect: 'none',
+              }}>
+                {displayName ? displayName.charAt(0).toUpperCase() : '?'}
+              </div>
+            )}
           </div>
 
           {/* Two action pills */}
