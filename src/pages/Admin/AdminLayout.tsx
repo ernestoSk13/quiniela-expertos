@@ -242,6 +242,9 @@ export default function AdminLayout() {
           {/* Footer */}
           <div className="adm-sidebar-footer">
             <span className="adm-sidebar-email" title={user?.email}>{user?.email}</span>
+            <button onClick={() => navigate('/')} className="adm-sidebar-btn-player">
+              ← Ver como jugador
+            </button>
             <button onClick={handleSignOut} className="adm-sidebar-btn-ghost">
               Salir
             </button>
@@ -268,7 +271,10 @@ export default function AdminLayout() {
               <Avatar url={user?.avatarUrl ?? ''} name={user?.displayName || 'Admin'} size="sm" />
               <div className="adm-sidebar-brand-title" style={{ fontSize: '0.95rem' }}>ADMIN</div>
             </div>
-            <button onClick={handleSignOut} className="adm-btn-ghost">Salir</button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => navigate('/')} className="adm-btn-player">Jugador</button>
+              <button onClick={handleSignOut} className="adm-btn-ghost">Salir</button>
+            </div>
           </div>
         </header>
 
@@ -428,6 +434,22 @@ const styles = `
     text-overflow: ellipsis;
     padding: 0 2px;
   }
+  .adm-sidebar-btn-player {
+    width: 100%;
+    text-align: left;
+    padding: 7px 10px;
+    border-radius: 7px;
+    border: 1px solid var(--accent-muted);
+    color: var(--accent-light);
+    background: var(--accent-deep);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .adm-sidebar-btn-player:hover {
+    background: var(--accent-muted);
+  }
+
   .adm-sidebar-btn-ghost {
     width: 100%;
     text-align: left;
@@ -484,6 +506,18 @@ const styles = `
   }
 
   /* ── Shared button styles (mobile header) ── */
+  .adm-btn-player {
+    font-size: 0.7rem;
+    padding: 4px 10px;
+    border-radius: 7px;
+    border: 1px solid var(--accent-muted);
+    color: var(--accent-light);
+    background: var(--accent-deep);
+    transition: all 0.15s ease;
+    cursor: pointer;
+  }
+  .adm-btn-player:hover { background: var(--accent-muted); }
+
   .adm-btn-ghost {
     font-size: 0.7rem;
     padding: 4px 10px;

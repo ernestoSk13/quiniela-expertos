@@ -338,6 +338,19 @@ export default function Dashboard() {
               />
               <span className="text-sm text-gray-300 hidden sm:block">{user?.displayName}</span>
             </div>
+            {user?.role === 'admin' && (
+              <button
+                onClick={() => navigate('/admin')}
+                className="text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors"
+                style={{
+                  background: 'var(--accent-deep)',
+                  border: '1px solid var(--accent-muted)',
+                  color: 'var(--accent-light)',
+                }}
+              >
+                Admin
+              </button>
+            )}
             <button
               onClick={handleSignOut}
               className="text-sm text-gray-500 hover:text-white transition-colors"
