@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useUserTimezone } from '@/hooks/useUserTimezone'
 import { useMatchdays } from '@/hooks/useMatchdays'
 import { useMatchesByMatchday } from '@/hooks/useMatches'
 import { useTeamsMap } from '@/hooks/useTeams'
@@ -32,9 +33,9 @@ function toDatetimeLocal(ts: Match['scheduledAt']): string {
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`
 }
 
-function formatTime(ts: Match['scheduledAt']) {
+function formatTime(ts: Match['scheduledAt'], timezone: string) {
   return ts?.toDate().toLocaleString('es-MX', {
-    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: timezone,
   }) ?? '—'
 }
 
@@ -66,6 +67,7 @@ export default function MatchdayDetail() {
   const { matchdays } = useMatchdays()
   const { matches, loading } = useMatchesByMatchday(matchdayId ?? '')
   const { teamsMap } = useTeamsMap()
+  const timezone = useUserTimezone()
 
   const [resultEditId, setResultEditId] = useState<string | null>(null)
   const [resultState, setResultState] = useState<ResultEditState>({ homeScore: '', awayScore: '', winner: '' })
@@ -375,7 +377,7 @@ export default function MatchdayDetail() {
                             </span>
                           ) : (
                             <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.04em' }}>
-                              {formatTime(match.scheduledAt)}
+                              {formatTime(match.scheduledAt, timezone)}
                             </span>
                           )}
                           {match.winner && (

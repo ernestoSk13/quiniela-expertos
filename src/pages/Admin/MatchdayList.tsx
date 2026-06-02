@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useUserTimezone } from '@/hooks/useUserTimezone'
 import { useMatchdays } from '@/hooks/useMatchdays'
 import { updateMatchdayStatus, updateMatchdayDeadline } from '@/services/firestoreMatchdays'
 import StatusBadge from '@/components/StatusBadge'
@@ -28,9 +29,9 @@ const STATUS_BORDER: Record<MatchdayStatus, string> = {
   finished: 'rgba(74,222,128,0.45)',
 }
 
-function formatDate(ts: Matchday['predictionDeadline']) {
+function formatDate(ts: Matchday['predictionDeadline'], timezone: string) {
   return ts?.toDate().toLocaleString('es-MX', {
-    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: timezone,
   }) ?? '—'
 }
 
@@ -55,6 +56,7 @@ function SkeletonRow() {
 
 export default function MatchdayList() {
   const { matchdays, loading } = useMatchdays()
+  const timezone = useUserTimezone()
   const [updating, setUpdating] = useState<string | null>(null)
   const [editingDeadline, setEditingDeadline] = useState<string | null>(null)
   const [deadlineInput, setDeadlineInput] = useState('')
@@ -163,7 +165,7 @@ export default function MatchdayList() {
                         Deadline:
                       </span>
                       <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)' }}>
-                        {formatDate(md.predictionDeadline)}
+                        {formatDate(md.predictionDeadline, timezone)}
                       </span>
                       <button
                         onClick={() => startEditDeadline(md)}
