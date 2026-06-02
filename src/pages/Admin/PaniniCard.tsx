@@ -5,27 +5,22 @@ import type { User } from '@/types'
 export type AccentId = 'gold' | 'silver' | 'bronze' | 'green' | 'red' | 'blue'
 
 export const ACCENT_OPTIONS: { id: AccentId; label: string; swatch: string }[] = [
-  { id: 'gold',   label: 'Dorado', swatch: '#F59E0B' },
-  { id: 'silver', label: 'Plata',  swatch: '#A1A1AA' },
-  { id: 'bronze', label: 'Bronce', swatch: '#CD7C3A' },
-  { id: 'green',  label: 'Verde',  swatch: '#10B981' },
-  { id: 'red',    label: 'Rojo',   swatch: '#EF4444' },
-  { id: 'blue',   label: 'Azul',   swatch: '#3B82F6' },
+  { id: 'gold',   label: 'Dorado', swatch: '#D97706' },
+  { id: 'silver', label: 'Plata',  swatch: '#8A8A95' },
+  { id: 'bronze', label: 'Bronce', swatch: '#A05018' },
+  { id: 'green',  label: 'Verde',  swatch: '#047A50' },
+  { id: 'red',    label: 'Rojo',   swatch: '#C81E1E' },
+  { id: 'blue',   label: 'Azul',   swatch: '#1D4FD0' },
 ]
 
-const COLORS: Record<AccentId, {
-  primary: string
-  gradientA: string
-  gradientB: string
-  titleText: string
-  badgeBg: string
-}> = {
-  gold:   { primary: '#F59E0B', gradientA: '#78350F', gradientB: '#D97706', titleText: '#FCD34D', badgeBg: 'rgba(245,158,11,0.18)' },
-  silver: { primary: '#A1A1AA', gradientA: '#3F3F46', gradientB: '#A1A1AA', titleText: '#E4E4E7', badgeBg: 'rgba(161,161,170,0.18)' },
-  bronze: { primary: '#CD7C3A', gradientA: '#78350F', gradientB: '#B45309', titleText: '#FDBA74', badgeBg: 'rgba(205,124,58,0.18)' },
-  green:  { primary: '#10B981', gradientA: '#064E3B', gradientB: '#059669', titleText: '#6EE7B7', badgeBg: 'rgba(16,185,129,0.18)' },
-  red:    { primary: '#EF4444', gradientA: '#7F1D1D', gradientB: '#DC2626', titleText: '#FCA5A5', badgeBg: 'rgba(239,68,68,0.18)' },
-  blue:   { primary: '#3B82F6', gradientA: '#1E3A8A', gradientB: '#2563EB', titleText: '#93C5FD', badgeBg: 'rgba(59,130,246,0.18)' },
+// Full-card gradient colors — top (dark) → bottom (vibrant)
+const COLORS: Record<AccentId, { top: string; bottom: string }> = {
+  gold:   { top: '#4A1C03', bottom: '#C07808' },
+  silver: { top: '#18181B', bottom: '#71717A' },
+  bronze: { top: '#4A1C03', bottom: '#934E15' },
+  green:  { top: '#022C22', bottom: '#047A50' },
+  red:    { top: '#7F1D1D', bottom: '#C81E1E' },
+  blue:   { top: '#172060', bottom: '#1D4FD0' },
 }
 
 const BEBAS = "'Bebas Neue', Impact, 'Arial Narrow', sans-serif"
@@ -43,22 +38,20 @@ export interface PaniniCardProps {
   offScreen?: boolean
 }
 
-function CardInner({ player, title, showPoints, showPosition, accentId, position }: Omit<PaniniCardProps, 'cardRef' | 'offScreen'>) {
-  const c = COLORS[accentId]
-
+function CardInner({ player, title, showPoints, showPosition, position }: Omit<PaniniCardProps, 'cardRef' | 'offScreen' | 'accentId'>) {
   return (
     <>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap')`}</style>
 
-      {/* Header */}
+      {/* Header — semi-transparent dark overlay on top of the card gradient */}
       <div style={{
         width: W, height: 82, flexShrink: 0,
-        background: `linear-gradient(135deg, ${c.gradientA} 0%, ${c.gradientB} 100%)`,
+        background: 'rgba(0,0,0,0.30)',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         position: 'relative',
+        borderBottom: '1px solid rgba(255,255,255,0.12)',
       }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: c.primary }} />
-        <div style={{ fontFamily: BEBAS, fontSize: 10, letterSpacing: '0.24em', color: 'rgba(255,255,255,0.55)', marginBottom: 3 }}>
+        <div style={{ fontFamily: BEBAS, fontSize: 10, letterSpacing: '0.26em', color: 'rgba(255,255,255,0.55)', marginBottom: 3 }}>
           QUINIELA EXPERTOS
         </div>
         <div style={{ fontFamily: BEBAS, fontSize: 22, letterSpacing: '0.14em', color: '#fff', lineHeight: 1 }}>
@@ -69,13 +62,14 @@ function CardInner({ player, title, showPoints, showPosition, accentId, position
       {/* Body */}
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'center', padding: '20px 24px 12px', gap: 0,
+        justifyContent: 'center', padding: '18px 24px 12px',
       }}>
         {/* Avatar */}
         <div style={{
-          width: 108, height: 140, borderRadius: 8, overflow: 'hidden', flexShrink: 0,
-          border: `2px solid ${c.primary}`, boxShadow: `0 0 24px ${c.primary}55`,
-          marginBottom: 16, background: '#181828',
+          width: 132, height: 170, borderRadius: 10, overflow: 'hidden', flexShrink: 0,
+          border: '2.5px solid rgba(255,255,255,0.65)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.15)',
+          marginBottom: 16, background: 'rgba(0,0,0,0.3)',
         }}>
           {player.avatarUrl ? (
             <img
@@ -87,31 +81,33 @@ function CardInner({ player, title, showPoints, showPosition, accentId, position
           ) : (
             <div style={{
               width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: BEBAS, fontSize: 44, color: c.primary,
+              fontFamily: BEBAS, fontSize: 52, color: 'rgba(255,255,255,0.7)',
             }}>
               {player.displayName.charAt(0).toUpperCase()}
             </div>
           )}
         </div>
 
-        {/* Name */}
+        {/* Player name */}
         <div style={{
-          fontFamily: BEBAS, fontSize: 26, letterSpacing: '0.06em', color: '#fff',
+          fontFamily: BEBAS, fontSize: 28, letterSpacing: '0.06em', color: '#fff',
           textAlign: 'center', lineHeight: 1.1, marginBottom: 10, maxWidth: 280,
+          textShadow: '0 1px 4px rgba(0,0,0,0.4)',
         }}>
           {player.displayName.toUpperCase()}
         </div>
 
-        {/* Decorative line + title */}
+        {/* Decorative line + award title */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, width: '85%' }}>
-          <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, transparent, ${c.primary}55)` }} />
+          <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(255,255,255,0.35))' }} />
           <div style={{
-            fontFamily: BEBAS, fontSize: 17, letterSpacing: '0.1em',
-            color: c.titleText, textAlign: 'center', lineHeight: 1, whiteSpace: 'nowrap',
+            fontFamily: BEBAS, fontSize: 17, letterSpacing: '0.12em',
+            color: 'rgba(255,255,255,0.88)', textAlign: 'center', lineHeight: 1, whiteSpace: 'nowrap',
+            textShadow: '0 1px 3px rgba(0,0,0,0.3)',
           }}>
             {title || 'PREMIO'}
           </div>
-          <div style={{ flex: 1, height: 1, background: `linear-gradient(to left, transparent, ${c.primary}55)` }} />
+          <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(255,255,255,0.35))' }} />
         </div>
 
         {/* Stats badges */}
@@ -119,18 +115,22 @@ function CardInner({ player, title, showPoints, showPosition, accentId, position
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
             {showPosition && position > 0 && (
               <div style={{
-                background: c.badgeBg, border: `1px solid ${c.primary}44`,
+                background: 'rgba(0,0,0,0.30)',
+                border: '1px solid rgba(255,255,255,0.25)',
                 borderRadius: 20, padding: '5px 16px',
-                fontFamily: BEBAS, fontSize: 17, letterSpacing: '0.06em', color: c.titleText,
+                fontFamily: BEBAS, fontSize: 17, letterSpacing: '0.06em',
+                color: '#fff',
               }}>
                 #{position} en tabla
               </div>
             )}
             {showPoints && (
               <div style={{
-                background: c.badgeBg, border: `1px solid ${c.primary}44`,
+                background: 'rgba(0,0,0,0.30)',
+                border: '1px solid rgba(255,255,255,0.25)',
                 borderRadius: 20, padding: '5px 16px',
-                fontFamily: BEBAS, fontSize: 17, letterSpacing: '0.06em', color: c.titleText,
+                fontFamily: BEBAS, fontSize: 17, letterSpacing: '0.06em',
+                color: '#fff',
               }}>
                 ⭐ {player.stats.totalPoints} pts
               </div>
@@ -142,9 +142,9 @@ function CardInner({ player, title, showPoints, showPosition, accentId, position
       {/* Footer */}
       <div style={{
         height: 32, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderTop: `1px solid ${c.primary}22`,
+        borderTop: '1px solid rgba(255,255,255,0.12)',
       }}>
-        <div style={{ fontFamily: BEBAS, fontSize: 11, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.22)' }}>
+        <div style={{ fontFamily: BEBAS, fontSize: 11, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.35)' }}>
           QUINIELAEXPERTOS26.WEB.APP
         </div>
       </div>
@@ -161,12 +161,12 @@ export default function PaniniCard(props: PaniniCardProps) {
       ref={cardRef}
       style={{
         width: W, height: H, flexShrink: 0,
-        background: '#0C0D14',
+        background: `linear-gradient(165deg, ${c.top} 0%, ${c.bottom} 100%)`,
         borderRadius: offScreen ? 0 : 14,
         overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
-        border: offScreen ? 'none' : `1px solid ${c.primary}33`,
-        boxShadow: offScreen ? 'none' : `0 8px 40px ${c.primary}1A, 0 0 0 1px ${c.primary}22`,
+        border: offScreen ? 'none' : '1px solid rgba(255,255,255,0.12)',
+        boxShadow: offScreen ? 'none' : `0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08)`,
         position: offScreen ? 'absolute' : 'relative',
         left: offScreen ? -9999 : undefined,
         top: offScreen ? 0 : undefined,
@@ -174,7 +174,7 @@ export default function PaniniCard(props: PaniniCardProps) {
     >
       <CardInner
         player={player} title={title} showPoints={showPoints}
-        showPosition={showPosition} accentId={accentId} position={position}
+        showPosition={showPosition} position={position}
       />
     </div>
   )
