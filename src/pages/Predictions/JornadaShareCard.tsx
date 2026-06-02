@@ -15,9 +15,20 @@ const COLORS: Record<ThemeId, {
   bg: string; surface: string; accent: string; border: string
   heroStripe: string; accentLight: string
 }> = {
-  mexico: { bg: '#010a04', surface: '#0c1f0f', accent: '#00C853', border: 'rgba(0,200,83,0.25)',  heroStripe: 'rgba(0,200,83,0.13)',  accentLight: '#69F0AE' },
-  canada: { bg: '#0a0101', surface: '#1a0606', accent: '#E51414', border: 'rgba(229,20,20,0.25)', heroStripe: 'rgba(229,20,20,0.13)', accentLight: '#FF6B6B' },
-  usa:    { bg: '#01020c', surface: '#080b1e', accent: '#2535F0', border: 'rgba(37,53,240,0.25)', heroStripe: 'rgba(37,53,240,0.13)', accentLight: '#7B8BFF' },
+  mexico:       { bg: '#010a04', surface: '#0c1f0f', accent: '#00C853', border: 'rgba(0,200,83,0.25)',    heroStripe: 'rgba(0,200,83,0.13)',    accentLight: '#69F0AE' },
+  canada:       { bg: '#0a0101', surface: '#1a0606', accent: '#E51414', border: 'rgba(229,20,20,0.25)',   heroStripe: 'rgba(229,20,20,0.13)',   accentLight: '#FF6B6B' },
+  usa:          { bg: '#01020c', surface: '#080b1e', accent: '#2535F0', border: 'rgba(37,53,240,0.25)',   heroStripe: 'rgba(37,53,240,0.13)',   accentLight: '#7B8BFF' },
+  germany:      { bg: '#0a0000', surface: '#200505', accent: '#DD0000', border: 'rgba(221,0,0,0.25)',     heroStripe: 'rgba(221,0,0,0.13)',     accentLight: '#FF6666' },
+  france:       { bg: '#01010c', surface: '#0a0d22', accent: '#002395', border: 'rgba(0,35,149,0.25)',    heroStripe: 'rgba(0,35,149,0.13)',    accentLight: '#4D7FFF' },
+  argentina:    { bg: '#01050c', surface: '#0c1620', accent: '#74ACDF', border: 'rgba(116,172,223,0.28)', heroStripe: 'rgba(116,172,223,0.13)', accentLight: '#A8D4F5' },
+  spain:        { bg: '#0a0101', surface: '#200a0a', accent: '#AA151B', border: 'rgba(170,21,27,0.25)',   heroStripe: 'rgba(170,21,27,0.13)',   accentLight: '#FF5555' },
+  belgium:      { bg: '#0a0102', surface: '#200a0c', accent: '#EF3340', border: 'rgba(239,51,64,0.25)',   heroStripe: 'rgba(239,51,64,0.13)',   accentLight: '#FF7080' },
+  'ivory-coast':{ bg: '#0a0500', surface: '#221500', accent: '#F77F00', border: 'rgba(247,127,0,0.25)',   heroStripe: 'rgba(247,127,0,0.13)',   accentLight: '#FFB366' },
+  brazil:       { bg: '#010801', surface: '#0a1a0a', accent: '#009C3B', border: 'rgba(0,156,59,0.25)',    heroStripe: 'rgba(0,156,59,0.13)',    accentLight: '#33D668' },
+  portugal:     { bg: '#0a0101', surface: '#200c0c', accent: '#C8102E', border: 'rgba(200,16,46,0.25)',   heroStripe: 'rgba(200,16,46,0.13)',   accentLight: '#FF6677' },
+  netherlands:  { bg: '#0a0500', surface: '#221600', accent: '#FF6C00', border: 'rgba(255,108,0,0.25)',   heroStripe: 'rgba(255,108,0,0.13)',   accentLight: '#FFAA55' },
+  japan:        { bg: '#0a0002', surface: '#200810', accent: '#BC002D', border: 'rgba(188,0,45,0.25)',    heroStripe: 'rgba(188,0,45,0.13)',    accentLight: '#FF5577' },
+  england:      { bg: '#0a0102', surface: '#200a10', accent: '#CF142B', border: 'rgba(207,20,43,0.25)',   heroStripe: 'rgba(207,20,43,0.13)',   accentLight: '#FF5566' },
 }
 
 const BEBAS = "'Bebas Neue', Impact, 'Arial Narrow', sans-serif"

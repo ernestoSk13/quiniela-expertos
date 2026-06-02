@@ -49,7 +49,7 @@ La imagen de referencia muestra la tarjeta actual con fondo oscuro y header de a
 ---
 
 ## T7 — Agregar temas de países adicionales
-**Estado:** Pendiente ⏳  
+**Estado:** Completada ✅ (deploy 2026-06-02)  
 **Skill:** `/add-theme` (ya existe en el proyecto)  
 **Archivos afectados:** `src/index.css`, `src/lib/themes.ts`
 

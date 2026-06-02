@@ -12,9 +12,9 @@
   --bg-base:      #010a04;
   --surface-nav:  #051510;
   --surface-card: #0e2016;
-  --blob-a:       rgba(0,200,83,0.28);
-  --blob-b:       rgba(10,100,50,0.22);
-  --blob-c:       rgba(0,160,68,0.18);
+  --blob-a:       rgba(0,200,83,0.30);
+  --blob-b:       rgba(206,17,38,0.26);
+  --blob-c:       rgba(240,240,240,0.12);
 }
 
 .theme-canada {
@@ -47,6 +47,182 @@
   --blob-a:       rgba(37,53,240,0.28);
   --blob-b:       rgba(26,43,107,0.22);
   --blob-c:       rgba(20,35,200,0.18);
+}
+
+.theme-germany {
+  /* Alemania — rojo, amarillo, negro */
+  --accent:       #DD0000;
+  --accent-hover: #BB0000;
+  --accent-light: #FF6666;
+  --accent-dim:   #5A0000;
+  --accent-muted: rgba(221,0,0,0.2);
+  --accent-deep:  rgba(90,0,0,0.4);
+  --bg-base:      #080404;
+  --surface-nav:  #140606;
+  --surface-card: #1e0c08;
+  --blob-a:       rgba(221,0,0,0.32);
+  --blob-b:       rgba(255,206,0,0.26);
+  --blob-c:       rgba(18,18,18,0.40);
+}
+
+.theme-france {
+  /* Francia — azul, rojo */
+  --accent:       #002395;
+  --accent-hover: #001A6E;
+  --accent-light: #4D7FFF;
+  --accent-dim:   #0A0F40;
+  --accent-muted: rgba(0,35,149,0.2);
+  --accent-deep:  rgba(10,15,64,0.4);
+  --bg-base:      #03010c;
+  --surface-nav:  #070418;
+  --surface-card: #0d0a22;
+  --blob-a:       rgba(0,35,149,0.32);
+  --blob-b:       rgba(237,41,57,0.26);
+  --blob-c:       rgba(0,26,110,0.22);
+}
+
+.theme-argentina {
+  /* Argentina — celeste, blanco */
+  --accent:       #74ACDF;
+  --accent-hover: #4E8FC8;
+  --accent-light: #A8D4F5;
+  --accent-dim:   #0E2A46;
+  --accent-muted: rgba(116,172,223,0.22);
+  --accent-deep:  rgba(14,42,70,0.4);
+  --bg-base:      #01050c;
+  --surface-nav:  #050d18;
+  --surface-card: #0c1620;
+  --blob-a:       rgba(116,172,223,0.34);
+  --blob-b:       rgba(200,228,250,0.18);
+  --blob-c:       rgba(78,143,200,0.26);
+}
+
+.theme-spain {
+  /* España — rojo, amarillo */
+  --accent:       #AA151B;
+  --accent-hover: #880F14;
+  --accent-light: #FF5555;
+  --accent-dim:   #5A0A0D;
+  --accent-muted: rgba(170,21,27,0.2);
+  --accent-deep:  rgba(90,10,13,0.4);
+  --bg-base:      #080201;
+  --surface-nav:  #160605;
+  --surface-card: #200e08;
+  --blob-a:       rgba(170,21,27,0.32);
+  --blob-b:       rgba(241,191,0,0.28);
+  --blob-c:       rgba(170,21,27,0.20);
+}
+
+.theme-belgium {
+  /* Bélgica — negro, amarillo, rojo */
+  --accent:       #EF3340;
+  --accent-hover: #C8202D;
+  --accent-light: #FF7080;
+  --accent-dim:   #6A1020;
+  --accent-muted: rgba(239,51,64,0.2);
+  --accent-deep:  rgba(106,16,32,0.4);
+  --bg-base:      #060202;
+  --surface-nav:  #120606;
+  --surface-card: #1c0c0a;
+  --blob-a:       rgba(239,51,64,0.30);
+  --blob-b:       rgba(250,210,1,0.26);
+  --blob-c:       rgba(15,15,15,0.38);
+}
+
+.theme-ivory-coast {
+  /* Costa de Marfil — naranja, blanco, verde */
+  --accent:       #F77F00;
+  --accent-hover: #D06800;
+  --accent-light: #FFB366;
+  --accent-dim:   #6A3600;
+  --accent-muted: rgba(247,127,0,0.2);
+  --accent-deep:  rgba(106,54,0,0.4);
+  --bg-base:      #080400;
+  --surface-nav:  #160e00;
+  --surface-card: #201600;
+  --blob-a:       rgba(247,127,0,0.30);
+  --blob-b:       rgba(0,154,68,0.26);
+  --blob-c:       rgba(247,127,0,0.18);
+}
+
+.theme-brazil {
+  /* Brasil — verde, amarillo, azul */
+  --accent:       #009C3B;
+  --accent-hover: #007A2E;
+  --accent-light: #33D668;
+  --accent-dim:   #003D18;
+  --accent-muted: rgba(0,156,59,0.2);
+  --accent-deep:  rgba(0,61,24,0.4);
+  --bg-base:      #010802;
+  --surface-nav:  #051206;
+  --surface-card: #0a1a0c;
+  --blob-a:       rgba(0,156,59,0.30);
+  --blob-b:       rgba(255,223,0,0.28);
+  --blob-c:       rgba(0,39,118,0.34);
+}
+
+.theme-portugal {
+  /* Portugal — rojo + verde */
+  --accent:       #C8102E;
+  --accent-hover: #A00E26;
+  --accent-light: #FF6677;
+  --accent-dim:   #5A0A14;
+  --accent-muted: rgba(200,16,46,0.2);
+  --accent-deep:  rgba(90,10,20,0.4);
+  --bg-base:      #0a0101;
+  --surface-nav:  #180506;
+  --surface-card: #200c0c;
+  --blob-a:       rgba(200,16,46,0.32);
+  --blob-b:       rgba(0,102,0,0.26);
+  --blob-c:       rgba(200,16,46,0.18);
+}
+
+.theme-netherlands {
+  /* Países Bajos — naranja oranje + azul + rojo */
+  --accent:       #FF6C00;
+  --accent-hover: #D85C00;
+  --accent-light: #FFAA55;
+  --accent-dim:   #6A3000;
+  --accent-muted: rgba(255,108,0,0.2);
+  --accent-deep:  rgba(106,48,0,0.4);
+  --bg-base:      #0a0500;
+  --surface-nav:  #180e00;
+  --surface-card: #221600;
+  --blob-a:       rgba(255,108,0,0.32);
+  --blob-b:       rgba(33,70,139,0.28);
+  --blob-c:       rgba(174,28,40,0.22);
+}
+
+.theme-japan {
+  /* Japón — carmesí + blanco */
+  --accent:       #BC002D;
+  --accent-hover: #960024;
+  --accent-light: #FF5577;
+  --accent-dim:   #4A0012;
+  --accent-muted: rgba(188,0,45,0.2);
+  --accent-deep:  rgba(74,0,18,0.4);
+  --bg-base:      #0a0002;
+  --surface-nav:  #180308;
+  --surface-card: #200810;
+  --blob-a:       rgba(188,0,45,0.34);
+  --blob-b:       rgba(230,218,218,0.13);
+  --blob-c:       rgba(188,0,45,0.20);
+}
+
+.theme-england {
+  /* Inglaterra — rojo + navy + blanco */
+  --accent:       #CF142B;
+  --accent-hover: #A81022;
+  --accent-light: #FF5566;
+  --accent-dim:   #580A14;
+  --accent-muted: rgba(207,20,43,0.2);
+  --accent-deep:  rgba(88,10,20,0.4);
+  --bg-base:      #0a0102;
+  --surface-nav:  #180406;
+  --surface-card: #200a10;
+  --blob-a:       rgba(207,20,43,0.32);
+  --blob-b:       rgba(0,33,96,0.28);
+  --blob-c:       rgba(218,212,218,0.12);
 }
 
 /* ── Global base background ─────────────────────────────────────── */

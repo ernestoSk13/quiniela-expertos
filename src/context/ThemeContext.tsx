@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect } from 'react'
 import { useAuth } from './AuthContext'
-import { themeClassName, type ThemeId } from '@/lib/themes'
+import { themeClassName, THEMES, type ThemeId } from '@/lib/themes'
 
 interface ThemeContextValue {
   themeId: ThemeId
@@ -14,7 +14,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement
-    root.classList.remove('theme-canada', 'theme-usa')
+    THEMES.forEach(t => { if (t.className) root.classList.remove(t.className) })
     const cls = themeClassName(themeId)
     if (cls) root.classList.add(cls)
   }, [themeId])
