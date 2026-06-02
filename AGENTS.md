@@ -30,7 +30,7 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 - [x] Modo resultado simple (Fase 14A-C) — predicciones de resultado LOCAL/EMPATE/VISITANTE; auto-save con debounce 400ms; `ResultPicker.tsx` extraído
 - [x] Rol `observer` — acceso sin participar en tabla ni pronósticos; bloqueado a nivel de Firestore rules
 - [x] Admin sidebar vertical — sidebar 224px con secciones GESTIÓN/REPORTES/CONFIG; Restaurar con 2 pasos; mobile tab bar sin cambios
-- [ ] **PENDIENTE**: Fase 13 — Premios de jornada (slideshow animado + PNG compartible)
+- [x] ~~Fase 13 — Premios de jornada (slideshow animado + PNG compartible)~~ — **Cancelada**
 - [ ] **PENDIENTE**: Fase 14E — Simplificar ScoringConfig admin (eliminar campos exactScore)
 
 ---

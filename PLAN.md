@@ -314,7 +314,7 @@
 ---
 
 ## Fase 13 — Gamificación: Premios de Jornada + Imagen Compartible
-**Estado:** Pendiente ⏳
+**Estado:** Cancelada ❌ (decisión 2026-06-02 — descartada por prioridad)
 
 Presenta los premios de cada jornada con un slideshow animado y una imagen PNG compartible en WhatsApp/redes. El botón aparece en el Dashboard encima de la tabla general una vez que la jornada está calificada.
 
