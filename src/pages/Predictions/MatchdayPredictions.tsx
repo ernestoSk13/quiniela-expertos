@@ -22,6 +22,13 @@ function formatDeadline(ts: any, timezone: string) {
   }) ?? '—'
 }
 
+function formatMatchTime(ts: any, timezone: string) {
+  return ts?.toDate().toLocaleString('es-MX', {
+    day: 'numeric', month: 'short',
+    hour: '2-digit', minute: '2-digit', timeZone: timezone,
+  }) ?? null
+}
+
 export default function MatchdayPredictions() {
   const { matchdayId = '' } = useParams()
   const navigate = useNavigate()
@@ -262,7 +269,14 @@ export default function MatchdayPredictions() {
                     <span className="text-xs font-bold tracking-widest text-white/70 uppercase flex-1">
                       {match.homeTeamCode}
                     </span>
-                    <span className="text-xs text-white/30 tracking-widest">vs</span>
+                    <div className="flex flex-col items-center gap-0.5 shrink-0">
+                      <span className="text-xs text-white/30 tracking-widest">vs</span>
+                      {match.scheduledAt && (
+                        <span className="text-[10px] text-white/25 tabular-nums whitespace-nowrap">
+                          {formatMatchTime(match.scheduledAt, timezone)}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs font-bold tracking-widest text-white/70 uppercase flex-1 text-right">
                       {match.awayTeamCode}
                     </span>
