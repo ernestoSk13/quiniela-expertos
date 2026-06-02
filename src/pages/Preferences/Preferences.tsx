@@ -2,11 +2,10 @@ import { useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
-import { useTheme } from '@/context/ThemeContext'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import { usePWAInstall } from '@/hooks/usePWAInstall'
-import { updateUserTheme, saveUserTimezone } from '@/services/firestoreUsers'
-import { THEMES } from '@/lib/themes'
+import { saveUserTimezone } from '@/services/firestoreUsers'
+import ThemeSelector from '@/components/ThemeSelector'
 
 const PLATFORM_STEPS: Record<string, { icon: string; text: string }[]> = {
   ios: [
@@ -221,7 +220,6 @@ const prefStyles = `
 export function PreferencesContent() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { themeId } = useTheme()
   const push = usePushNotifications()
   const pwa = usePWAInstall()
   const steps = PLATFORM_STEPS[pwa.platform] ?? PLATFORM_STEPS.desktop
@@ -239,39 +237,7 @@ export function PreferencesContent() {
         {/* ── Tema ── */}
         <section>
           <SectionHeader label="Tema" />
-          <div className="grid grid-cols-3 gap-3">
-            {THEMES.map(t => {
-              const active = themeId === t.id
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => user && updateUserTheme(user.uid, t.id)}
-                  className="flex flex-col items-center py-5 rounded-xl transition-all duration-200"
-                  style={active ? {
-                    background: 'var(--accent-muted)',
-                    border: '1.5px solid var(--accent)',
-                    boxShadow: '0 0 16px var(--accent-muted)',
-                  } : {
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.07)',
-                  }}
-                >
-                  <span
-                    className="text-4xl leading-none mb-2 select-none"
-                    style={{ opacity: active ? 1 : 0.6 }}
-                  >
-                    {t.flag}
-                  </span>
-                  <span
-                    className="text-[10px] font-semibold tracking-wide"
-                    style={{ color: active ? 'var(--accent-light)' : 'rgba(255,255,255,0.35)' }}
-                  >
-                    {t.label}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+          <ThemeSelector />
         </section>
 
         {/* ── Zona horaria ── */}
