@@ -12,9 +12,9 @@
   --bg-base:      #010a04;
   --surface-nav:  #051510;
   --surface-card: #0e2016;
-  --blob-a:       rgba(0,200,83,0.28);
-  --blob-b:       rgba(10,100,50,0.22);
-  --blob-c:       rgba(0,160,68,0.18);
+  --blob-a:       rgba(0,200,83,0.30);
+  --blob-b:       rgba(206,17,38,0.26);
+  --blob-c:       rgba(240,240,240,0.12);
 }
 
 .theme-canada {
