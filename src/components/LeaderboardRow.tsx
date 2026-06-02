@@ -12,9 +12,16 @@ interface ThemeColors {
 }
 
 const COLORS: Record<ThemeId, ThemeColors> = {
-  mexico: { accent: '#00C853', rowDark: 'rgba(0,200,83,0.14)',  rowLight: 'rgba(0,200,83,0.05)' },
-  canada: { accent: '#E51414', rowDark: 'rgba(229,20,20,0.14)', rowLight: 'rgba(229,20,20,0.05)' },
-  usa:    { accent: '#2535F0', rowDark: 'rgba(37,53,240,0.16)', rowLight: 'rgba(37,53,240,0.06)' },
+  mexico:       { accent: '#00C853', rowDark: 'rgba(0,200,83,0.14)',    rowLight: 'rgba(0,200,83,0.05)' },
+  canada:       { accent: '#E51414', rowDark: 'rgba(229,20,20,0.14)',   rowLight: 'rgba(229,20,20,0.05)' },
+  usa:          { accent: '#2535F0', rowDark: 'rgba(37,53,240,0.16)',   rowLight: 'rgba(37,53,240,0.06)' },
+  germany:      { accent: '#DD0000', rowDark: 'rgba(221,0,0,0.14)',     rowLight: 'rgba(221,0,0,0.05)' },
+  france:       { accent: '#002395', rowDark: 'rgba(0,35,149,0.16)',    rowLight: 'rgba(0,35,149,0.06)' },
+  argentina:    { accent: '#74ACDF', rowDark: 'rgba(116,172,223,0.18)', rowLight: 'rgba(116,172,223,0.07)' },
+  spain:        { accent: '#AA151B', rowDark: 'rgba(170,21,27,0.14)',   rowLight: 'rgba(170,21,27,0.05)' },
+  belgium:      { accent: '#EF3340', rowDark: 'rgba(239,51,64,0.14)',   rowLight: 'rgba(239,51,64,0.05)' },
+  'ivory-coast':{ accent: '#F77F00', rowDark: 'rgba(247,127,0,0.14)',   rowLight: 'rgba(247,127,0,0.05)' },
+  brazil:       { accent: '#009C3B', rowDark: 'rgba(0,156,59,0.14)',    rowLight: 'rgba(0,156,59,0.05)' },
 }
 
 const MEDAL_BORDER = ['#FFD700', '#C0C0C0', '#CD7F32']
