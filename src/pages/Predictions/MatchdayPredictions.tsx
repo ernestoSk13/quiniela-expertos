@@ -10,14 +10,15 @@ import PostMatchdayView from './PostMatchdayView'
 import JornadaShareCard from './JornadaShareCard'
 import ResultPicker from './ResultPicker'
 import { useTheme } from '@/context/ThemeContext'
+import { useUserTimezone } from '@/hooks/useUserTimezone'
 import type { PredictionResult } from '@/types'
 
 type LocalPred = { result: PredictionResult | null; tieWinner: string | null }
 
-function formatDeadline(ts: any) {
+function formatDeadline(ts: any, timezone: string) {
   return ts?.toDate().toLocaleString('es-MX', {
     day: 'numeric', month: 'long',
-    hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+    hour: '2-digit', minute: '2-digit', timeZone: timezone,
   }) ?? '—'
 }
 
@@ -37,6 +38,7 @@ export default function MatchdayPredictions() {
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   const { themeId } = useTheme()
+  const timezone = useUserTimezone()
 
   const isOpen = matchday?.status === 'open'
   const deadlinePassed = matchday?.predictionDeadline
@@ -159,7 +161,7 @@ export default function MatchdayPredictions() {
             <p className="font-semibold truncate">{matchday.name}</p>
             {!readOnly && (
               <p className="text-xs text-gray-500 truncate">
-                Cierra: {formatDeadline(matchday.predictionDeadline)}
+                Cierra: {formatDeadline(matchday.predictionDeadline, timezone)}
               </p>
             )}
           </div>

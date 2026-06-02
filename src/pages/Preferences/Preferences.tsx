@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import { usePWAInstall } from '@/hooks/usePWAInstall'
-import { updateUserTheme } from '@/services/firestoreUsers'
+import { updateUserTheme, saveUserTimezone } from '@/services/firestoreUsers'
 import { THEMES } from '@/lib/themes'
 
 const PLATFORM_STEPS: Record<string, { icon: string; text: string }[]> = {
@@ -197,6 +197,23 @@ const prefStyles = `
   .pref-signout:hover {
     background: rgba(255,60,60,0.06);
   }
+
+  .pref-select {
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: white;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.15s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+  }
+  .pref-select:focus { border-color: var(--accent); }
+  .pref-select option { background: #1a1d27; color: white; }
 `
 
 // ── Content (exported for inline use inside Dashboard tab) ─────────────────────
@@ -254,6 +271,28 @@ export function PreferencesContent() {
                 </button>
               )
             })}
+          </div>
+        </section>
+
+        {/* ── Zona horaria ── */}
+        <section>
+          <SectionHeader label="Zona horaria" />
+          <div className="space-y-2">
+            <select
+              value={user?.timezone ?? ''}
+              onChange={e => user && saveUserTimezone(user.uid, e.target.value)}
+              className="pref-select"
+            >
+              <option value="">Detectar automáticamente</option>
+              <option value="America/Mexico_City">Ciudad de México (UTC−6/−5)</option>
+              <option value="America/Los_Angeles">Tijuana / Los Ángeles (UTC−8/−7)</option>
+              <option value="America/Cancun">Cancún (UTC−5, sin cambio de horario)</option>
+            </select>
+            <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.25)', paddingLeft: 2 }}>
+              {user?.timezone
+                ? 'Los horarios de partidos y deadlines se muestran en esta zona.'
+                : `Detectado: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`}
+            </p>
           </div>
         </section>
 

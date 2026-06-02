@@ -52,6 +52,12 @@ export async function adminUpdateUser(
   await updateDoc(doc(db, 'users', uid), data)
 }
 
+export async function saveUserTimezone(uid: string, timezone: string): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), {
+    timezone: timezone || deleteField(),
+  })
+}
+
 export async function saveFcmToken(uid: string, token: string | null): Promise<void> {
   await updateDoc(doc(db, 'users', uid), {
     fcmToken: token ?? deleteField(),
