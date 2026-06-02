@@ -20,6 +20,7 @@ const MORE_NAV = [
   { to: '/admin/metricas',        label: 'Métricas' },
   { to: '/admin/notificaciones',  label: 'Notificaciones' },
   { to: '/admin/config',          label: 'Puntos' },
+  { to: '/admin/premios',         label: 'Premios' },
 ]
 
 const MORE_PATHS = MORE_NAV.map(n => n.to)
@@ -38,6 +39,7 @@ const SIDEBAR_SECTIONS = [
     items: [
       { to: '/admin/tabla',    label: 'Clasificación' },
       { to: '/admin/metricas', label: 'Métricas' },
+      { to: '/admin/premios',  label: 'Premios' },
     ],
   },
   {
@@ -130,6 +132,18 @@ function BellIcon() {
   )
 }
 
+function TrophyIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 9H4a2 2 0 0 1-2-2V5h4" />
+      <path d="M18 9h2a2 2 0 0 0 2-2V5h-4" />
+      <path d="M6 3h12v6a6 6 0 0 1-12 0V3z" />
+      <path d="M12 15v4" />
+      <path d="M8 19h8" />
+    </svg>
+  )
+}
+
 function MoreIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -150,6 +164,7 @@ const NAV_ICONS: Record<string, JSX.Element> = {
   '/admin/metricas':          <ChartIcon />,
   '/admin/notificaciones':    <BellIcon />,
   '/admin/config':            <GearIcon />,
+  '/admin/premios':           <TrophyIcon />,
 }
 
 const MORE_ICONS: Record<string, JSX.Element> = {
@@ -157,6 +172,7 @@ const MORE_ICONS: Record<string, JSX.Element> = {
   '/admin/metricas':       <ChartIcon />,
   '/admin/notificaciones': <BellIcon />,
   '/admin/config':         <GearIcon />,
+  '/admin/premios':        <TrophyIcon />,
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
