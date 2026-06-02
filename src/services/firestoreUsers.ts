@@ -52,6 +52,10 @@ export async function adminUpdateUser(
   await updateDoc(doc(db, 'users', uid), data)
 }
 
+export async function saveColorMode(uid: string, mode: 'dark' | 'light'): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), { colorMode: mode })
+}
+
 export async function saveUserTimezone(uid: string, timezone: string): Promise<void> {
   await updateDoc(doc(db, 'users', uid), {
     timezone: timezone || deleteField(),

@@ -4,7 +4,8 @@ import { auth } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import { usePWAInstall } from '@/hooks/usePWAInstall'
-import { saveUserTimezone } from '@/services/firestoreUsers'
+import { saveUserTimezone, saveColorMode } from '@/services/firestoreUsers'
+import { useTheme } from '@/context/ThemeContext'
 import ThemeSelector from '@/components/ThemeSelector'
 
 const PLATFORM_STEPS: Record<string, { icon: string; text: string }[]> = {
@@ -220,6 +221,7 @@ const prefStyles = `
 export function PreferencesContent() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { colorMode } = useTheme()
   const push = usePushNotifications()
   const pwa = usePWAInstall()
   const steps = PLATFORM_STEPS[pwa.platform] ?? PLATFORM_STEPS.desktop
@@ -238,6 +240,40 @@ export function PreferencesContent() {
         <section>
           <SectionHeader label="Tema" />
           <ThemeSelector />
+        </section>
+
+        {/* ── Apariencia ── */}
+        <section>
+          <SectionHeader label="Apariencia" />
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(['dark', 'light'] as const).map(mode => {
+              const active = colorMode === mode
+              return (
+                <button
+                  key={mode}
+                  onClick={() => user && saveColorMode(user.uid, mode)}
+                  style={{
+                    flex: 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    padding: '10px 16px',
+                    borderRadius: 12,
+                    border: active ? '1.5px solid var(--accent)' : '1px solid rgba(128,128,128,0.2)',
+                    background: active ? 'var(--accent-deep)' : 'rgba(128,128,128,0.06)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>{mode === 'dark' ? '🌙' : '☀️'}</span>
+                  <span style={{
+                    fontSize: '0.82rem', fontWeight: 600,
+                    color: active ? 'var(--accent-light)' : 'rgba(128,128,128,0.7)',
+                  }}>
+                    {mode === 'dark' ? 'Oscuro' : 'Claro'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </section>
 
         {/* ── Zona horaria ── */}

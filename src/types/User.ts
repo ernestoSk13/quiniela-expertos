@@ -31,5 +31,6 @@ export interface User {
   fcmToken?: string
   currentStreak?: number
   maxStreak?: number
-  timezone?: string   // IANA tz string, e.g. 'America/Mexico_City'; absent = browser auto-detect
+  timezone?: string     // IANA tz string, e.g. 'America/Mexico_City'; absent = browser auto-detect
+  colorMode?: 'dark' | 'light'
 }
