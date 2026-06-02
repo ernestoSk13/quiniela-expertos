@@ -30,39 +30,70 @@ Tareas pendientes de implementación. Ordenadas por prioridad sugerida.
 ---
 
 ## T6 — Rediseño de tarjeta Panini (`/admin/premios`)
-**Estado:** Pendiente ⏳  
-**Archivo afectado:** `src/pages/Admin/PaniniCard.tsx`
-
-Rediseñar la tarjeta para que **todo el fondo** use el color de acento seleccionado (no solo el header), los textos contrasten sobre ese fondo, y el avatar sea más grande.
-
-### Cambios visuales
-
-- **Fondo:** toda la tarjeta usa el color de acento como fondo (gradiente del `gradientA` al `gradientB` de arriba a abajo, o sólido del `primary`). El fondo oscuro `#0C0D14` actual desaparece.
-- **Textos:** cambiar a colores que contrasten sobre el acento — blanco puro o negro según la luminosidad del color. Para dorado/plata/bronce/verde → texto blanco. Para rojo/azul → texto blanco también.
-- **Avatar:** aumentar de 108×140px a ~130×168px para que sea más prominente.
-- **Badges de stats:** ajustar colores para que contrasten sobre el fondo de acento (fondo semi-transparente oscuro o claro según el acento).
-- **Footer y líneas decorativas:** adaptar al nuevo esquema cromático.
-
-### Referencia visual
-La imagen de referencia muestra la tarjeta actual con fondo oscuro y header de acento. El objetivo es que el acento cubra toda la tarjeta con el texto contrastando encima.
+**Estado:** Completada ✅ (PR #11, deploy 2026-06-02)
 
 ---
 
-## T7 — Agregar temas de países adicionales
-**Estado:** Completada ✅ (deploy 2026-06-02)  
-**Skill:** `/add-theme` (ya existe en el proyecto)  
-**Archivos afectados:** `src/index.css`, `src/lib/themes.ts`
+## T7 — Temas de países adicionales (14 temas en total)
+**Estado:** Completada ✅ (PR #12, deploy 2026-06-02)
 
-Agregar 7 temas nuevos usando el skill `/add-theme` con las paletas FIFA WC 2026 de cada selección:
+---
 
-| País | Colores principales | Bandera |
-|------|---------------------|---------|
-| **Alemania** | Negro `#000000`, Rojo `#DD0000`, Amarillo `#FFCE00` | 🇩🇪 |
-| **Francia** | Azul `#002395`, Blanco `#FFFFFF`, Rojo `#ED2939` | 🇫🇷 |
-| **Argentina** | Celeste `#74ACDF`, Blanco `#FFFFFF` | 🇦🇷 |
-| **España** | Rojo `#AA151B`, Amarillo `#F1BF00` | 🇪🇸 |
-| **Bélgica** | Negro `#000000`, Amarillo `#FAD201`, Rojo `#EF3340` | 🇧🇪 |
-| **Costa de Marfil** | Naranja `#F77F00`, Blanco `#FFFFFF`, Verde `#009A44` | 🇨🇮 |
-| **Brasil** | Verde `#009C3B`, Amarillo `#FFDF00`, Azul `#002776` | 🇧🇷 |
+## T8 — Modo claro (light theme)
+**Estado:** Pendiente ⏳  
+**Archivos afectados:** `src/index.css`, `src/pages/Preferences/Preferences.tsx`, `src/types/User.ts`, `src/services/firestoreUsers.ts`, posiblemente `src/context/ThemeContext.tsx`
 
-Cada tema necesita: variables CSS en `src/index.css` (`.theme-<id>`) y entrada en el array `THEMES` de `src/lib/themes.ts`.
+Actualmente la app es 100% oscura. Agregar soporte para un modo de apariencia claro donde fondos, superficies y textos se inviertan a tonos blancos/grises claros, manteniendo el color de acento del tema del país activo.
+
+### Estrategia
+
+El modo claro es **ortogonal** a los temas de país — un usuario puede tener tema España (rojo) en modo claro o en modo oscuro. Son dos dimensiones independientes:
+- `theme` (país) → controla los colores de acento (`--accent`, `--accent-light`, blobs, etc.)
+- `colorMode` (`'dark' | 'light'`) → controla fondos, superficies y texto
+
+### Variables CSS a sobreescribir en modo claro
+
+```css
+.light-mode {
+  --bg-base:      #F5F5F7;   /* Fondo principal — gris muy claro (estilo Apple) */
+  --surface-nav:  #FFFFFF;   /* Header/tab bar — blanco */
+  --surface-card: #FFFFFF;   /* Tarjetas — blanco con sombra sutil */
+
+  /* Texto */
+  color-scheme: light;
+}
+```
+
+Los colores de acento (`--accent`, `--accent-light`, etc.) y los blobs **no cambian** con el modo — los gestiona el tema de país.
+
+### Cambios en componentes
+
+La mayoría del texto usa clases Tailwind como `text-white`, `text-gray-*`, `text-gray-500`, etc. En modo claro:
+- `text-white` → debe verse oscuro: usar `text-gray-900` o similar
+- `text-gray-500` → ya funciona bien en ambos modos
+- `border-gray-800` → debe ser `border-gray-200` en claro
+
+**Opciones de implementación:**
+1. **CSS `color-scheme` + variables** (menos invasivo): sobreescribir solo las variables de fondo/superficie y usar `color-scheme: light` para que el navegador ajuste los defaults. Puede requerir ajustes manuales en componentes que usan colores hardcodeados.
+2. **Clase `.light-mode` en `<html>` + variantes Tailwind** (más control): agregar la clase al elemento `<html>` y usar selectores CSS `[class~="light-mode"] .text-white { color: #111 }` para invertir los colores de texto globalmente.
+
+**Recomendación:** Opción 2 con un bloque CSS global en `index.css` que sobreescriba las clases de texto y borde más comunes al aplicar `.light-mode`, más los ajustes de `--surface-*` y `--bg-base`.
+
+### Toggle en Preferencias
+
+Agregar un selector de apariencia en la sección de Preferencias (debajo de Tema):
+```
+Apariencia
+  [🌙 Oscuro]  [☀️ Claro]   ← dos botones tipo pill, activo resaltado
+```
+
+### Persistencia
+
+Guardar `colorMode: 'dark' | 'light'` en el documento del usuario en Firestore (`users/{uid}`), igual que se guarda `timezone` y `theme`. Aplicar al cargar la app desde `AuthContext`/`ThemeContext`.
+
+### Consideraciones
+
+- Los componentes off-screen para `html2canvas` (share cards) ya usan colores hardcodeados — no se ven afectados por el modo claro.
+- El panel de admin puede quedar solo en modo oscuro en una primera versión (los admins suelen ser power users que prefieren oscuro).
+- Las tarjetas Panini (`PaniniCard.tsx`) usan gradientes propios — no se ven afectadas.
+- Probar especialmente: tab bar móvil, header, tarjetas del leaderboard, modal de historial, vista de pronósticos.
