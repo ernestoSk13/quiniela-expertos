@@ -16,6 +16,7 @@ import AdminLeaderboard from '@/pages/Admin/AdminLeaderboard'
 import AdminMetrics from '@/pages/Admin/AdminMetrics'
 import AdminNotifications from '@/pages/Admin/AdminNotifications'
 import ScoringConfig from '@/pages/Admin/ScoringConfig'
+import AdminPremios from '@/pages/Admin/AdminPremios'
 import InvitePage from '@/pages/Invite/InvitePage'
 import Preferences from '@/pages/Preferences/Preferences'
 
@@ -54,6 +55,7 @@ export default function App() {
               <Route path="metricas" element={<AdminMetrics />} />
               <Route path="notificaciones" element={<AdminNotifications />} />
               <Route path="config" element={<ScoringConfig />} />
+              <Route path="premios" element={<AdminPremios />} />
             </Route>
           </Route>
 
