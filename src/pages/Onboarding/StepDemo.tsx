@@ -94,7 +94,7 @@ function RevealPhase({ pick, onContinue }: { pick: PredictionResult; onContinue:
   const isCorrect = pick === REAL_RESULT
 
   const message = isCorrect
-    ? '¡Perfecto! Acertar el resultado te da 3 puntos. Cuantos más partidos aciertes, más alto subes en la tabla.'
+    ? '¡Perfecto! Acertar el resultado te da 1 punto. Cuantos más partidos aciertes, más alto subes en la tabla.'
     : 'Ganó México 2-1. ¡No pasa nada! Cada jornada es una nueva oportunidad para escalar en la tabla.'
 
   return (
@@ -172,7 +172,7 @@ function RevealPhase({ pick, onContinue }: { pick: PredictionResult; onContinue:
                 fontFamily: BEBAS, fontSize: '1.4rem', letterSpacing: '0.06em',
                 color: isCorrect ? '#4ade80' : 'rgba(255,255,255,0.25)',
               }}>
-                {isCorrect ? '+3 pts' : '+0 pts'}
+                {isCorrect ? '+1 pt' : '+0 pts'}
               </span>
             </div>
           </div>
