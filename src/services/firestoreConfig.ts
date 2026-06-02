@@ -2,18 +2,14 @@ import { doc, setDoc, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
 export interface ScoringConfig {
-  exactScore: number
-  correctResult: number
-  exactKnockoutWithTie: number
+  correctPrediction: number
   correctTieWinner: number
   groupBonus: number
   bonusPrediction: number
 }
 
 export const DEFAULT_SCORING: ScoringConfig = {
-  exactScore: 3,
-  correctResult: 1,
-  exactKnockoutWithTie: 3,
+  correctPrediction: 3,
   correctTieWinner: 1,
   groupBonus: 5,
   bonusPrediction: 5,

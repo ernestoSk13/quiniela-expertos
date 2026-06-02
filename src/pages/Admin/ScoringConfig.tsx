@@ -12,27 +12,25 @@ interface FieldDef {
 
 const FIELDS: { group: string; emoji: string; fields: FieldDef[] }[] = [
   {
-    group: 'Fase de Grupos',
+    group: 'Predicciones',
     emoji: '⚽',
     fields: [
-      { key: 'exactScore',    label: 'Marcador exacto',    description: 'Aciertan home y away exactamente' },
-      { key: 'correctResult', label: 'Resultado correcto', description: 'G/E/P correcto sin exacto' },
+      { key: 'correctPrediction', label: 'Resultado correcto', description: 'El usuario acierta LOCAL / EMPATE / VISITANTE' },
     ],
   },
   {
-    group: 'Eliminatorias con empate',
+    group: 'Eliminatorias',
     emoji: '⚡',
     fields: [
-      { key: 'exactKnockoutWithTie', label: 'Exacto + tieWinner', description: 'Marcador exacto Y equipo que avanza correcto' },
-      { key: 'correctTieWinner',     label: 'Solo tieWinner',     description: 'Equipo que avanza correcto, sin exacto' },
+      { key: 'correctTieWinner', label: 'Bonus tieWinner', description: 'Equipo que avanza correcto en eliminatoria con empate al 90\'' },
     ],
   },
   {
     group: 'Bonos',
     emoji: '🏆',
     fields: [
-      { key: 'groupBonus',      label: 'Bonus fase de grupos',  description: '+pts al jugador con más exactos al terminar grupos' },
-      { key: 'bonusPrediction', label: 'Predicción de bonus',   description: 'Por cada predicción bonus acertada' },
+      { key: 'groupBonus',      label: 'Bonus fase de grupos', description: '+pts al jugador con más aciertos al terminar grupos' },
+      { key: 'bonusPrediction', label: 'Predicción de bonus',  description: 'Por cada predicción bonus acertada' },
     ],
   },
 ]
@@ -76,12 +74,26 @@ export default function ScoringConfig() {
       <style>{styles}</style>
 
       {/* Page header */}
-      <div style={{ marginBottom: 24, maxWidth: 520 }}>
+      <div style={{ marginBottom: 16, maxWidth: 520 }}>
         <h1 style={{ fontFamily: BEBAS, fontSize: '1.8rem', letterSpacing: '0.08em', color: '#fff', margin: 0, lineHeight: 1 }}>
           CONFIGURACIÓN DE PUNTOS
         </h1>
         <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
           Los valores se aplican en la siguiente calificación. No recalifica predicciones ya puntuadas.
+        </p>
+      </div>
+
+      {/* Mode info banner */}
+      <div style={{
+        maxWidth: 520, marginBottom: 16,
+        background: 'rgba(99,179,237,0.06)', border: '1px solid rgba(99,179,237,0.2)',
+        borderRadius: 12, padding: '10px 14px',
+        display: 'flex', alignItems: 'flex-start', gap: 8,
+      }}>
+        <span style={{ fontSize: '0.85rem', flexShrink: 0, marginTop: 1 }}>ℹ️</span>
+        <p style={{ fontSize: '0.75rem', color: 'rgba(147,210,240,0.8)', margin: 0, lineHeight: 1.5 }}>
+          <strong style={{ color: 'rgba(147,210,240,1)' }}>Modo resultado simple.</strong>{' '}
+          Los usuarios solo predicen LOCAL / EMPATE / VISITANTE. No hay marcadores exactos.
         </p>
       </div>
 
