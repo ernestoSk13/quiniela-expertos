@@ -19,6 +19,7 @@ import LeaderboardShareCard from './LeaderboardShareCard'
 import { PreferencesContent } from '@/pages/Preferences/Preferences'
 import { useTheme } from '@/context/ThemeContext'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
+import { useUserTimezone } from '@/hooks/useUserTimezone'
 import type { BonusPredictions } from '@/types/User'
 import type { User } from '@/types'
 
@@ -63,15 +64,16 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   },
 ]
 
-function formatDeadline(ts: ReturnType<typeof Date.now> | any) {
+function formatDeadline(ts: any, timezone: string) {
   return ts?.toDate().toLocaleString('es-MX', {
-    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: timezone,
   }) ?? '—'
 }
 
 export default function Dashboard() {
   const { user } = useAuth()
   const { themeId } = useTheme()
+  const timezone = useUserTimezone()
   const { matchdays, loading: matchdaysLoading } = useMatchdays()
   const { players, loading: leaderboardLoading } = useLeaderboard()
   const { teamsMap } = useTeamsMap()
@@ -154,7 +156,7 @@ export default function Dashboard() {
               <svg viewBox="0 0 16 16" width={12} height={12} fill="currentColor" className="shrink-0 text-gray-600">
                 <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-4.5a.5.5 0 0 1 .5.5v4.25l2.75 1.65a.5.5 0 0 1-.5.87L7.25 9a.5.5 0 0 1-.25-.43V4a.5.5 0 0 1 .5-.5z"/>
               </svg>
-              <span>Deadline: <span className="text-gray-400 font-medium">{formatDeadline(nextMatchday.predictionDeadline)}</span></span>
+              <span>Deadline: <span className="text-gray-400 font-medium">{formatDeadline(nextMatchday.predictionDeadline, timezone)}</span></span>
             </p>
 
             {/* Progress bar */}
