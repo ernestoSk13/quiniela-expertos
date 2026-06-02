@@ -1,5 +1,4 @@
 import { useRef } from 'react'
-import Avatar from '@/components/Avatar'
 
 interface Props {
   displayName: string
@@ -18,11 +17,14 @@ export default function StepProfile({
   onContinue,
   loading,
 }: Props) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef   = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (file) onFileChange(file)
+    // Reset so the same file can be re-selected
+    e.target.value = ''
   }
 
   const canContinue = displayName.trim().length > 0 && !loading
@@ -112,73 +114,86 @@ export default function StepProfile({
         {/* ── Avatar / player card photo zone ── */}
         <div className="flex flex-col items-center gap-3 pt-2">
 
-          {/* Outer ring + avatar */}
-          <div className="relative" style={{ width: 104, height: 104 }}>
-
-            {/* Dashed outer orbit ring */}
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              viewBox="0 0 104 104"
-            >
-              <circle
-                cx="52" cy="52" r="50"
-                fill="none"
-                stroke="var(--accent)"
-                strokeWidth="0.8"
-                strokeDasharray="4 7"
-                opacity="0.35"
-              />
-              {/* 4 accent corner dots */}
-              {[0, 90, 180, 270].map(deg => {
-                const rad = (deg * Math.PI) / 180
-                return (
-                  <circle
-                    key={deg}
-                    cx={52 + 50 * Math.cos(rad)}
-                    cy={52 + 50 * Math.sin(rad)}
-                    r="2.5"
-                    fill="var(--accent)"
-                    opacity="0.55"
-                  />
-                )
-              })}
-            </svg>
-
-            {/* Avatar — clipped inside accent border ring */}
-            <div
-              className="absolute overflow-hidden rounded-full"
-              style={{
-                inset: 10,
-                border: '2px solid var(--accent)',
-                boxShadow: '0 0 12px var(--accent-muted)',
-              }}
-            >
-              <Avatar url={previewUrl} name={displayName || '?'} size="xl" />
-            </div>
-          </div>
-
-          {/* FOTO label */}
+          {/* Instruction */}
           <p
-            className="text-[8px] tracking-[0.32em] uppercase font-bold select-none"
-            style={{ color: 'rgba(255,255,255,0.22)' }}
+            className="text-xs font-semibold tracking-[0.18em] uppercase select-none"
+            style={{ color: 'rgba(255,255,255,0.55)' }}
           >
-            FOTO
+            Agrega tu avatar
           </p>
 
-          {/* Upload pill */}
-          <button
-            type="button"
-            className="sp-upload-pill"
-            onClick={() => fileInputRef.current?.click()}
+          {/* Portrait rectangle avatar */}
+          <div
+            style={{
+              width: 96, height: 128,
+              borderRadius: 10,
+              overflow: 'hidden',
+              border: '2px solid var(--accent)',
+              boxShadow: '0 0 20px var(--accent-muted)',
+              background: 'rgba(255,255,255,0.04)',
+              flexShrink: 0,
+            }}
           >
-            {/* Camera icon */}
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-              <circle cx="12" cy="13" r="4"/>
-            </svg>
-            {previewUrl ? 'Cambiar foto' : 'Subir foto'}
-          </button>
+            {previewUrl ? (
+              <img
+                src={previewUrl}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                alt="Avatar"
+              />
+            ) : (
+              <div style={{
+                width: '100%', height: '100%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: "'Bebas Neue', Impact, 'Arial Narrow', sans-serif",
+                fontSize: '3.5rem',
+                color: 'var(--accent)',
+                opacity: 0.7,
+                userSelect: 'none',
+              }}>
+                {displayName ? displayName.charAt(0).toUpperCase() : '?'}
+              </div>
+            )}
+          </div>
 
+          {/* Two action pills */}
+          <div className="flex items-center gap-2">
+            {/* Take photo — opens front camera directly */}
+            <button
+              type="button"
+              className="sp-upload-pill"
+              onClick={() => cameraInputRef.current?.click()}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              Tomar foto
+            </button>
+
+            {/* Choose from gallery */}
+            <button
+              type="button"
+              className="sp-upload-pill"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+              {previewUrl ? 'Cambiar' : 'Galería'}
+            </button>
+          </div>
+
+          {/* Hidden inputs */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="user"
+            className="hidden"
+            onChange={handleFile}
+          />
           <input
             ref={fileInputRef}
             type="file"
