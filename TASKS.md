@@ -5,79 +5,87 @@ Tareas pendientes de implementación. Ordenadas por prioridad sugerida.
 ---
 
 ## T1 — Onboarding: demo interactivo de pronósticos y puntuación
-**Estado:** Pendiente ⏳  
-**Archivo(s) afectados:** `src/pages/Onboarding/Onboarding.tsx`, `src/pages/Onboarding/StepDemo.tsx` (nuevo)
-
-Nuevo paso en el flujo de onboarding que enseña al jugador cómo funciona la quiniela antes de su primer pronóstico real. Se inserta entre `StepProfile` y `StepBonus`.
-
-### Acto 1 — Elige tu pronóstico
-Muestra un partido ficticio **MEX 🇲🇽 vs 🇺🇸 USA** con el componente `ResultPicker` ya existente (mismo diseño LOCAL / EMPATE / VISITANTE). El jugador selecciona una opción para continuar.
-
-### Acto 2 — Revela el marcador real
-Anima la revelación del marcador real **2-1 MEX**. Luego desglosa los puntos según lo que el jugador predijo:
-- Si eligió **LOCAL** → animación de acierto: `+3 pts ✓`
-- Si eligió **EMPATE** o **VISITANTE** → animación de fallo: `+0 pts ✗`, con mensaje motivacional
-
-El paso no bloquea el avance ni afecta puntos reales — es puramente educativo.
+**Estado:** Completada ✅ (PR #8, deploy 2026-06-02)
 
 ---
 
 ## T2 — Admin: sección "Premios" con generador de tarjeta estilo Panini
-**Estado:** Pendiente ⏳  
-**Archivo(s) afectados:** `src/pages/Admin/AdminPremios.tsx` (nuevo), `src/pages/Admin/PaniniCard.tsx` (nuevo), `src/pages/Admin/AdminLayout.tsx`
-
-Nueva página en `/admin/premios`. El admin construye una tarjeta coleccionable de **340 × 480 px** para reconocer a un jugador y la exporta como PNG.
-
-### Formulario (lado izquierdo en desktop, arriba en móvil)
-- **Selector de jugador** — dropdown con avatar + nombre (lista de usuarios con `onboardingCompleted`)
-- **Título del premio** — campo de texto libre (ej. "MVP del Torneo", "El Certero")
-- **Mostrar puntos** — checkbox; muestra `stats.totalPoints` del jugador en la tarjeta
-- **Mostrar posición** — checkbox; muestra `#N` en la tabla general
-- **Color de acento** — selector visual de 6 opciones: Dorado / Plata / Bronce / Verde / Rojo / Azul
-
-### Preview en tiempo real (lado derecho en desktop, abajo en móvil)
-La tarjeta se actualiza en tiempo real conforme el admin edita el formulario. Usa los mismos colores hardcodeados que las otras share cards (sin `var(--accent)` — restricción html2canvas).
-
-### Tarjeta (340 × 480 px)
-```
-┌─────────────────────────┐
-│  QUINIELA EXPERTOS      │  ← header con franja de color de acento
-│  MUNDIAL 2026           │
-├─────────────────────────┤
-│                         │
-│      [avatar 120×156]   │  ← avatar rectangular estilo Panini
-│                         │
-│   NOMBRE DEL JUGADOR    │  ← Bebas Neue 28px
-│   ── TÍTULO PREMIO ──   │  ← Bebas Neue 18px, color acento
-│                         │
-│   ⭐ 142 pts   #3       │  ← visible si checkboxes activos
-│                         │
-│   quinielaexpertos26    │  ← footer de marca
-└─────────────────────────┘
-```
-
-### Exportación
-- **Desktop / Android**: descarga directa (`<a download>`)
-- **iOS PWA**: `navigator.share({ files: [png] })` → guarda en biblioteca de fotos
-- Flujo idéntico al de `useShareImage` ya existente en el proyecto
-
-### Integración en AdminLayout
-Agregar enlace "Premios" en la sección REPORTES del sidebar desktop y en el panel "Más" del tab bar móvil.
+**Estado:** Completada ✅ (PR #7, deploy 2026-06-02)
 
 ---
 
 ## T3 — Admin/jugador: cambio de vista rápido en navegación
+**Estado:** Completada ✅ (PR #6, deploy 2026-06-02)
+
+---
+
+## T4 — Soporte de zonas horarias por jugador
 **Estado:** Pendiente ⏳  
-**Archivo(s) afectados:** `src/pages/Admin/AdminLayout.tsx`, posiblemente `src/context/AuthContext.tsx`
+**Archivos afectados:** `src/types/User.ts`, `src/pages/Preferences/Preferences.tsx`, `src/hooks/useUserTimezone.ts` (nuevo), `src/pages/Dashboard/Dashboard.tsx`, `src/pages/Predictions/MatchdayPredictions.tsx`, `src/services/firestoreUsers.ts`
 
-El admin también puede ser jugador. Agregar en la barra de navegación del admin una acción rápida para cambiar entre **vista admin** y **vista jugador** (Dashboard) sin tener que cerrar sesión.
+Los jugadores están en distintas zonas (CDMX = UTC-6/UTC-5, Tijuana/LA = UTC-8/UTC-7). Actualmente todos los horarios se muestran en UTC — los jugadores ven los partidos a horas que no corresponden a su ciudad.
 
-### Comportamiento
-- Botón/chip en el sidebar desktop (parte inferior, antes del footer) y en el header móvil del admin
-- Label: "Ver como jugador →" / al estar en el Dashboard como admin: "← Ir al admin"
-- Navega a `/` (Dashboard) o `/admin` según el contexto
-- No requiere cambio de rol ni re-autenticación — solo es navegación
+### Estrategia
 
-### Consideraciones
-- El admin ya tiene acceso al Dashboard (las rutas no lo bloquean), solo falta el atajo visual
-- El botón en el Dashboard ya existe implícitamente si hay un enlace a `/admin` — revisar si ya está o si falta añadirlo también ahí
+1. **Auto-detectar** la zona horaria del navegador como valor por defecto (`Intl.DateTimeFormat().resolvedOptions().timeZone`).
+2. **Permitir override manual** desde Preferencias (selector con las opciones más relevantes para los jugadores).
+3. **Guardar en Firestore** en el campo `timezone?: string` del documento `users/{uid}` para que sea consistente entre dispositivos.
+
+### Zona horaria en `User`
+
+```ts
+// src/types/User.ts — agregar campo opcional:
+timezone?: string   // IANA timezone string, ej. 'America/Mexico_City'
+```
+
+### Hook `useUserTimezone`
+
+```ts
+// src/hooks/useUserTimezone.ts
+// Lee user.timezone si existe; si no, devuelve el timezone del navegador.
+// Exporta: { timezone: string }
+```
+
+### Opciones del selector en Preferencias
+
+| Label mostrado | IANA string |
+|----------------|-------------|
+| Ciudad de México (UTC-6) | `America/Mexico_City` |
+| Tijuana / Los Ángeles (UTC-8) | `America/Los_Angeles` |
+| Cancún (UTC-5, sin cambio de horario) | `America/Cancun` |
+| Detectar automáticamente | `''` (vacío = usar browser) |
+
+### Dónde reemplazar `timeZone: 'UTC'`
+
+Buscar todos los `toLocaleString` y `toLocaleDateString` con `timeZone: 'UTC'` en los componentes de UI (no en Cloud Functions ni en el admin de resultados — el admin sigue ingresando en UTC). Reemplazar con el timezone del usuario via el hook.
+
+Archivos clave a revisar:
+- `src/pages/Dashboard/Dashboard.tsx` — `formatDeadline`
+- `src/pages/Predictions/MatchdayPredictions.tsx` — horas de partidos
+- `src/pages/Admin/MatchdayDetail.tsx` — **NO cambiar** (admin ingresa en UTC)
+
+### Nota importante
+El admin **sigue ingresando marcadores y tiempos en UTC**. Solo la visualización para jugadores cambia. No modificar el formato de guardado en Firestore.
+
+---
+
+## T5 — Onboarding: reemplazar paso "Instalar" por "Guardar acceso directo"
+**Estado:** Pendiente ⏳  
+**Archivo afectado:** `src/pages/Onboarding/StepInstall.tsx`
+
+El paso actual enseña a instalar la PWA, pero muchos usuarios simplemente quieren guardar un acceso rápido sin instalar una "app". Reemplazar las instrucciones de instalación por instrucciones de **bookmark / acceso directo** según el dispositivo.
+
+### Instrucciones por plataforma
+
+| Plataforma | Pasos |
+|------------|-------|
+| **iOS Safari** | 1. Toca el botón Compartir (cuadro con flecha ↑). 2. Desplázate y selecciona "Añadir marcador". 3. Elige "Favoritos" y toca "Guardar". |
+| **Android Chrome** | 1. Toca el menú (⋮) en la esquina superior derecha. 2. Toca el ícono ⭐ o "Añadir a Marcadores". |
+| **Desktop** | Presiona **Ctrl+D** (Windows/Linux) o **⌘+D** (Mac) para guardar en favoritos. |
+
+### Cambios en el componente
+- Título: "Guarda el acceso" (en lugar de "Instala la app")
+- Beneficios chips: "Acceso rápido" / "Siempre a mano" / "Sin perder la URL"
+- Ilustración: reemplazar el ícono de teléfono con instalación por un ícono de bookmark/estrella con glow
+- Botones: "Listo, ya lo guardé" / "Omitir por ahora" (misma lógica de `onDone`)
+- El `detectPlatform()` existente se puede reutilizar tal cual
