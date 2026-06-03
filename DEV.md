@@ -82,6 +82,17 @@ npm run pull-from-prod                              # teams + matchdays + matche
 npm run pull-from-prod -- --collections=teams       # Solo equipos
 ```
 
+### Corregir timestamps (UTC offset)
+
+Si los timestamps de partidos/jornadas fueron ingresados como hora local en lugar de UTC, usa el script de corrección:
+
+```bash
+npm run fix-timestamps              # Preview — muestra qué cambiaría sin tocar nada
+npm run fix-timestamps -- --apply   # Aplica en producción (+6h por defecto, CDMX)
+npm run fix-timestamps -- --apply --emulator   # Aplica en emulador
+npm run fix-timestamps -- --apply --offset=7  # Para UTC-7 (Tijuana/LA)
+```
+
 ---
 
 ## Probar desde iPhone (misma red Wi-Fi)
@@ -126,6 +137,7 @@ npm run pull-from-prod -- --collections=teams       # Solo equipos
 | `/admin/usuarios`    | Gestión de correos con acceso + botón "Invitar" por correo                              |
 | `/admin/tabla`       | Tabla general (solo desktop nav) — reutiliza LeaderboardTable + PlayerHistoryModal      |
 | `/admin/config`      | Configuración de puntos (solo desktop nav) — formulario por categoría con advertencia   |
+| `/admin/premios`     | Generador de tarjetas Panini — formulario + preview en tiempo real + exportar PNG        |
 
 ---
 
@@ -259,7 +271,7 @@ El skill pregunta el país, deriva los colores de la bandera con la energía vis
 - **Leaderboard requiere leer colección completa de `users`** — la regla de Firestore debe permitir `read` a `isAllowedUser()` sin restricción de `userId`. Una regla `request.auth.uid == userId` rompe el query de colección silenciosamente.
 - **Bloqueo por partido**: `MatchdayPredictions` calcula `matchReadOnly = readOnly || match.scheduledAt.toDate() <= new Date()` por cada partido. En modo `readOnly`, los botones del selector LOCAL/EMPATE/VISITANTE se deshabilitan y resaltan el valor guardado. No confundir con `readOnly` que aplica a la jornada entera.
 - **Modo resultado simple (Fase 14):** Los usuarios ya no ingresan marcadores exactos. El campo `prediction.result` puede ser `'home' | 'draw' | 'away'`. Los campos `homeScore`, `awayScore`, `isExact` e `isCorrectResult` fueron eliminados del tipo `Prediction`. Si ves predicciones antiguas con esos campos en Firestore, la Cloud Function los ignora — solo lee `result`.
-- **Zona horaria UTC** — toda fecha/hora se almacena y muestra en UTC. `toLocaleString` usa `timeZone: 'UTC'`.
+- **Zona horaria del jugador** — los timestamps se almacenan en UTC pero se muestran en la zona del usuario. El hook `useUserTimezone()` lee `user.timezone` (IANA) o hace fallback al timezone del navegador. Admin pages (`MatchdayDetail`, `MatchdayList`) también usan el timezone del admin. Los inputs `datetime-local` del admin siguen siendo UTC (label "(UTC)" en el form). Si necesitas corregir timestamps ingresados como hora local, usa `npm run fix-timestamps`.
 - **Batch limit**: máximo 499 ops por batch (cliente) / 500 (admin SDK en functions).
 - **`!= null`** — usar desigualdad débil cuando un valor puede ser `null` o `undefined`. `!== null` no captura `undefined`.
 - **Functions hot-reload**: no existe. Hacer `cd functions && npm run build` antes de reiniciar el emulador para ver cambios.

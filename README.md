@@ -22,7 +22,7 @@ Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios predicen 
 ### Para jugadores
 - **Login con Google** — acceso solo para correos autorizados por el admin (cuentas Gmail)
 - **Link de invitación** — el admin genera un link personalizado por correo con TTL de 7 días; el invitado abre `/invite/:token` y llega al login con su correo pre-cargado
-- **Onboarding** — 3 pasos: configurar nombre + avatar, registrar predicciones de bonus (goleador, balón de oro, fase de México, campeón), instalar como PWA
+- **Onboarding** — 4 pasos: (1) configurar nombre + **avatar rectangular** con opción de cámara o galería, (2) demo interactivo de pronósticos (partido ficticio MEX vs USA), (3) registrar predicciones de bonus, (4) guardar acceso directo (bookmark) en el dispositivo
 - **Dashboard** — leaderboard estilo carta FIFA con avatar y posición destacada para top 3 (medallas); historial personal por jugador; countdown al inicio del torneo; tarjeta de siguiente jornada con barra de progreso de pronósticos; acceso a jornadas anteriores; resumen de bonus editables hasta el 11 jun 2026
 - **Pronósticos** — selector de resultado por partido: **LOCAL · EMPATE · VISITANTE**; tres botones tipo pill, el activo lleva color de acento; en fases eliminatorias con empate aparece inline la pregunta `¿Quién pasa?`; barra de progreso (n/m partidos predichos); bloqueo automático por partido en cuanto inicia (`scheduledAt`)
 - **Historial personal** — al tocar cualquier fila del leaderboard: card de avatar, stats del jugador (puntos, aciertos, % de aciertos), gráfica de evolución de puntos con área degradada y desglose de pronósticos por jornada; accordion por jornada con resultado real, pronóstico y puntos
@@ -30,11 +30,13 @@ Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios predicen 
 - **Premios de jornada** — slideshow animado con 6 categorías (El Sabio 🧠, El Certero 🎯, El Enrachado 🔥, El Inalcanzable ⭐, El Sotanero 😅, El MVP 🏆) más una slide personal "Tu jornada" al final; aparece en el Dashboard cuando la jornada está calificada
 - **Compartir resumen de premios** — imagen PNG con los 6 premios de la jornada, compartible vía Web Share API en móvil o descarga directa en desktop
 - **Compartir como imagen** — botones para generar PNG del resumen de una jornada cerrada y de la tabla general; usa Web Share API en móvil o descarga directa en desktop
-- **Temas por país sede** — México 🇲🇽, Canadá 🇨🇦, EUA 🇺🇸 — fondo, header, tarjetas y acentos cambian con la paleta FIFA WC 2026
-- **Preferencias** — cambiar tema, instalar PWA, activar notificaciones push, gestionar cuenta; accesible como tab en móvil (sin perder contexto)
+- **Temas por país** — 14 temas disponibles: 🇲🇽 🇨🇦 🇺🇸 🇩🇪 🇫🇷 🇦🇷 🇪🇸 🇧🇪 🇨🇮 🇧🇷 🇵🇹 🇳🇱 🇯🇵 🏴󠁧󠁢󠁥󠁮󠁧󠁿. Cada tema usa colores multi-bandera en los blobs del fondo para mayor distinción visual. Selector compacto tipo dropdown en el header (un solo botón con la bandera activa).
+- **Zona horaria personalizada** — los deadlines y horarios de partidos se muestran en la zona del jugador (CDMX / Tijuana-LA / Cancún / auto-detect desde el navegador); configurable en Preferencias
+- **Preferencias** — cambiar tema (dropdown), zona horaria, instalar PWA, activar notificaciones push, gestionar cuenta; accesible como tab en móvil (sin perder contexto)
 
 ### Para administradores
-- **Navegación** — sidebar vertical fija en desktop (224px) con secciones GESTIÓN / REPORTES / CONFIG; tab bar en móvil sin cambios
+- **Navegación** — sidebar vertical fija en desktop (224px) con secciones GESTIÓN / REPORTES / CONFIG; tab bar en móvil; botón **"← Ver como jugador"** para cambiar entre vista admin y dashboard sin cerrar sesión
+- **Generador de tarjetas Panini (`/admin/premios`)** — crear tarjeta coleccionable 340×480px para reconocer a un jugador; formulario con selector de jugador, título, checkboxes de puntos/posición, 6 acentos de color; preview en tiempo real; exporta PNG (descarga o Web Share API)
 - **Gestión de jornadas** — crear, editar, cambiar estado (upcoming/open/closed/finished), modificar deadline de pronósticos
 - **Ingreso de resultados** — marcador por partido; en fases eliminatorias: especificar equipo ganador
 - **Gestión de jugadores** — editar nombre, avatar y rol (`player` / `admin` / `observer`); monitoreo de onboarding y conteo de pronósticos por jugador
@@ -100,7 +102,8 @@ Al iniciar sesión por primera vez el usuario configura:
 | `avatarUrl` | `string` | URL de Storage |
 | `onboardingCompleted` | `boolean` | |
 | `role` | `'player' \| 'admin'` | |
-| `theme` | `'mexico' \| 'canada' \| 'usa'` | Tema visual elegido |
+| `theme` | `ThemeId` | Tema visual elegido (14 opciones) |
+| `timezone` | `string \| undefined` | IANA timezone string; ausente = auto-detect del navegador |
 | `createdAt` | `Timestamp` | |
 | `bonusPredictions.topScorer` | `string` | |
 | `bonusPredictions.goldenBall` | `string` | |
@@ -188,13 +191,24 @@ Documentos creados por el admin para invitar jugadores. Solo se leen vía Cloud 
 
 ## Sistema de Temas
 
-Los temas usan la **paleta oficial FIFA WC 2026**. Cada tema define CSS custom properties que cambian el fondo, header, tarjetas y colores de acento en toda la app.
+14 temas disponibles, cada uno con la **paleta de colores de su bandera** aplicada en los blobs del fondo para máxima distinción visual. El selector está en el header como dropdown compacto (`[bandera] Tema ▼`).
 
-| Tema | Acento | Fondo base | Nav/Header |
-|------|--------|-----------|-----------|
-| 🇲🇽 México | `#00C853` | `#010a04` | `#051510` |
-| 🇨🇦 Canadá | `#E51414` | `#0a0101` | `#180404` |
-| 🇺🇸 EUA | `#2535F0` | `#01020c` | `#040618` |
+| # | Tema | Acento principal |
+|---|------|-----------------|
+| 1 | 🇲🇽 México | `#00C853` verde |
+| 2 | 🇨🇦 Canadá | `#E51414` rojo |
+| 3 | 🇺🇸 EUA | `#2535F0` azul |
+| 4 | 🇩🇪 Alemania | `#DD0000` rojo |
+| 5 | 🇫🇷 Francia | `#002395` azul |
+| 6 | 🇦🇷 Argentina | `#74ACDF` celeste |
+| 7 | 🇪🇸 España | `#AA151B` rojo |
+| 8 | 🇧🇪 Bélgica | `#EF3340` rojo |
+| 9 | 🇨🇮 Costa de Marfil | `#F77F00` naranja |
+| 10 | 🇧🇷 Brasil | `#009C3B` verde |
+| 11 | 🇵🇹 Portugal | `#C8102E` rojo |
+| 12 | 🇳🇱 Países Bajos | `#FF6C00` naranja |
+| 13 | 🇯🇵 Japón | `#BC002D` carmesí |
+| 14 | 🏴󠁧󠁢󠁥󠁮󠁧󠁿 Inglaterra | `#CF142B` rojo |
 
 Para agregar un nuevo tema: `/add-theme` en Claude Code.
 

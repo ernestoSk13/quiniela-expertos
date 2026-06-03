@@ -822,7 +822,7 @@ export interface MatchdayAwards {
 ---
 
 ### Admin: ajustes al panel de configuración de puntos (`14E`)
-**Estado:** Pendiente ⏳ (siguiente sesión)
+**Estado:** Completada ✅ (PR #5, deploy 2026-06-02)
 
 - Eliminar campos `exactScore` y `exactKnockoutWithTie` del formulario `ScoringConfig`
 - Renombrar `correctResult` → `correctPrediction` con descripción actualizada

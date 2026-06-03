@@ -39,8 +39,13 @@ Tareas pendientes de implementación. Ordenadas por prioridad sugerida.
 
 ---
 
+## T9 — Onboarding: avatar rectangular + opción de cámara
+**Estado:** Completada ✅ (PR #14, deploy 2026-06-02)
+
+---
+
 ## T8 — Modo claro (light theme)
-**Estado:** Pendiente ⏳  
+**Estado:** Pausado 🔄 (rama `feat/T8-light-mode` — requiere más trabajo de diseño)  
 **Archivos afectados:** `src/index.css`, `src/pages/Preferences/Preferences.tsx`, `src/types/User.ts`, `src/services/firestoreUsers.ts`, posiblemente `src/context/ThemeContext.tsx`
 
 Actualmente la app es 100% oscura. Agregar soporte para un modo de apariencia claro donde fondos, superficies y textos se inviertan a tonos blancos/grises claros, manteniendo el color de acento del tema del país activo.

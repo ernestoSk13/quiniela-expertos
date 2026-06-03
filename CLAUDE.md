@@ -142,4 +142,4 @@ sed -i '' 's/VITE_USE_EMULATORS=false/VITE_USE_EMULATORS=true/' .env.local
 
 ## Pendientes activos
 
-- `Dashboard.tsx` — cambiar tab de Preferencias de `navigate('/preferencias')` a `setActiveTab('preferences')` para mantener tab bar visible en móvil
+- **Modo claro (T8)** — rama `feat/T8-light-mode` existe pero está pausada. El CSS de overrides de Tailwind no fue suficiente para cubrir los inline styles `rgba(255,255,255,X)` que hay en muchos componentes. Requiere una refactorización más profunda de variables CSS de texto antes de completarse.

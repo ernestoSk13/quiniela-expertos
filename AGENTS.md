@@ -10,7 +10,7 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 
 ---
 
-## Estado Actual (Mayo 2026)
+## Estado Actual (Junio 2026)
 
 - [x] Firebase configurado (Auth, Firestore, Storage, Hosting, Cloud Functions gen2)
 - [x] Autenticación — email/contraseña + Google, lista de correos permitidos
@@ -30,8 +30,15 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 - [x] Modo resultado simple (Fase 14A-C) — predicciones de resultado LOCAL/EMPATE/VISITANTE; auto-save con debounce 400ms; `ResultPicker.tsx` extraído
 - [x] Rol `observer` — acceso sin participar en tabla ni pronósticos; bloqueado a nivel de Firestore rules
 - [x] Admin sidebar vertical — sidebar 224px con secciones GESTIÓN/REPORTES/CONFIG; Restaurar con 2 pasos; mobile tab bar sin cambios
-- [x] ~~Fase 13 — Premios de jornada (slideshow animado + PNG compartible)~~ — **Cancelada**
-- [ ] **PENDIENTE**: Fase 14E — Simplificar ScoringConfig admin (eliminar campos exactScore)
+- [x] ScoringConfig simplificada (14E) — eliminados `exactScore`/`exactKnockoutWithTie`; banner "Modo resultado simple" en `/admin/config`
+- [x] 14 temas de países con colores multi-bandera en blobs; selector compacto dropdown en header; `ThemeContext` limpia todas las clases al cambiar
+- [x] Zona horaria personalizada — `user.timezone`, hook `useUserTimezone`, selector en Preferencias; admin también muestra horas locales
+- [x] Script `fix-timestamps` — corrige timestamps ingresados como hora local (offset configurable)
+- [x] Admin/jugador switch — botón en sidebar y header mobile para cambiar entre vistas sin re-login
+- [x] `/admin/premios` — tarjeta Panini 340×480px; 6 acentos; preview en tiempo real; exporta PNG
+- [x] Onboarding mejorado — paso 2 demo interactivo, avatar rectangular portrait 96×128, botones Cámara/Galería, paso "Guardar acceso" (bookmark)
+- [x] ~~Fase 13~~ — **Cancelada**
+- [ ] **PENDIENTE**: Modo claro (T8) — rama `feat/T8-light-mode`, pausado por diseño
 
 ---
 
@@ -116,20 +123,23 @@ src/
 │   ├── usePredictions.ts            # getDocs (no onSnapshot) por bug del emulador
 │   ├── useScoringConfig.ts          # onSnapshot en config/scoring; expone DEFAULT_SCORING como fallback
 │   ├── useShareImage.ts             # html2canvas → Web Share API o descarga (`forceDownload`)
-│   └── useTeams.ts
+│   ├── useTeams.ts
+│   └── useUserTimezone.ts           # Lee user.timezone o fallback a Intl.DateTimeFormat browser
 ├── lib/
 │   ├── firebase.ts                  # Configuración Firebase + emuladores
 │   └── themes.ts                    # THEMES array + themeClassName()
 ├── pages/
 │   ├── Admin/
-│   │   ├── AdminLayout.tsx          # Sidebar 224px desktop (GESTIÓN/REPORTES/CONFIG) + MOBILE_NAV (4 ítems, tab bar)
+│   │   ├── AdminLayout.tsx          # Sidebar 224px desktop (GESTIÓN/REPORTES/CONFIG) + MOBILE_NAV + switch admin↔jugador
 │   │   ├── AdminLeaderboard.tsx     # /admin/tabla — reutiliza LeaderboardTable + PlayerHistoryModal + LeaderboardPNGCard
+│   │   ├── AdminPremios.tsx         # /admin/premios — generador tarjeta Panini (formulario + preview + PNG export)
 │   │   ├── AllowedUsers.tsx         # + botón "Invitar" que genera token y copia link
 │   │   ├── BonusEvaluation.tsx      # Evalúa bonus predictions via Cloud Function
 │   │   ├── LeaderboardPNGCard.tsx   # Botón "Compartir tabla" → PNG full table (420px, alto adaptativo, descarga forzada)
 │   │   ├── MatchdayDetail.tsx
 │   │   ├── MatchdayList.tsx
-│   │   ├── ScoringConfig.tsx        # /admin/config — formulario de puntos con advertencia antes de guardar
+│   │   ├── PaniniCard.tsx           # Tarjeta 340×480px con gradiente de acento; 6 colores; compatible con html2canvas
+│   │   ├── ScoringConfig.tsx        # /admin/config — formulario simplificado (modo resultado simple, 4 campos)
 │   │   └── UserProfiles.tsx         # Lista jugadores con conteo de pronósticos y estado onboarding
 │   ├── Dashboard/
 │   │   ├── BonusSummary.tsx
@@ -142,10 +152,11 @@ src/
 │   │   └── InvitePage.tsx           # /invite/:token — pública; llama getInvite, muestra bienvenida
 │   ├── Login/Login.tsx              # Lee ?email= query param para pre-llenar desde link de invitación
 │   ├── Onboarding/
-│   │   ├── Onboarding.tsx
+│   │   ├── Onboarding.tsx           # 4 pasos: Perfil(1) → Demo(2) → Bonus(3) → Acceso(4)
 │   │   ├── StepBonus.tsx
-│   │   ├── StepInstall.tsx          # Paso 3: instalar PWA (detect platform, instrucciones numeradas)
-│   │   └── StepProfile.tsx
+│   │   ├── StepDemo.tsx             # Paso 2: partido ficticio MEX vs USA + reveal de puntos
+│   │   ├── StepInstall.tsx          # Paso 4: instrucciones de bookmark por plataforma (iOS/Android/Desktop)
+│   │   └── StepProfile.tsx          # Avatar rectangular 96×128px; botones Cámara (capture=user) y Galería
 │   ├── Preferences/
 │   │   └── Preferences.tsx          # /preferencias — acceso desde gear icon desktop; en móvil se renderiza inline como tab en Dashboard
 │   └── Predictions/
