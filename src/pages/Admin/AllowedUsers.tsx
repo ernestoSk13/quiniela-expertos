@@ -5,6 +5,7 @@ import {
   removeAllowedUser,
 } from '@/services/firestoreAllowedUsers'
 import { generateInviteLink } from '@/services/firestoreInvites'
+import { getAllUsers } from '@/services/firestoreUsers'
 
 const BEBAS = "'Bebas Neue', Impact, 'Arial Narrow', sans-serif"
 
@@ -34,6 +35,7 @@ function CheckIcon() {
 
 export default function AllowedUsers() {
   const [emails, setEmails] = useState<string[]>([])
+  const [pendingEmails, setPendingEmails] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [newEmail, setNewEmail] = useState('')
   const [adding, setAdding] = useState(false)
@@ -41,9 +43,15 @@ export default function AllowedUsers() {
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null)
 
   useEffect(() => {
-    getAllowedUsers()
-      .then(list => setEmails(list.sort()))
-      .finally(() => setLoading(false))
+    Promise.all([getAllowedUsers(), getAllUsers()]).then(([allowedList, users]) => {
+      const sorted = allowedList.sort()
+      setEmails(sorted)
+      // Emails in allowedUsers that have no completed onboarding
+      const completedEmails = new Set(
+        users.filter(u => u.onboardingCompleted).map(u => u.email.toLowerCase()),
+      )
+      setPendingEmails(sorted.filter(e => !completedEmails.has(e)))
+    }).finally(() => setLoading(false))
   }, [])
 
   async function handleAdd(e: FormEvent) {
@@ -115,6 +123,55 @@ export default function AllowedUsers() {
       </div>
 
       <div style={{ maxWidth: 520 }}>
+
+        {/* Pending onboarding banner */}
+        {!loading && pendingEmails.length > 0 && (
+          <div style={{
+            background: 'rgba(250,204,21,0.06)',
+            border: '1px solid rgba(250,204,21,0.2)',
+            borderLeft: '3px solid rgba(250,204,21,0.5)',
+            borderRadius: 12,
+            padding: '12px 14px',
+            marginBottom: 20,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" style={{ color: 'rgba(250,204,21,0.7)', flexShrink: 0 }}>
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(250,204,21,0.75)' }}>
+                Pendientes de onboarding
+              </span>
+              <span style={{
+                background: 'rgba(250,204,21,0.12)', border: '1px solid rgba(250,204,21,0.25)',
+                borderRadius: 99, padding: '1px 7px', fontSize: '0.62rem',
+                color: 'rgba(250,204,21,0.7)', letterSpacing: '0.08em',
+              }}>
+                {pendingEmails.length}
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {pendingEmails.map(email => (
+                <div key={email} style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+                  <span style={{
+                    fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
+                  }}>
+                    {email}
+                  </span>
+                  <button
+                    onClick={() => handleCopyLink(email)}
+                    className={`au-link-btn ${copiedEmail === email ? 'au-link-copied' : ''}`}
+                    style={{ flexShrink: 0 }}
+                  >
+                    {copiedEmail === email ? <CheckIcon /> : <LinkIcon />}
+                    <span>{copiedEmail === email ? 'Copiado' : 'Invitar'}</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Add form */}
         <form onSubmit={handleAdd} style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
           <input
