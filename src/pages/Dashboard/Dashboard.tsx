@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
@@ -7,7 +7,8 @@ import { useMatchdays } from '@/hooks/useMatchdays'
 import { useLeaderboard } from '@/hooks/useLeaderboard'
 import { useTeamsMap } from '@/hooks/useTeams'
 import { useMatchdayProgress } from '@/hooks/useMatchdayProgress'
-import { updateBonusPredictions } from '@/services/firestoreUsers'
+import { updateBonusPredictions, updateUserProfile } from '@/services/firestoreUsers'
+import { uploadAvatar } from '@/services/storageAvatars'
 import Avatar from '@/components/Avatar'
 import StatusBadge from '@/components/StatusBadge'
 import ThemeSelector from '@/components/ThemeSelector'
@@ -82,6 +83,27 @@ export default function Dashboard() {
   const isObserver = user?.role === 'observer'
   const [activeTab, setActiveTab] = useState<TabId>(isObserver ? 'leaderboard' : 'predictions')
   const push = usePushNotifications()
+
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const avatarFileInputRef   = useRef<HTMLInputElement>(null)
+  const avatarCameraInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleAvatarFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    e.target.value = ''
+    setShowAvatarMenu(false)
+    setAvatarUploading(true)
+    try {
+      const url = await uploadAvatar(user.displayName, file)
+      await updateUserProfile(user.uid, { avatarUrl: url })
+    } catch (err) {
+      console.error('Error al subir avatar:', err)
+    } finally {
+      setAvatarUploading(false)
+    }
+  }
 
   async function handleSignOut() {
     await signOut(auth)
@@ -332,12 +354,84 @@ export default function Dashboard() {
                 </svg>
               </button>
             </div>
-            <div className="flex items-center gap-2">
-              <Avatar
-                url={user?.avatarUrl ?? ''}
-                name={user?.displayName || '?'}
-                size="sm"
-              />
+            <div className="flex items-center gap-2 relative">
+              {/* Clickable avatar */}
+              <button
+                onClick={() => setShowAvatarMenu(v => !v)}
+                title="Cambiar avatar"
+                className="relative group shrink-0 rounded-full focus:outline-none"
+              >
+                {avatarUploading ? (
+                  <div className="w-8 h-8 rounded-full bg-[var(--accent-muted)] flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor" className="animate-spin text-[var(--accent-light)]">
+                      <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                    </svg>
+                  </div>
+                ) : (
+                  <>
+                    <Avatar
+                      url={user?.avatarUrl ?? ''}
+                      name={user?.displayName || '?'}
+                      size="sm"
+                    />
+                    {/* Camera icon overlay on hover */}
+                    <span className="absolute inset-0 rounded-full flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                        <circle cx="12" cy="13" r="4"/>
+                      </svg>
+                    </span>
+                  </>
+                )}
+              </button>
+
+              {/* Avatar dropdown menu */}
+              {showAvatarMenu && (
+                <>
+                  {/* Backdrop */}
+                  <div
+                    className="fixed inset-0 z-20"
+                    onClick={() => setShowAvatarMenu(false)}
+                  />
+                  <div
+                    className="absolute right-0 top-10 z-30 rounded-xl overflow-hidden"
+                    style={{
+                      background: 'var(--surface-card)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                      minWidth: 148,
+                    }}
+                  >
+                    <button
+                      onClick={() => { setShowAvatarMenu(false); avatarCameraInputRef.current?.click() }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors text-left"
+                    >
+                      <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                        <circle cx="12" cy="13" r="4"/>
+                      </svg>
+                      Tomar foto
+                    </button>
+                    <div className="h-px bg-white/5 mx-3" />
+                    <button
+                      onClick={() => { setShowAvatarMenu(false); avatarFileInputRef.current?.click() }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors text-left"
+                    >
+                      <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                      </svg>
+                      Galería
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Hidden file inputs */}
+              <input ref={avatarCameraInputRef} type="file" accept="image/*" capture="user" className="hidden" onChange={handleAvatarFileChange} />
+              <input ref={avatarFileInputRef}   type="file" accept="image/*"               className="hidden" onChange={handleAvatarFileChange} />
+
               <span className="text-sm text-gray-300 hidden sm:block">{user?.displayName}</span>
             </div>
             {user?.role === 'admin' && (
