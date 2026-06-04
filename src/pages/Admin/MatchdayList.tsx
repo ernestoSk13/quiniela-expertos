@@ -1,10 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useUserTimezone } from '@/hooks/useUserTimezone'
 import { useMatchdays } from '@/hooks/useMatchdays'
 import { updateMatchdayStatus, updateMatchdayDeadline } from '@/services/firestoreMatchdays'
+import { getMatchCountByMatchday } from '@/services/firestoreMatches'
+import { getMatchdayAllPredictions } from '@/services/firestorePredictions'
+import { getAllUsers } from '@/services/firestoreUsers'
 import StatusBadge from '@/components/StatusBadge'
 import type { Matchday, MatchdayStatus } from '@/types'
+
+interface PendingPlayer {
+  uid: string
+  displayName: string
+  filled: number
+  total: number
+}
 
 const BEBAS = "'Bebas Neue', Impact, 'Arial Narrow', sans-serif"
 
@@ -61,6 +71,37 @@ export default function MatchdayList() {
   const [editingDeadline, setEditingDeadline] = useState<string | null>(null)
   const [deadlineInput, setDeadlineInput] = useState('')
   const [savingDeadline, setSavingDeadline] = useState(false)
+  const [pendingPlayers, setPendingPlayers] = useState<PendingPlayer[]>([])
+  const [openMatchdayName, setOpenMatchdayName] = useState<string>('')
+
+  const openMatchday = matchdays.find(md => md.status === 'open')
+
+  useEffect(() => {
+    if (!openMatchday?.id) {
+      setPendingPlayers([])
+      setOpenMatchdayName('')
+      return
+    }
+    const mdId = openMatchday.id
+    setOpenMatchdayName(openMatchday.name)
+
+    Promise.all([
+      getAllUsers(),
+      getMatchdayAllPredictions(mdId),
+      getMatchCountByMatchday(mdId),
+    ]).then(([users, predictions, matchCount]) => {
+      const participants = users.filter(u => u.onboardingCompleted && u.role !== 'observer')
+      const filledByUser: Record<string, number> = {}
+      predictions.forEach(p => {
+        filledByUser[p.userId] = (filledByUser[p.userId] ?? 0) + 1
+      })
+      const pending = participants
+        .filter(u => (filledByUser[u.uid] ?? 0) < matchCount)
+        .map(u => ({ uid: u.uid, displayName: u.displayName, filled: filledByUser[u.uid] ?? 0, total: matchCount }))
+        .sort((a, b) => a.filled - b.filled)
+      setPendingPlayers(pending)
+    })
+  }, [openMatchday?.id])
 
   async function handleStatusChange(md: Matchday) {
     setUpdating(md.id)
@@ -115,6 +156,52 @@ export default function MatchdayList() {
           Gestiona el estado y deadline de cada jornada.
         </p>
       </div>
+
+      {/* Pending predictions banner */}
+      {!loading && pendingPlayers.length > 0 && (
+        <div style={{
+          background: 'rgba(250,204,21,0.06)',
+          border: '1px solid rgba(250,204,21,0.2)',
+          borderLeft: '3px solid rgba(250,204,21,0.5)',
+          borderRadius: 12,
+          padding: '12px 14px',
+          marginBottom: 20,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" style={{ color: 'rgba(250,204,21,0.7)', flexShrink: 0 }}>
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+            </svg>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(250,204,21,0.75)' }}>
+              Faltan pronósticos — {openMatchdayName}
+            </span>
+            <span style={{
+              background: 'rgba(250,204,21,0.12)', border: '1px solid rgba(250,204,21,0.25)',
+              borderRadius: 99, padding: '1px 7px', fontSize: '0.62rem',
+              color: 'rgba(250,204,21,0.7)', letterSpacing: '0.08em',
+            }}>
+              {pendingPlayers.length}
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {pendingPlayers.map(p => (
+              <div key={p.uid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.65)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                  {p.displayName || <span style={{ color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>sin nombre</span>}
+                </span>
+                <span style={{
+                  fontSize: '0.7rem', flexShrink: 0,
+                  color: p.filled === 0 ? 'rgba(239,68,68,0.7)' : 'rgba(250,204,21,0.6)',
+                  background: p.filled === 0 ? 'rgba(239,68,68,0.07)' : 'rgba(250,204,21,0.07)',
+                  border: `1px solid ${p.filled === 0 ? 'rgba(239,68,68,0.2)' : 'rgba(250,204,21,0.2)'}`,
+                  borderRadius: 99, padding: '1px 8px',
+                }}>
+                  {p.filled === 0 ? 'ninguno' : `${p.filled}/${p.total}`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         {loading

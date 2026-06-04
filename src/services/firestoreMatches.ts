@@ -1,6 +1,12 @@
-import { collection, doc, getDocs, query, updateDoc, where, Timestamp } from 'firebase/firestore'
+import { collection, doc, getCountFromServer, getDocs, query, updateDoc, where, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import type { Match } from '@/types'
+
+export async function getMatchCountByMatchday(matchdayId: string): Promise<number> {
+  const q = query(collection(db, 'matches'), where('matchdayId', '==', matchdayId))
+  const snap = await getCountFromServer(q)
+  return snap.data().count
+}
 
 export async function getFinishedMatches(): Promise<Match[]> {
   const q = query(collection(db, 'matches'), where('status', '==', 'finished'))
