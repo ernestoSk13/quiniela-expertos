@@ -37,6 +37,9 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 - [x] Admin/jugador switch — botón en sidebar y header mobile para cambiar entre vistas sin re-login
 - [x] `/admin/premios` — tarjeta Panini 340×480px; 6 acentos; preview en tiempo real; exporta PNG
 - [x] Onboarding mejorado — paso 2 demo interactivo, avatar rectangular portrait 96×128, botones Cámara/Galería, paso "Guardar acceso" (bookmark)
+- [x] Cambio de avatar desde header (T12) — click/tap en avatar del Dashboard abre menú Cámara/Galería; sobreescribe el archivo en Storage; spinner de carga; backdrop para cerrar
+- [x] Admin: banner pendientes de onboarding (T10) — `/admin/usuarios` muestra correos sin `onboardingCompleted` con botón Invitar por fila
+- [x] Admin: banner pronósticos faltantes (T11) — `/admin` muestra jugadores sin completar pronósticos en jornada abierta; indica "ninguno" o "k/N" partidos; usa `getCountFromServer` para conteo eficiente
 - [x] ~~Fase 13~~ — **Cancelada**
 - [ ] **PENDIENTE**: Modo claro (T8) — rama `feat/T8-light-mode`, pausado por diseño
 
