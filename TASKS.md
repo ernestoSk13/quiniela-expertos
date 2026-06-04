@@ -44,6 +44,62 @@ Tareas pendientes de implementación. Ordenadas por prioridad sugerida.
 
 ---
 
+## T10 — Admin: banner de jugadores pendientes de onboarding
+**Estado:** Pendiente ⏳  
+**Archivos afectados:** `src/pages/Admin/AllowedUsers.tsx` (o `UserProfiles.tsx` si es más apropiado)
+
+En `/admin/usuarios`, mostrar un banner en la parte superior que liste los jugadores que aún no han completado el proceso de login + onboarding. Ayuda al admin a hacer seguimiento de quién falta incorporarse.
+
+### Criterio
+Un jugador está "pendiente" si aparece en `allowedUsers` pero **no** tiene un documento en `users/` con `onboardingCompleted === true`. Casos posibles:
+- Correo registrado pero el usuario nunca hizo login
+- Usuario creó cuenta pero no completó el onboarding
+
+### UI
+- Banner en la parte superior de `/admin/usuarios`, visible solo si hay pendientes
+- Lista compacta de correos/nombres pendientes (sin scroll horizontal en móvil)
+- En móvil: lista en columna o wrapping; en desktop: fila o grid compacto
+- Botón "Invitar" por fila (reutiliza el flujo existente de token) para reenviarles el link
+
+---
+
+## T11 — Admin: banner de jugadores sin pronóstico en jornada abierta
+**Estado:** Pendiente ⏳  
+**Archivos afectados:** `src/pages/Admin/MatchdayList.tsx`
+
+En `/admin` (sección Jornadas / `MatchdayList`), mostrar un banner que liste los jugadores que faltan de completar su pronóstico de la jornada actualmente abierta.
+
+### Criterio
+Un jugador "falta" si tiene `onboardingCompleted === true` y rol participante, pero **no** tiene predicciones guardadas para todos (o ningún) partido de la jornada con `status === 'open'`. Mostrar cuántos partidos les faltan si ya tienen algunos pero no todos.
+
+### UI
+- Banner en la parte superior de `MatchdayList`, visible solo cuando hay una jornada con `status === 'open'`
+- Oculto si todos los jugadores ya tienen sus pronósticos completos
+- Lista compacta de nombres/correos con indicador `N/M partidos` si tienen pronósticos parciales
+- Responsivo: sin scroll horizontal en móvil
+
+---
+
+## T12 — Cambio de avatar desde la barra superior
+**Estado:** Pendiente ⏳  
+**Archivos afectados:** `src/pages/Dashboard/Dashboard.tsx`, `src/pages/Onboarding/StepProfile.tsx` (lógica de subida a reutilizar), `src/services/storageAvatars.ts`
+
+Si el usuario toca/hace click en su avatar en la barra superior del Dashboard, permitirle reemplazarlo por uno nuevo.
+
+### Comportamiento
+- Click/tap en el avatar del header abre un selector (botones Cámara / Galería — mismo patrón que `StepProfile.tsx`)
+- La imagen nueva **sobreescribe** el archivo existente en Firebase Storage (mismo path) para no acumular archivos huérfanos
+- Actualiza `user.avatarUrl` en Firestore tras subir exitosamente
+- Indicador de carga mientras sube (spinner sobre el avatar o estado de loading en el botón)
+- Sin modal de confirmación — la acción es reversible (puede subir otra foto)
+
+### Consideraciones
+- Reutilizar la lógica de compresión/subida de `StepProfile.tsx` o extraerla a un hook compartido si no existe aún
+- El path en Storage debe ser el mismo que usa el onboarding: `avatars/{uid}` (sobreescritura natural)
+- En móvil: la misma UI funciona con `capture="user"` para cámara frontal
+
+---
+
 ## T8 — Modo claro (light theme)
 **Estado:** Pausado 🔄 (rama `feat/T8-light-mode` — requiere más trabajo de diseño)  
 **Archivos afectados:** `src/index.css`, `src/pages/Preferences/Preferences.tsx`, `src/types/User.ts`, `src/services/firestoreUsers.ts`, posiblemente `src/context/ThemeContext.tsx`
