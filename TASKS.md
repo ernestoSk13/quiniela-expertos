@@ -146,7 +146,7 @@ Los jugadores podrán cambiar su nombre de usuario y su avatar directamente desd
 ---
 
 ## T14 — Deadline de pronósticos: 10 minutos antes del partido (anti-trampas)
-**Estado:** Pendiente 🔲
+**Estado:** Completada ✅ (rama `feat/T14-prediction-cutoff-10min`, deploy pendiente)
 
 Actualmente el cierre de predicciones coincide con `match.scheduledAt` (inicio del partido). Cambiar el corte a **10 minutos antes** del inicio, y mover el enforcement a **Firestore security rules** para que no sea bypasseable manipulando el reloj del dispositivo.
 
