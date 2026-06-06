@@ -23,8 +23,8 @@ Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios predicen 
 - **Login con Google** — acceso solo para correos autorizados por el admin (cuentas Gmail)
 - **Link de invitación** — el admin genera un link personalizado por correo con TTL de 7 días; el invitado abre `/invite/:token` y llega al login con su correo pre-cargado
 - **Onboarding** — 4 pasos: (1) configurar nombre + **avatar rectangular** con opción de cámara o galería, (2) demo interactivo de pronósticos (partido ficticio MEX vs USA), (3) registrar predicciones de bonus, (4) guardar acceso directo (bookmark) en el dispositivo
-- **Dashboard** — leaderboard estilo carta FIFA con avatar y posición destacada para top 3 (medallas); historial personal por jugador; countdown al inicio del torneo; tarjeta de siguiente jornada con barra de progreso de pronósticos; acceso a jornadas anteriores; resumen de bonus editables hasta el 11 jun 2026
-- **Pronósticos** — selector de resultado por partido: **LOCAL · EMPATE · VISITANTE**; tres botones tipo pill, el activo lleva color de acento; en fases eliminatorias con empate aparece inline la pregunta `¿Quién pasa?`; barra de progreso (n/m partidos predichos); bloqueo automático por partido en cuanto inicia (`scheduledAt`)
+- **Dashboard** — leaderboard estilo carta FIFA con avatar y posición destacada para top 3 (medallas); historial personal por jugador; countdown al inicio del torneo; tarjeta de siguiente jornada con lista de próximos partidos del día más cercano (agrupados por hora de cierre, bandera + nombre completo) y barra de progreso de pronósticos; acceso a jornadas anteriores; resumen de bonus editables hasta el 11 jun 2026
+- **Pronósticos** — selector de resultado por partido: **LOCAL · EMPATE · VISITANTE**; tres botones tipo pill, el activo lleva color de acento; en fases eliminatorias con empate aparece inline la pregunta `¿Quién pasa?`; barra de progreso (n/m partidos predichos); bloqueo automático por partido **10 minutos antes** de que inicie, enforced en Firestore rules (inmune a manipulación del reloj)
 - **Historial personal** — al tocar cualquier fila del leaderboard: card de avatar, stats del jugador (puntos, aciertos, % de aciertos), gráfica de evolución de puntos con área degradada y desglose de pronósticos por jornada; accordion por jornada con resultado real, pronóstico y puntos
 - **Ver predicciones post-jornada** — cuando una jornada cierra, toggle "Ver todos" muestra qué resultado pronosticó cada jugador partido a partido (LOCAL/EMPATE/VISITANTE) con indicador de puntos obtenidos
 - **Premios de jornada** — slideshow animado con 6 categorías (El Sabio 🧠, El Certero 🎯, El Enrachado 🔥, El Inalcanzable ⭐, El Sotanero 😅, El MVP 🏆) más una slide personal "Tu jornada" al final; aparece en el Dashboard cuando la jornada está calificada
@@ -32,7 +32,7 @@ Web app de quiniela de fútbol para el Mundial FIFA 2026. Los usuarios predicen 
 - **Compartir como imagen** — botones para generar PNG del resumen de una jornada cerrada y de la tabla general; usa Web Share API en móvil o descarga directa en desktop
 - **Temas por país** — 14 temas disponibles: 🇲🇽 🇨🇦 🇺🇸 🇩🇪 🇫🇷 🇦🇷 🇪🇸 🇧🇪 🇨🇮 🇧🇷 🇵🇹 🇳🇱 🇯🇵 🏴󠁧󠁢󠁥󠁮󠁧󠁿. Cada tema usa colores multi-bandera en los blobs del fondo para mayor distinción visual. Selector compacto tipo dropdown en el header (un solo botón con la bandera activa).
 - **Zona horaria personalizada** — los deadlines y horarios de partidos se muestran en la zona del jugador (CDMX / Tijuana-LA / Cancún / auto-detect desde el navegador); configurable en Preferencias
-- **Preferencias** — cambiar tema (dropdown), zona horaria, instalar PWA, activar notificaciones push, gestionar cuenta; accesible como tab en móvil (sin perder contexto)
+- **Preferencias** — editar nombre y foto de perfil (Cámara/Galería); cambiar tema (dropdown), zona horaria, instalar PWA, activar notificaciones push, gestionar cuenta; accesible como tab en móvil (sin perder contexto)
 
 ### Para administradores
 - **Navegación** — sidebar vertical fija en desktop (224px) con secciones GESTIÓN / REPORTES / CONFIG; tab bar en móvil; botón **"← Ver como jugador"** para cambiar entre vista admin y dashboard sin cerrar sesión
@@ -62,7 +62,7 @@ Al iniciar sesión por primera vez el usuario configura:
 
 ### Pronósticos por Jornada
 - El usuario predice el **resultado** de cada partido: local gana / empate / visitante gana
-- Se pueden editar hasta el `predictionDeadline` de la jornada **o** hasta que el partido inicie (`scheduledAt`), lo que ocurra primero
+- Se pueden editar hasta el `predictionDeadline` de la jornada **o** hasta **10 minutos antes** de que el partido inicie (`scheduledAt - 10 min`), lo que ocurra primero
 - Una vez que una jornada cierra (`status: closed` o `finished`), los pronósticos de todos los jugadores se revelan
 - En fases eliminatorias: si el usuario predice empate, debe indicar además qué equipo avanza (`tieWinner`)
 
