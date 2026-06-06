@@ -4,6 +4,7 @@ import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useMatchdays } from '@/hooks/useMatchdays'
+import { useMatchesByMatchday } from '@/hooks/useMatches'
 import { useLeaderboard } from '@/hooks/useLeaderboard'
 import { useTeamsMap } from '@/hooks/useTeams'
 import { useMatchdayProgress } from '@/hooks/useMatchdayProgress'
@@ -116,6 +117,7 @@ export default function Dashboard() {
     nextMatchday?.status === 'open' ? (nextMatchday.id ?? '') : '',
     user?.uid ?? '',
   )
+  const { matches: nextMatches } = useMatchesByMatchday(nextMatchday?.id ?? '')
 
   async function handleSaveBonus(bonus: BonusPredictions) {
     if (!user) return
@@ -128,6 +130,30 @@ export default function Dashboard() {
     .reverse()
 
   const userPosition = players.findIndex(p => p.uid === user?.uid) + 1
+
+  // ── Upcoming matches grouped by per-match cutoff (10 min before scheduledAt) ──
+
+  const PRED_CUTOFF_MS = 10 * 60 * 1000
+  const upcomingGroups = (() => {
+    if (nextMatchday?.status !== 'open' || nextMatches.length === 0) return []
+    const _now = Date.now()
+    const upcoming = nextMatches
+      .filter(m => m.scheduledAt.toDate().getTime() - PRED_CUTOFF_MS > _now)
+      .sort((a, b) => a.scheduledAt.toDate().getTime() - b.scheduledAt.toDate().getTime())
+    if (upcoming.length === 0) return []
+    const toDay = (ts: { toDate(): Date }) =>
+      ts.toDate().toLocaleDateString('es-MX', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' })
+    const earliestDay = toDay(upcoming[0].scheduledAt)
+    const dayMatches = upcoming.filter(m => toDay(m.scheduledAt) === earliestDay)
+    const groupsMap: Record<string, typeof nextMatches> = {}
+    for (const m of dayMatches) {
+      const label = new Date(m.scheduledAt.toDate().getTime() - PRED_CUTOFF_MS)
+        .toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: timezone })
+      if (!groupsMap[label]) groupsMap[label] = []
+      groupsMap[label].push(m)
+    }
+    return Object.entries(groupsMap).map(([cutoffLabel, groupMatches]) => ({ cutoffLabel, groupMatches }))
+  })()
 
   // ── Shared section blocks ──────────────────────────────────────────────────
 
@@ -173,13 +199,40 @@ export default function Dashboard() {
               <StatusBadge status={nextMatchday.status} type="matchday" />
             </div>
 
-            {/* Deadline with clock icon */}
-            <p className="flex items-center gap-1.5 text-xs text-gray-500">
-              <svg viewBox="0 0 16 16" width={12} height={12} fill="currentColor" className="shrink-0 text-gray-600">
-                <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-4.5a.5.5 0 0 1 .5.5v4.25l2.75 1.65a.5.5 0 0 1-.5.87L7.25 9a.5.5 0 0 1-.25-.43V4a.5.5 0 0 1 .5-.5z"/>
-              </svg>
-              <span>Deadline: <span className="text-gray-400 font-medium">{formatDeadline(nextMatchday.predictionDeadline, timezone)}</span></span>
-            </p>
+            {/* Próximos partidos agrupados por cierre */}
+            {upcomingGroups.length > 0 ? (
+              <div className="space-y-2.5">
+                <p className="text-[10px] font-semibold tracking-[0.18em] uppercase text-gray-600">
+                  Próximos partidos
+                </p>
+                {upcomingGroups.map(({ cutoffLabel, groupMatches }) => (
+                  <div key={cutoffLabel} className="space-y-1.5">
+                    <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <svg viewBox="0 0 16 16" width={10} height={10} fill="currentColor" className="shrink-0 text-gray-600">
+                        <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-4.5a.5.5 0 0 1 .5.5v4.25l2.75 1.65a.5.5 0 0 1-.5.87L7.25 9a.5.5 0 0 1-.25-.43V4a.5.5 0 0 1 .5-.5z"/>
+                      </svg>
+                      Cierre antes de las {cutoffLabel}
+                    </p>
+                    {groupMatches.map(m => (
+                      <div key={m.id} className="flex items-center gap-1.5 pl-4">
+                        <span className="text-base leading-none">{teamsMap[m.homeTeamCode]?.flag ?? '🏳️'}</span>
+                        <span className="text-xs text-white/75 font-medium flex-1 truncate">{teamsMap[m.homeTeamCode]?.name ?? m.homeTeamCode}</span>
+                        <span className="text-[10px] text-white/25 font-bold px-0.5">—</span>
+                        <span className="text-xs text-white/75 font-medium flex-1 text-right truncate">{teamsMap[m.awayTeamCode]?.name ?? m.awayTeamCode}</span>
+                        <span className="text-base leading-none">{teamsMap[m.awayTeamCode]?.flag ?? '🏳️'}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                <svg viewBox="0 0 16 16" width={12} height={12} fill="currentColor" className="shrink-0 text-gray-600">
+                  <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-4.5a.5.5 0 0 1 .5.5v4.25l2.75 1.65a.5.5 0 0 1-.5.87L7.25 9a.5.5 0 0 1-.25-.43V4a.5.5 0 0 1 .5-.5z"/>
+                </svg>
+                <span>Deadline: <span className="text-gray-400 font-medium">{formatDeadline(nextMatchday.predictionDeadline, timezone)}</span></span>
+              </p>
+            )}
 
             {/* Progress bar */}
             {nextMatchday.status === 'open' && total > 0 && (
