@@ -148,7 +148,7 @@ export default function Dashboard() {
     const groupsMap: Record<string, typeof nextMatches> = {}
     for (const m of dayMatches) {
       const label = new Date(m.scheduledAt.toDate().getTime() - PRED_CUTOFF_MS)
-        .toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: timezone })
+        .toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: timezone })
       if (!groupsMap[label]) groupsMap[label] = []
       groupsMap[label].push(m)
     }
@@ -211,7 +211,7 @@ export default function Dashboard() {
                       <svg viewBox="0 0 16 16" width={10} height={10} fill="currentColor" className="shrink-0 text-gray-600">
                         <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-4.5a.5.5 0 0 1 .5.5v4.25l2.75 1.65a.5.5 0 0 1-.5.87L7.25 9a.5.5 0 0 1-.25-.43V4a.5.5 0 0 1 .5-.5z"/>
                       </svg>
-                      Cierre antes de las {cutoffLabel}
+                      Cierre: {cutoffLabel}
                     </p>
                     {groupMatches.map(m => (
                       <div key={m.id} className="flex items-center gap-1.5 pl-4">
