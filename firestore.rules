@@ -65,7 +65,8 @@ service cloud.firestore {
       );
       allow create, update: if isAllowedUser() &&
         !isObserver() &&
-        request.resource.data.userId == request.auth.uid;
+        request.resource.data.userId == request.auth.uid &&
+        request.time < get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.scheduledAt - duration.seconds(600);
       allow delete: if false;
     }
 

@@ -29,6 +29,13 @@ function formatMatchTime(ts: any, timezone: string) {
   }) ?? null
 }
 
+const PREDICTION_CUTOFF_MS = 10 * 60 * 1000 // 10 min antes del partido
+
+function matchDeadlineDate(ts: any): Date | null {
+  if (!ts) return null
+  return new Date(ts.toDate().getTime() - PREDICTION_CUTOFF_MS)
+}
+
 export default function MatchdayPredictions() {
   const { matchdayId = '' } = useParams()
   const navigate = useNavigate()
@@ -70,7 +77,7 @@ export default function MatchdayPredictions() {
     if (!updated.result) return
     const match = matches.find(m => m.id === matchId)
     if (!match) return
-    if (match.scheduledAt && match.scheduledAt.toDate() <= new Date()) return
+    if (match.scheduledAt && matchDeadlineDate(match.scheduledAt)! <= new Date()) return
     const isKnockout = match.phase !== 'group_stage'
     if (isKnockout && updated.result === 'draw' && !updated.tieWinner) return
 
@@ -243,7 +250,8 @@ export default function MatchdayPredictions() {
             {matches.map(match => {
               const s = preds[match.id]
               const saved = predictions[match.id]
-              const matchStarted = match.scheduledAt ? match.scheduledAt.toDate() <= new Date() : false
+              const deadline = matchDeadlineDate(match.scheduledAt)
+              const matchStarted = deadline ? deadline <= new Date() : false
               const matchReadOnly = readOnly || matchStarted
               const homeFlag = teamsMap[match.homeTeamCode]?.flag ?? '🏳️'
               const awayFlag = teamsMap[match.awayTeamCode]?.flag ?? '🏳️'
@@ -272,8 +280,11 @@ export default function MatchdayPredictions() {
                     <div className="flex flex-col items-center gap-0.5 shrink-0">
                       <span className="text-xs text-white/30 tracking-widest">vs</span>
                       {match.scheduledAt && (
-                        <span className="text-[10px] text-white/25 tabular-nums whitespace-nowrap">
-                          {formatMatchTime(match.scheduledAt, timezone)}
+                        <span className="text-[10px] tabular-nums whitespace-nowrap" style={{ color: matchReadOnly ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.25)' }}>
+                          {matchReadOnly
+                            ? `⛔ ${formatMatchTime(match.scheduledAt, timezone)}`
+                            : `⏱ cierre ${formatMatchTime({ toDate: () => matchDeadlineDate(match.scheduledAt)! }, timezone)}`
+                          }
                         </span>
                       )}
                     </div>
