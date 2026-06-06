@@ -42,7 +42,7 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 - [x] Admin: banner pronósticos faltantes (T11) — `/admin` muestra jugadores sin completar pronósticos en jornada abierta; indica "ninguno" o "k/N" partidos; usa `getCountFromServer` para conteo eficiente
 - [x] ~~Fase 13~~ — **Cancelada**
 - [x] Editar perfil desde Preferencias (T13) — sección "Perfil" al inicio de `PreferencesContent` con campo de nombre editable + botón "Guardar" condicional; cambio de avatar Cámara/Galería reutilizando flujo de T12; sincroniza con `onSnapshot` de `AuthContext`
-- [x] Deadline de pronósticos: 10 min antes del partido (T14) — cliente bloquea con `PREDICTION_CUTOFF_MS = 10*60*1000`; card del partido muestra "⏱ cierre HH:MM" o "⛔ HH:MM"; Firestore rules enforce con `request.time < match.scheduledAt - duration.seconds(600)`, inmune a manipulación del reloj del cliente
+- [x] Deadline de pronósticos: 10 min antes del partido (T14) — cliente bloquea con `PREDICTION_CUTOFF_MS = 10*60*1000`; card del partido muestra "⏱ cierre HH:MM" o "⛔ HH:MM"; Firestore rules enforce con `request.time.toMillis() + 600000 < match.scheduledAt.toMillis()` (**no usar `duration.seconds()` — no es soportado en runtime aunque compile**)
 - [x] Dashboard card "Próximos partidos" — reemplaza línea "Deadline" por lista de partidos del día más cercano agrupados por hora de cierre (bandera + nombre completo de equipo); fallback a "Deadline:" cuando todos están bloqueados
 - [ ] **PENDIENTE**: Modo claro (T8) — rama `feat/T8-light-mode`, pausado por diseño
 
@@ -245,7 +245,7 @@ El campo `theme?: ThemeId` se guarda en el documento `users/{uid}` de Firestore.
 
 1. **Auth guard** — Sin auth → `/login`. Auth pero sin onboarding → `/onboarding`.
 2. **Onboarding** — Escribe `onboardingCompleted: true` **antes** de redirigir. `AuthContext` lo detecta via `onSnapshot` y `OnboardingRoute` redirige.
-3. **Predicciones** — Solo guardar si `matchday.status === 'open'` y `Date.now() < predictionDeadline`. Adicionalmente, cada partido se bloquea **10 minutos antes** de `match.scheduledAt` (`PREDICTION_CUTOFF_MS = 10 * 60 * 1000`). Enforcement doble: cliente (`matchReadOnly` en `MatchdayPredictions.tsx`) + Firestore rules (`request.time < match.scheduledAt - duration.seconds(600)`). El segundo es inmune a manipulación del reloj del cliente.
+3. **Predicciones** — Solo guardar si `matchday.status === 'open'` y `Date.now() < predictionDeadline`. Adicionalmente, cada partido se bloquea **10 minutos antes** de `match.scheduledAt` (`PREDICTION_CUTOFF_MS = 10 * 60 * 1000`). Enforcement doble: cliente (`matchReadOnly` en `MatchdayPredictions.tsx`) + Firestore rules (`request.time.toMillis() + 600000 < match.scheduledAt.toMillis()`). El segundo es inmune a manipulación del reloj del cliente. **No usar `duration.seconds()` en rules — compila pero falla en runtime bloqueando todos los writes.**
 4. **Leaderboard** — Lee la colección `users` filtrada por `onboardingCompleted === true`, ordenada por `stats.totalPoints` desc. Los puntos son escritos server-side por `onMatchUpdated`. La regla de Firestore permite `read` a cualquier `isAllowedUser()` — sin este permiso el query de colección falla.
 5. **Scoring** — Siempre server-side (Cloud Functions). El cliente solo lee `stats` y `prediction.points`. Nunca calcular puntos en el cliente.
 
@@ -256,7 +256,7 @@ El campo `theme?: ThemeId` se guarda en el documento `users/{uid}` de Firestore.
 - Puntos se calculan **server-side** (Cloud Functions). El cliente solo lee; nunca calcula.
 - `bonusPredictions.pointsAwarded` evita doble puntuación de bonus.
 - Bonus editables hasta `2026-06-11T13:00:00Z` (hardcodeado en `BonusSummary.tsx`).
-- Predicciones de jornada: editables hasta el `predictionDeadline` de la jornada **y** hasta **10 minutos antes** de que el partido inicie (`match.scheduledAt - 600s`) — lo que ocurra primero. El corte por partido se enforce en Firestore rules con `request.time < match.scheduledAt - duration.seconds(600)`, inmune al reloj del cliente.
+- Predicciones de jornada: editables hasta el `predictionDeadline` de la jornada **y** hasta **10 minutos antes** de que el partido inicie — lo que ocurra primero. El corte por partido se enforce en Firestore rules con `request.time.toMillis() + 600000 < match.scheduledAt.toMillis()`. **Importante:** `duration.seconds()` compila pero falla en runtime bloqueando todos los writes — usar siempre `toMillis()` para aritmética de timestamps en rules.
 - En fases eliminatorias con empate al 90', se requiere `tieWinner` (equipo que avanza).
 - Pronósticos ajenos: solo visibles cuando `matchday.status` es `'closed'` o `'finished'`. Aplicado en Firestore rules (con `get()` al documento de jornada) y en el toggle de UI.
 - Zona horaria: **UTC**. "Lo que escribes es lo que ves". `toLocaleString` usa `timeZone: 'UTC'`.
