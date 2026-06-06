@@ -117,3 +117,72 @@ Guardar `colorMode: 'dark' | 'light'` en el documento del usuario en Firestore (
 - El panel de admin puede quedar solo en modo oscuro en una primera versión (los admins suelen ser power users que prefieren oscuro).
 - Las tarjetas Panini (`PaniniCard.tsx`) usan gradientes propios — no se ven afectadas.
 - Probar especialmente: tab bar móvil, header, tarjetas del leaderboard, modal de historial, vista de pronósticos.
+
+---
+
+## T13 — Editar nombre y avatar desde Preferencias
+**Estado:** Completada ✅ (rama `feat/T13-edit-profile-preferences`, deploy pendiente)
+
+Los jugadores podrán cambiar su nombre de usuario y su avatar directamente desde la sección de Preferencias (la misma pantalla donde cambian el tema y la zona horaria).
+
+### Alcance
+
+- **Nombre de usuario:** campo de texto editable con botón "Guardar". Mismo validation que en onboarding (no vacío, máximo ~30 chars).
+- **Avatar:** reutilizar el flujo de T12 (Cámara / Galería) que ya existe en el header del Dashboard. No duplicar lógica — extraer el picker a un componente compartido o invocar el mismo handler desde Preferencias.
+
+### Archivos afectados
+
+- `src/pages/Preferences/Preferences.tsx` — agregar sección "Perfil" con campo de nombre + botón de avatar
+- `src/services/firestoreUsers.ts` — ya existe `adminUpdateUser`; agregar/reutilizar función para que el jugador actualice su propio `displayName`
+- `src/services/storageAvatars.ts` — reutilizar el upload que ya usa T12
+- Posiblemente extraer el avatar picker de `Dashboard.tsx` a un componente `AvatarPicker.tsx` si se va a compartir
+
+### Consideraciones
+
+- El nombre actualizado debe reflejarse en tiempo real en el header (ya se actualiza via `onSnapshot` en `AuthContext`).
+- No permitir guardar si el nombre no cambió (deshabilitar botón o no hacer el write).
+- En móvil, Preferencias se renderiza inline en el Dashboard — el flujo de cámara/galería debe funcionar igual que desde el header.
+
+---
+
+## T14 — Deadline de pronósticos: 10 minutos antes del partido (anti-trampas)
+**Estado:** Pendiente 🔲
+
+Actualmente el cierre de predicciones coincide con `match.scheduledAt` (inicio del partido). Cambiar el corte a **10 minutos antes** del inicio, y mover el enforcement a **Firestore security rules** para que no sea bypasseable manipulando el reloj del dispositivo.
+
+### Por qué server-side
+
+El check actual está en `MatchdayPredictions.tsx` comparando `Date.now()` contra `match.scheduledAt` — si el jugador cambia la hora de su computadora, puede saltarse ese bloqueo. La solución es enforcement en Firestore rules usando `request.time`, que es el timestamp del **servidor de Google**, inmune al reloj del cliente.
+
+### Cambios en Firestore rules (`firestore.rules`)
+
+En la rule de escritura de predicciones (`predictions/{predictionId}`), agregar la condición:
+
+```
+// Obtener el partido correspondiente
+let match = get(/databases/$(database)/documents/matches/$(matchId)).data;
+allow write: if isAllowedUser()
+  && matchday.status == 'open'
+  && request.time < match.scheduledAt - duration.seconds(600);  // 10 min antes
+```
+
+La UI puede seguir calculando y mostrando el countdown con `Date.now()` (experiencia de usuario), pero si el write llega tarde, Firestore lo rechaza con error de permisos independientemente del reloj local.
+
+### Cambios en el cliente (`MatchdayPredictions.tsx`)
+
+- Cambiar la condición `matchReadOnly` de `Date.now() >= match.scheduledAt` a `Date.now() >= match.scheduledAt - 10 * 60 * 1000`
+- Actualizar el texto del tooltip/estado bloqueado: "Cierre 10 min antes del partido"
+- El countdown en UI puede mostrar cuánto tiempo falta para el cierre (no para el inicio)
+
+### Archivos afectados
+
+- `firestore.rules` — condición de escritura en predicciones
+- `src/pages/Predictions/MatchdayPredictions.tsx` — flag `matchReadOnly` y texto de UI
+- `firestore.indexes.json` — revisar si el `get()` adicional requiere índice (normalmente no para documento único)
+
+### Consideraciones
+
+- El `get()` en Firestore rules consume 1 read por operación de escritura — costo bajo y aceptable.
+- Probar con el emulador: crear un partido con `scheduledAt` a 5 min en el futuro y verificar que el write es rechazado.
+- Si `match.scheduledAt` es un Timestamp de Firestore, la comparación con `request.time` y `duration.seconds()` funciona nativamente en rules.
+- Agregar test de reglas en `firestore.rules.test` (si existe) o documentar el caso de prueba manual.

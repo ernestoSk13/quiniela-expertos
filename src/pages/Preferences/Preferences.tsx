@@ -1,10 +1,13 @@
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import { usePWAInstall } from '@/hooks/usePWAInstall'
-import { saveUserTimezone } from '@/services/firestoreUsers'
+import { saveUserTimezone, updateUserProfile } from '@/services/firestoreUsers'
+import { uploadAvatar } from '@/services/storageAvatars'
+import Avatar from '@/components/Avatar'
 import ThemeSelector from '@/components/ThemeSelector'
 
 const PLATFORM_STEPS: Record<string, { icon: string; text: string }[]> = {
@@ -213,6 +216,37 @@ const prefStyles = `
   }
   .pref-select:focus { border-color: var(--accent); }
   .pref-select option { background: #1a1d27; color: white; }
+
+  .pref-input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 0.875rem;
+    outline: none;
+    padding: 0;
+  }
+  .pref-input::placeholder { color: rgba(255,255,255,0.2); }
+
+  .pref-save-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.28rem 0.7rem;
+    border-radius: 99px;
+    border: 1px solid var(--accent-muted);
+    background: var(--accent-deep);
+    color: var(--accent-light);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .pref-save-btn:hover { background: var(--accent-muted); border-color: var(--accent); }
+  .pref-save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 `
 
 // ── Content (exported for inline use inside Dashboard tab) ─────────────────────
@@ -224,6 +258,47 @@ export function PreferencesContent() {
   const pwa = usePWAInstall()
   const steps = PLATFORM_STEPS[pwa.platform] ?? PLATFORM_STEPS.desktop
 
+  // ── Profile editing ────────────────────────────────────────────────────────
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const [nameValue, setNameValue] = useState(user?.displayName ?? '')
+  const [nameSaving, setNameSaving] = useState(false)
+  const avatarFileInputRef   = useRef<HTMLInputElement>(null)
+  const avatarCameraInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (user?.displayName != null) setNameValue(user.displayName)
+  }, [user?.displayName])
+
+  async function handleAvatarFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    e.target.value = ''
+    setShowAvatarMenu(false)
+    setAvatarUploading(true)
+    try {
+      const url = await uploadAvatar(user.displayName, file)
+      await updateUserProfile(user.uid, { avatarUrl: url })
+    } catch (err) {
+      console.error('Error al subir avatar:', err)
+    } finally {
+      setAvatarUploading(false)
+    }
+  }
+
+  async function handleSaveName() {
+    const trimmed = nameValue.trim()
+    if (!user || !trimmed || trimmed === user.displayName) return
+    setNameSaving(true)
+    try {
+      await updateUserProfile(user.uid, { displayName: trimmed })
+    } catch (err) {
+      console.error('Error al guardar nombre:', err)
+    } finally {
+      setNameSaving(false)
+    }
+  }
+
   async function handleSignOut() {
     await signOut(auth)
     navigate('/login', { replace: true })
@@ -233,6 +308,124 @@ export function PreferencesContent() {
     <>
       <style>{prefStyles}</style>
       <div className="space-y-8">
+
+        {/* ── Perfil ── */}
+        {user && (
+          <section>
+            <SectionHeader label="Perfil" />
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{
+                background: 'var(--surface-card)',
+                border: '1px solid rgba(255,255,255,0.07)',
+              }}
+            >
+              {/* Avatar row */}
+              <div
+                className="flex items-center gap-3 px-4 py-3 relative"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+              >
+                <button
+                  onClick={() => setShowAvatarMenu(v => !v)}
+                  className="relative group shrink-0 rounded-full focus:outline-none"
+                >
+                  {avatarUploading ? (
+                    <div className="w-10 h-10 rounded-full bg-[var(--accent-muted)] flex items-center justify-center">
+                      <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor" className="animate-spin text-[var(--accent-light)]">
+                        <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                      </svg>
+                    </div>
+                  ) : (
+                    <>
+                      <Avatar url={user.avatarUrl ?? ''} name={user.displayName || '?'} size="md" />
+                      <span className="absolute inset-0 rounded-full flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                          <circle cx="12" cy="13" r="4"/>
+                        </svg>
+                      </span>
+                    </>
+                  )}
+                </button>
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white">Foto de perfil</p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.28)' }}>Toca para cambiar</p>
+                </div>
+
+                {/* Avatar dropdown */}
+                {showAvatarMenu && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setShowAvatarMenu(false)} />
+                    <div
+                      className="absolute right-4 top-12 z-30 rounded-xl overflow-hidden"
+                      style={{
+                        background: 'var(--surface-card)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                        minWidth: 148,
+                      }}
+                    >
+                      <button
+                        onClick={() => { setShowAvatarMenu(false); avatarCameraInputRef.current?.click() }}
+                        className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors text-left"
+                      >
+                        <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                          <circle cx="12" cy="13" r="4"/>
+                        </svg>
+                        Tomar foto
+                      </button>
+                      <div className="h-px bg-white/5 mx-3" />
+                      <button
+                        onClick={() => { setShowAvatarMenu(false); avatarFileInputRef.current?.click() }}
+                        className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-white/5 transition-colors text-left"
+                      >
+                        <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                          <circle cx="8.5" cy="8.5" r="1.5"/>
+                          <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                        Galería
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Name row */}
+              <div className="flex items-center gap-3 px-4 py-3">
+                <span style={{ color: 'rgba(255,255,255,0.28)', flexShrink: 0 }}>
+                  <PersonIcon />
+                </span>
+                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.28)', width: 52, flexShrink: 0 }}>
+                  Nombre
+                </span>
+                <input
+                  className="pref-input"
+                  value={nameValue}
+                  onChange={e => setNameValue(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSaveName()}
+                  placeholder="Tu nombre"
+                  maxLength={30}
+                />
+                {nameValue.trim() !== user.displayName && nameValue.trim().length > 0 && (
+                  <button
+                    className="pref-save-btn"
+                    onClick={handleSaveName}
+                    disabled={nameSaving}
+                  >
+                    {nameSaving ? '...' : 'Guardar'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Hidden file inputs */}
+            <input ref={avatarCameraInputRef} type="file" accept="image/*" capture="user" className="hidden" onChange={handleAvatarFileChange} />
+            <input ref={avatarFileInputRef}   type="file" accept="image/*"               className="hidden" onChange={handleAvatarFileChange} />
+          </section>
+        )}
 
         {/* ── Tema ── */}
         <section>
