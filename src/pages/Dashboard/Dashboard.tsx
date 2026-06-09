@@ -18,6 +18,7 @@ import BonusSummary from './BonusSummary'
 import TournamentCountdown from './TournamentCountdown'
 import PlayerHistoryModal, { HistoryContent } from './PlayerHistoryModal'
 import LeaderboardShareCard from './LeaderboardShareCard'
+import LiveBand from './LiveBand'
 import { PreferencesContent } from '@/pages/Preferences/Preferences'
 import { useTheme } from '@/context/ThemeContext'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
@@ -515,6 +516,7 @@ export default function Dashboard() {
         {activeTab === 'predictions' && (
           <div className="space-y-4">
             <TournamentCountdown />
+            <LiveBand matches={nextMatches} players={players} teamsMap={teamsMap} />
             {isObserver && (
               <div className="rounded-xl px-4 py-3 text-center text-sm text-gray-500 border border-gray-800" style={{ background: 'var(--surface-card)' }}>
                 👁️ Modo Observador — no participas en pronósticos ni en la tabla
@@ -551,25 +553,27 @@ export default function Dashboard() {
 
       {/* ── Desktop: original grid layout (hidden below lg) ────────────────── */}
       <main className="hidden lg:block max-w-5xl mx-auto px-4 py-8">
-        <TournamentCountdown />
-        <div className="grid grid-cols-3 gap-6">
+        <div className="space-y-6">
+          <TournamentCountdown />
+          <LiveBand matches={nextMatches} players={players} teamsMap={teamsMap} />
+          <div className="grid grid-cols-3 gap-6">
+            {/* Leaderboard — 2/3 */}
+            <div className="col-span-2">
+              {leaderboardSection}
+            </div>
 
-          {/* Leaderboard — 2/3 */}
-          <div className="col-span-2">
-            {leaderboardSection}
-          </div>
-
-          {/* Sidebar — 1/3 */}
-          <div className="space-y-4">
-            {!isObserver && nextMatchdayCard}
-            {user?.bonusPredictions && (
-              <BonusSummary
-                bonus={user.bonusPredictions}
-                teams={teams}
-                teamsMap={teamsMap}
-                onSave={handleSaveBonus}
-              />
-            )}
+            {/* Sidebar — 1/3 */}
+            <div className="space-y-4">
+              {!isObserver && nextMatchdayCard}
+              {user?.bonusPredictions && (
+                <BonusSummary
+                  bonus={user.bonusPredictions}
+                  teams={teams}
+                  teamsMap={teamsMap}
+                  onSave={handleSaveBonus}
+                />
+              )}
+            </div>
           </div>
         </div>
 

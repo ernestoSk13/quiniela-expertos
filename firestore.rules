@@ -57,11 +57,13 @@ service cloud.firestore {
     }
 
     // Pronósticos: cada usuario lee los suyos; todos pueden leer cuando la jornada está cerrada/finalizada
+    // o cuando el partido ya inició (scheduledAt <= request.time) — para la banda En Vivo
     match /predictions/{predictionId} {
       allow read: if isAllowedUser() && (
         resource.data.userId == request.auth.uid ||
         isAdmin() ||
-        get(/databases/$(database)/documents/matchdays/$(resource.data.matchdayId)).data.status in ['closed', 'finished']
+        get(/databases/$(database)/documents/matchdays/$(resource.data.matchdayId)).data.status in ['closed', 'finished'] ||
+        get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.scheduledAt.toMillis() <= request.time.toMillis()
       );
       allow create, update: if isAllowedUser() &&
         !isObserver() &&
