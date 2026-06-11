@@ -44,6 +44,7 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 - [x] Editar perfil desde Preferencias (T13) — sección "Perfil" al inicio de `PreferencesContent` con campo de nombre editable + botón "Guardar" condicional; cambio de avatar Cámara/Galería reutilizando flujo de T12; sincroniza con `onSnapshot` de `AuthContext`
 - [x] Deadline de pronósticos: 10 min antes del partido (T14) — cliente bloquea con `PREDICTION_CUTOFF_MS = 10*60*1000`; card del partido muestra "⏱ cierre HH:MM" o "⛔ HH:MM"; Firestore rules enforce con `request.time.toMillis() + 600000 < match.scheduledAt.toMillis()` (**no usar `duration.seconds()` — no es soportado en runtime aunque compile**)
 - [x] Dashboard card "Próximos partidos" — reemplaza línea "Deadline" por lista de partidos del día más cercano agrupados por hora de cierre (bandera + nombre completo de equipo); fallback a "Deadline:" cuando todos están bloqueados
+- [x] Banda En Vivo — `LiveBand.tsx` aparece en el dashboard cuando `match.scheduledAt <= now && match.status !== 'finished'`; fila horizontal scrolleable con avatar, nombre y badge LOCAL/EMP/VISIT por jugador (😔 si no envió predicción); selector de tabs con banderas si hay varios partidos en vivo simultáneos; visible en mobile (tab Pronósticos) y desktop (full-width antes del leaderboard); Firestore rules permiten leer pronósticos ajenos cuando el partido ya inició (`match.scheduledAt.toMillis() <= request.time.toMillis()`)
 - [ ] **PENDIENTE**: Modo claro (T8) — rama `feat/T8-light-mode`, pausado por diseño
 
 ---
@@ -150,6 +151,7 @@ src/
 │   ├── Dashboard/
 │   │   ├── BonusSummary.tsx
 │   │   ├── Dashboard.tsx
+│   │   ├── LiveBand.tsx             # Banda En Vivo: fila scrolleable de predicciones cuando scheduledAt <= now
 │   │   ├── LeaderboardShareCard.tsx # Botón "Compartir mi posición" → PNG con LeaderboardRow del usuario
 │   │   ├── LeaderboardTable.tsx     # Lista de LeaderboardRow con onClick → PlayerHistoryModal
 │   │   ├── PlayerHistoryModal.tsx   # Bottom-sheet/modal con historial y gráfica SVG
@@ -258,7 +260,7 @@ El campo `theme?: ThemeId` se guarda en el documento `users/{uid}` de Firestore.
 - Bonus editables hasta `2026-06-11T13:00:00Z` (hardcodeado en `BonusSummary.tsx`).
 - Predicciones de jornada: editables hasta el `predictionDeadline` de la jornada **y** hasta **10 minutos antes** de que el partido inicie — lo que ocurra primero. El corte por partido se enforce en Firestore rules con `request.time.toMillis() + 600000 < match.scheduledAt.toMillis()`. **Importante:** `duration.seconds()` compila pero falla en runtime bloqueando todos los writes — usar siempre `toMillis()` para aritmética de timestamps en rules.
 - En fases eliminatorias con empate al 90', se requiere `tieWinner` (equipo que avanza).
-- Pronósticos ajenos: solo visibles cuando `matchday.status` es `'closed'` o `'finished'`. Aplicado en Firestore rules (con `get()` al documento de jornada) y en el toggle de UI.
+- Pronósticos ajenos: solo visibles cuando `matchday.status` es `'closed'` o `'finished'`, **o cuando el partido ya inició** (`match.scheduledAt.toMillis() <= request.time.toMillis()`). Aplicado en Firestore rules (con `get()` al documento de jornada o de partido) y en el toggle de UI.
 - Zona horaria: **UTC**. "Lo que escribes es lo que ves". `toLocaleString` usa `timeZone: 'UTC'`.
 - `!= null` (desigualdad débil) para chequear `null | undefined`. Usar en lugar de `!== null` cuando un valor puede ser `undefined`.
 - **Puntos configurables:** Los valores de puntos viven en `config/scoring`. Las Cloud Functions los leen con `getScoringConfig()` antes de cada calificación. Cambiar los valores no recalifica predicciones ya puntuadas — advertir al usuario antes de guardar.
