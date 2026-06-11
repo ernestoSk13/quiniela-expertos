@@ -22,6 +22,12 @@ export async function getMatchdayAllPredictions(matchdayId: string): Promise<Pre
   return snap.docs.map(d => d.data() as Prediction)
 }
 
+export async function getMatchPredictions(matchId: string): Promise<Prediction[]> {
+  const q = query(collection(db, 'predictions'), where('matchId', '==', matchId))
+  const snap = await getDocs(q)
+  return snap.docs.map(d => d.data() as Prediction)
+}
+
 export async function getPredictionCountsByUser(): Promise<Record<string, number>> {
   const snap = await getDocs(collection(db, 'predictions'))
   const counts: Record<string, number> = {}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 
 // Opening match: Mexico vs ?? — June 11, 2026 13:00 UTC
-const TOURNAMENT_START = new Date('2026-06-11T13:00:00Z')
+const TOURNAMENT_START = new Date('2026-06-11T19:00:00Z')
 
 function getTimeLeft() {
   const diff = TOURNAMENT_START.getTime() - Date.now()
