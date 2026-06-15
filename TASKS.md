@@ -186,3 +186,37 @@ La UI puede seguir calculando y mostrando el countdown con `Date.now()` (experie
 - Probar con el emulador: crear un partido con `scheduledAt` a 5 min en el futuro y verificar que el write es rechazado.
 - Si `match.scheduledAt` es un Timestamp de Firestore, la comparación con `request.time` y `duration.seconds()` funciona nativamente en rules.
 - Agregar test de reglas en `firestore.rules.test` (si existe) o documentar el caso de prueba manual.
+
+---
+
+## T15 — Dashboard: mostrar dos recuadros de jornada simultáneos
+**Estado:** Pendiente 🔲
+
+Cuando hay dos jornadas con `status === 'open'` al mismo tiempo, el dashboard debe mostrar ambas: primero el recuadro de la jornada en curso y justo debajo el de la jornada siguiente. Esto le permite al jugador adelantar sus pronósticos de la siguiente jornada sin tener que esperar a que cierre la actual.
+
+La condición para mostrar el segundo recuadro es únicamente que la jornada esté en estado `'open'` (el admin la abre desde el panel). No se muestra si está en `'upcoming'`.
+
+### Comportamiento esperado
+
+- **Una sola jornada `open`** → comportamiento actual sin cambios (un recuadro).
+- **Dos jornadas `open`** → dos recuadros apilados verticalmente (móvil) / en la columna derecha del sidebar (desktop):
+  1. **Recuadro superior** — jornada más antigua (`order` menor), etiqueta "Jornada en curso".
+  2. **Recuadro inferior** — jornada más reciente (`order` mayor), etiqueta "Próxima jornada". Misma apariencia pero con un borde o distinción visual sutil para diferenciarlas.
+- Cada recuadro tiene su propia barra de progreso de pronósticos y su propio botón CTA.
+
+### Archivos afectados
+
+- `src/pages/Dashboard/Dashboard.tsx` — cambios principales:
+  - Reemplazar `matchdays.find(md => md.status === 'open' || md.status === 'upcoming')` por `matchdays.filter(md => md.status === 'open')` para obtener hasta 2 jornadas abiertas, más la primera `'upcoming'` como fallback si no hay ninguna `'open'`.
+  - Agregar un segundo conjunto de hooks (`useMatchesByMatchday`, `useMatchdayProgress`) para la segunda jornada abierta. Los hooks deben llamarse siempre (no condicionalmente) para cumplir las reglas de React hooks — pasar `''` como `matchdayId` cuando no hay segunda jornada.
+  - Convertir `nextMatchdayCard` de un JSX element a una función `renderMatchdayCard(matchday, matches, filled, total, label)` para reutilizarla con cada jornada.
+  - En móvil: apilar los dos recuadros verticalmente dentro del `space-y-4`.
+  - En desktop: apilar los dos recuadros verticalmente en la columna sidebar (`space-y-4`).
+
+### Consideraciones
+
+- El cálculo `upcomingGroups` (partidos del día más cercano con su cierre) depende de `nextMatches` y del matchday específico — extraerlo a una función pura `computeUpcomingGroups(matches, matchday, timezone)` para poder llamarla dos veces.
+- `useMatchdayProgress` retorna `{ filled, total }` — llamarlo para ambas jornadas, pasando el `uid` del usuario.
+- `useMatchesByMatchday` se puede llamar con `''` sin efectos secundarios (el hook retorna `[]` si el id está vacío).
+- No hay cambios en Firestore rules ni en Cloud Functions — la condición es puramente de UI basada en `matchday.status`.
+- El segundo recuadro debe verse clickeable aunque muestre una jornada que el jugador aún no ha tocado (filled = 0 → botón "Hacer pronósticos").

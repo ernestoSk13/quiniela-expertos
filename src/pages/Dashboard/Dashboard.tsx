@@ -24,7 +24,7 @@ import { useTheme } from '@/context/ThemeContext'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import { useUserTimezone } from '@/hooks/useUserTimezone'
 import type { BonusPredictions } from '@/types/User'
-import type { User } from '@/types'
+import type { Matchday, Match, User } from '@/types'
 
 type TabId = 'predictions' | 'leaderboard' | 'history' | 'preferences'
 
@@ -73,6 +73,29 @@ function formatDeadline(ts: any, timezone: string) {
   }) ?? '—'
 }
 
+const PRED_CUTOFF_MS = 10 * 60 * 1000
+
+function computeUpcomingGroups(matchday: Matchday | undefined, matches: Match[], timezone: string) {
+  if (matchday?.status !== 'open' || matches.length === 0) return []
+  const _now = Date.now()
+  const upcoming = matches
+    .filter(m => m.scheduledAt.toDate().getTime() - PRED_CUTOFF_MS > _now)
+    .sort((a, b) => a.scheduledAt.toDate().getTime() - b.scheduledAt.toDate().getTime())
+  if (upcoming.length === 0) return []
+  const toDay = (ts: { toDate(): Date }) =>
+    ts.toDate().toLocaleDateString('es-MX', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' })
+  const earliestDay = toDay(upcoming[0].scheduledAt)
+  const dayMatches = upcoming.filter(m => toDay(m.scheduledAt) === earliestDay)
+  const groupsMap: Record<string, Match[]> = {}
+  for (const m of dayMatches) {
+    const label = new Date(m.scheduledAt.toDate().getTime() - PRED_CUTOFF_MS)
+      .toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: timezone })
+    if (!groupsMap[label]) groupsMap[label] = []
+    groupsMap[label].push(m)
+  }
+  return Object.entries(groupsMap).map(([cutoffLabel, groupMatches]) => ({ cutoffLabel, groupMatches }))
+}
+
 export default function Dashboard() {
   const { user } = useAuth()
   const { themeId } = useTheme()
@@ -112,13 +135,21 @@ export default function Dashboard() {
     navigate('/login', { replace: true })
   }
 
-  const nextMatchday = matchdays.find(md => md.status === 'open' || md.status === 'upcoming')
+  const openMatchdays = matchdays.filter(md => md.status === 'open')
+  const currentMatchday = openMatchdays[0] ?? matchdays.find(md => md.status === 'upcoming')
+  const secondMatchday = openMatchdays.length >= 2 ? openMatchdays[1] : undefined
+
   const teams = Object.values(teamsMap)
-  const { filled, total } = useMatchdayProgress(
-    nextMatchday?.status === 'open' ? (nextMatchday.id ?? '') : '',
+  const { filled: filled1, total: total1 } = useMatchdayProgress(
+    currentMatchday?.status === 'open' ? (currentMatchday.id ?? '') : '',
     user?.uid ?? '',
   )
-  const { matches: nextMatches } = useMatchesByMatchday(nextMatchday?.id ?? '')
+  const { matches: currentMatches } = useMatchesByMatchday(currentMatchday?.id ?? '')
+  const { filled: filled2, total: total2 } = useMatchdayProgress(
+    secondMatchday?.id ?? '',
+    user?.uid ?? '',
+  )
+  const { matches: secondMatches } = useMatchesByMatchday(secondMatchday?.id ?? '')
 
   async function handleSaveBonus(bonus: BonusPredictions) {
     if (!user) return
@@ -132,171 +163,158 @@ export default function Dashboard() {
 
   const userPosition = players.findIndex(p => p.uid === user?.uid) + 1
 
-  // ── Upcoming matches grouped by per-match cutoff (10 min before scheduledAt) ──
-
-  const PRED_CUTOFF_MS = 10 * 60 * 1000
-  const upcomingGroups = (() => {
-    if (nextMatchday?.status !== 'open' || nextMatches.length === 0) return []
-    const _now = Date.now()
-    const upcoming = nextMatches
-      .filter(m => m.scheduledAt.toDate().getTime() - PRED_CUTOFF_MS > _now)
-      .sort((a, b) => a.scheduledAt.toDate().getTime() - b.scheduledAt.toDate().getTime())
-    if (upcoming.length === 0) return []
-    const toDay = (ts: { toDate(): Date }) =>
-      ts.toDate().toLocaleDateString('es-MX', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' })
-    const earliestDay = toDay(upcoming[0].scheduledAt)
-    const dayMatches = upcoming.filter(m => toDay(m.scheduledAt) === earliestDay)
-    const groupsMap: Record<string, typeof nextMatches> = {}
-    for (const m of dayMatches) {
-      const label = new Date(m.scheduledAt.toDate().getTime() - PRED_CUTOFF_MS)
-        .toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: timezone })
-      if (!groupsMap[label]) groupsMap[label] = []
-      groupsMap[label].push(m)
-    }
-    return Object.entries(groupsMap).map(([cutoffLabel, groupMatches]) => ({ cutoffLabel, groupMatches }))
-  })()
-
   // ── Shared section blocks ──────────────────────────────────────────────────
 
-  const nextMatchdayCard = (
-    <div
-      className="rounded-xl overflow-hidden"
-      style={{
-        background: 'linear-gradient(135deg, var(--surface-card) 0%, rgba(5,21,16,0.7) 100%)',
-        border: '1px solid rgba(255,255,255,0.06)',
-        borderLeft: '3px solid var(--accent)',
-        boxShadow: '0 0 0 0 transparent, inset 3px 0 12px -4px var(--accent-muted)',
-      }}
-    >
-      <div className="p-5">
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-3">
-          {nextMatchday?.status === 'open' && (
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span
-                className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
-                style={{ background: 'var(--accent)' }}
-              />
-              <span
-                className="relative inline-flex rounded-full h-2 w-2"
-                style={{ background: 'var(--accent)' }}
-              />
-            </span>
-          )}
-          <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-[0.2em]">
-            Siguiente jornada
-          </h3>
-        </div>
-
-        {matchdaysLoading ? (
-          <p className="text-gray-500 text-sm">Cargando...</p>
-        ) : !nextMatchday ? (
-          <p className="text-gray-500 text-sm">No hay jornadas próximas.</p>
-        ) : (
-          <div className="space-y-3">
-            {/* Jornada name + badge */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-base text-white leading-tight">{nextMatchday.name}</span>
-              <StatusBadge status={nextMatchday.status} type="matchday" />
-            </div>
-
-            {/* Próximos partidos agrupados por cierre */}
-            {upcomingGroups.length > 0 ? (
-              <div className="space-y-2.5">
-                <p className="text-[10px] font-semibold tracking-[0.18em] uppercase text-gray-600">
-                  Próximos partidos
-                </p>
-                {upcomingGroups.map(({ cutoffLabel, groupMatches }) => (
-                  <div key={cutoffLabel} className="space-y-1.5">
-                    <p className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <svg viewBox="0 0 16 16" width={10} height={10} fill="currentColor" className="shrink-0 text-gray-600">
-                        <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-4.5a.5.5 0 0 1 .5.5v4.25l2.75 1.65a.5.5 0 0 1-.5.87L7.25 9a.5.5 0 0 1-.25-.43V4a.5.5 0 0 1 .5-.5z"/>
-                      </svg>
-                      Cierre: {cutoffLabel}
-                    </p>
-                    {groupMatches.map(m => (
-                      <div key={m.id} className="flex items-center gap-1.5 pl-4">
-                        <span className="text-base leading-none">{teamsMap[m.homeTeamCode]?.flag ?? '🏳️'}</span>
-                        <span className="text-xs text-white/75 font-medium flex-1 truncate">{teamsMap[m.homeTeamCode]?.name ?? m.homeTeamCode}</span>
-                        <span className="text-[10px] text-white/25 font-bold px-0.5">—</span>
-                        <span className="text-xs text-white/75 font-medium flex-1 text-right truncate">{teamsMap[m.awayTeamCode]?.name ?? m.awayTeamCode}</span>
-                        <span className="text-base leading-none">{teamsMap[m.awayTeamCode]?.flag ?? '🏳️'}</span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="flex items-center gap-1.5 text-xs text-gray-500">
-                <svg viewBox="0 0 16 16" width={12} height={12} fill="currentColor" className="shrink-0 text-gray-600">
-                  <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-4.5a.5.5 0 0 1 .5.5v4.25l2.75 1.65a.5.5 0 0 1-.5.87L7.25 9a.5.5 0 0 1-.25-.43V4a.5.5 0 0 1 .5-.5z"/>
-                </svg>
-                <span>Deadline: <span className="text-gray-400 font-medium">{formatDeadline(nextMatchday.predictionDeadline, timezone)}</span></span>
-              </p>
+  function renderMatchdayCard(
+    matchday: Matchday | undefined,
+    matches: Match[],
+    filled: number,
+    total: number,
+    label: string,
+  ) {
+    const upcomingGroups = computeUpcomingGroups(matchday, matches, timezone)
+    return (
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, var(--surface-card) 0%, rgba(5,21,16,0.7) 100%)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderLeft: '3px solid var(--accent)',
+          boxShadow: '0 0 0 0 transparent, inset 3px 0 12px -4px var(--accent-muted)',
+        }}
+      >
+        <div className="p-5">
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-3">
+            {matchday?.status === 'open' && (
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span
+                  className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                  style={{ background: 'var(--accent)' }}
+                />
+                <span
+                  className="relative inline-flex rounded-full h-2 w-2"
+                  style={{ background: 'var(--accent)' }}
+                />
+              </span>
             )}
-
-            {/* Progress bar */}
-            {nextMatchday.status === 'open' && total > 0 && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500">Mis pronósticos</span>
-                  <span className={`font-semibold tabular-nums ${filled === total ? 'text-[var(--accent-light)]' : 'text-gray-400'}`}>
-                    {filled} / {total}
-                  </span>
-                </div>
-                <div className="h-1.5 bg-gray-800/80 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${Math.round((filled / total) * 100)}%`,
-                      background: filled === total
-                        ? 'var(--accent-light)'
-                        : 'var(--accent)',
-                      boxShadow: filled === total
-                        ? '0 0 8px var(--accent-light)'
-                        : '0 0 4px var(--accent-muted)',
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* CTA button */}
-            <button
-              onClick={() => navigate(`/jornada/${nextMatchday.id}`)}
-              disabled={nextMatchday.status !== 'open'}
-              className="w-full font-semibold py-2.5 rounded-xl text-sm transition-all duration-200 disabled:bg-gray-800/60 disabled:text-gray-600 disabled:cursor-default"
-              style={
-                nextMatchday.status === 'open'
-                  ? {
-                      background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%)',
-                      color: '#fff',
-                      boxShadow: '0 2px 12px var(--accent-muted)',
-                    }
-                  : {}
-              }
-              onMouseEnter={e => {
-                if (nextMatchday.status === 'open') {
-                  (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 20px var(--accent-muted)'
-                  ;(e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'
-                }
-              }}
-              onMouseLeave={e => {
-                if (nextMatchday.status === 'open') {
-                  (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 12px var(--accent-muted)'
-                  ;(e.currentTarget as HTMLButtonElement).style.transform = ''
-                }
-              }}
-            >
-              {nextMatchday.status === 'open'
-                ? filled === 0 ? 'Hacer pronósticos' : filled < total ? 'Continuar pronósticos' : 'Ver pronósticos'
-                : 'Aún no disponible'}
-            </button>
+            <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-[0.2em]">
+              {label}
+            </h3>
           </div>
-        )}
+
+          {matchdaysLoading ? (
+            <p className="text-gray-500 text-sm">Cargando...</p>
+          ) : !matchday ? (
+            <p className="text-gray-500 text-sm">No hay jornadas próximas.</p>
+          ) : (
+            <div className="space-y-3">
+              {/* Jornada name + badge */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-base text-white leading-tight">{matchday.name}</span>
+                <StatusBadge status={matchday.status} type="matchday" />
+              </div>
+
+              {/* Próximos partidos agrupados por cierre */}
+              {upcomingGroups.length > 0 ? (
+                <div className="space-y-2.5">
+                  <p className="text-[10px] font-semibold tracking-[0.18em] uppercase text-gray-600">
+                    Próximos partidos
+                  </p>
+                  {upcomingGroups.map(({ cutoffLabel, groupMatches }) => (
+                    <div key={cutoffLabel} className="space-y-1.5">
+                      <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <svg viewBox="0 0 16 16" width={10} height={10} fill="currentColor" className="shrink-0 text-gray-600">
+                          <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-4.5a.5.5 0 0 1 .5.5v4.25l2.75 1.65a.5.5 0 0 1-.5.87L7.25 9a.5.5 0 0 1-.25-.43V4a.5.5 0 0 1 .5-.5z"/>
+                        </svg>
+                        Cierre: {cutoffLabel}
+                      </p>
+                      {groupMatches.map(m => (
+                        <div key={m.id} className="flex items-center gap-1.5 pl-4">
+                          <span className="text-base leading-none">{teamsMap[m.homeTeamCode]?.flag ?? '🏳️'}</span>
+                          <span className="text-xs text-white/75 font-medium flex-1 truncate">{teamsMap[m.homeTeamCode]?.name ?? m.homeTeamCode}</span>
+                          <span className="text-[10px] text-white/25 font-bold px-0.5">—</span>
+                          <span className="text-xs text-white/75 font-medium flex-1 text-right truncate">{teamsMap[m.awayTeamCode]?.name ?? m.awayTeamCode}</span>
+                          <span className="text-base leading-none">{teamsMap[m.awayTeamCode]?.flag ?? '🏳️'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <svg viewBox="0 0 16 16" width={12} height={12} fill="currentColor" className="shrink-0 text-gray-600">
+                    <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zM0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-4.5a.5.5 0 0 1 .5.5v4.25l2.75 1.65a.5.5 0 0 1-.5.87L7.25 9a.5.5 0 0 1-.25-.43V4a.5.5 0 0 1 .5-.5z"/>
+                  </svg>
+                  <span>Deadline: <span className="text-gray-400 font-medium">{formatDeadline(matchday.predictionDeadline, timezone)}</span></span>
+                </p>
+              )}
+
+              {/* Progress bar */}
+              {matchday.status === 'open' && total > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">Mis pronósticos</span>
+                    <span className={`font-semibold tabular-nums ${filled === total ? 'text-[var(--accent-light)]' : 'text-gray-400'}`}>
+                      {filled} / {total}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-gray-800/80 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.round((filled / total) * 100)}%`,
+                        background: filled === total
+                          ? 'var(--accent-light)'
+                          : 'var(--accent)',
+                        boxShadow: filled === total
+                          ? '0 0 8px var(--accent-light)'
+                          : '0 0 4px var(--accent-muted)',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* CTA button */}
+              <button
+                onClick={() => navigate(`/jornada/${matchday.id}`)}
+                disabled={matchday.status !== 'open'}
+                className="w-full font-semibold py-2.5 rounded-xl text-sm transition-all duration-200 disabled:bg-gray-800/60 disabled:text-gray-600 disabled:cursor-default"
+                style={
+                  matchday.status === 'open'
+                    ? {
+                        background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%)',
+                        color: '#fff',
+                        boxShadow: '0 2px 12px var(--accent-muted)',
+                      }
+                    : {}
+                }
+                onMouseEnter={e => {
+                  if (matchday.status === 'open') {
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 20px var(--accent-muted)'
+                    ;(e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (matchday.status === 'open') {
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 12px var(--accent-muted)'
+                    ;(e.currentTarget as HTMLButtonElement).style.transform = ''
+                  }
+                }}
+              >
+                {matchday.status === 'open'
+                  ? filled === 0 ? 'Hacer pronósticos' : filled < total ? 'Continuar pronósticos' : 'Ver pronósticos'
+                  : 'Aún no disponible'}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  const cardLabel1 = openMatchdays.length >= 2 ? 'Jornada en curso' : 'Siguiente jornada'
 
   const pastMatchdaysSection = pastMatchdays.length > 0 ? (
     <div>
@@ -516,13 +534,14 @@ export default function Dashboard() {
         {activeTab === 'predictions' && (
           <div className="space-y-4">
             <TournamentCountdown />
-            <LiveBand matches={nextMatches} players={players} teamsMap={teamsMap} />
+            <LiveBand matches={[...currentMatches, ...secondMatches]} players={players} teamsMap={teamsMap} />
             {isObserver && (
               <div className="rounded-xl px-4 py-3 text-center text-sm text-gray-500 border border-gray-800" style={{ background: 'var(--surface-card)' }}>
                 👁️ Modo Observador — no participas en pronósticos ni en la tabla
               </div>
             )}
-            {!isObserver && nextMatchdayCard}
+            {!isObserver && renderMatchdayCard(currentMatchday, currentMatches, filled1, total1, cardLabel1)}
+            {!isObserver && secondMatchday && renderMatchdayCard(secondMatchday, secondMatches, filled2, total2, 'Próxima jornada')}
             {user?.bonusPredictions && (
               <BonusSummary
                 bonus={user.bonusPredictions}
@@ -555,7 +574,7 @@ export default function Dashboard() {
       <main className="hidden lg:block max-w-5xl mx-auto px-4 py-8">
         <div className="space-y-6">
           <TournamentCountdown />
-          <LiveBand matches={nextMatches} players={players} teamsMap={teamsMap} />
+          <LiveBand matches={[...currentMatches, ...secondMatches]} players={players} teamsMap={teamsMap} />
           <div className="grid grid-cols-3 gap-6">
             {/* Leaderboard — 2/3 */}
             <div className="col-span-2">
@@ -564,7 +583,8 @@ export default function Dashboard() {
 
             {/* Sidebar — 1/3 */}
             <div className="space-y-4">
-              {!isObserver && nextMatchdayCard}
+              {!isObserver && renderMatchdayCard(currentMatchday, currentMatches, filled1, total1, cardLabel1)}
+              {!isObserver && secondMatchday && renderMatchdayCard(secondMatchday, secondMatches, filled2, total2, 'Próxima jornada')}
               {user?.bonusPredictions && (
                 <BonusSummary
                   bonus={user.bonusPredictions}
