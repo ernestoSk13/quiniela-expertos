@@ -669,24 +669,7 @@ export default function PlayerHistoryModal({ player, position, isOwnProfile, tea
 
           {/* ── History content ── */}
           <div className="px-4">
-            {isOwnProfile ? (
-              <HistoryContent userId={player.uid} teamsMap={teamsMap} />
-            ) : (
-              <div className="py-8 flex flex-col items-center gap-2.5 text-center">
-                <svg
-                  width="22" height="22" viewBox="0 0 24 24" fill="none"
-                  stroke="var(--accent)" strokeWidth="1.5"
-                  strokeLinecap="round" strokeLinejoin="round"
-                  opacity="0.28"
-                >
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.28)' }}>
-                  El historial detallado solo está disponible en tu propio perfil.
-                </p>
-              </div>
-            )}
+            <HistoryContent userId={player.uid} teamsMap={teamsMap} />
           </div>
 
         </div>
