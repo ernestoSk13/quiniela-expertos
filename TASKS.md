@@ -224,7 +224,7 @@ La condición para mostrar el segundo recuadro es únicamente que la jornada est
 ---
 
 ## T16 — Historial de todos
-**Estado:** Pendiente 🔲
+**Estado:** Completada ✅ (PR #25 + fix PR #26, deploy 2026-06-15)
 
 En el tab de Historial (móvil), agregar un selector de jugador para que cualquier participante pueda ver cómo les fue a los demás en los partidos ya jugados. Actualmente el tab solo muestra el historial propio.
 
