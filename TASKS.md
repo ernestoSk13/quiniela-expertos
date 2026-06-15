@@ -190,7 +190,7 @@ La UI puede seguir calculando y mostrando el countdown con `Date.now()` (experie
 ---
 
 ## T15 — Dashboard: mostrar dos recuadros de jornada simultáneos
-**Estado:** Pendiente 🔲
+**Estado:** Completada ✅ (PR #24, deploy 2026-06-15)
 
 Cuando hay dos jornadas con `status === 'open'` al mismo tiempo, el dashboard debe mostrar ambas: primero el recuadro de la jornada en curso y justo debajo el de la jornada siguiente. Esto le permite al jugador adelantar sus pronósticos de la siguiente jornada sin tener que esperar a que cierre la actual.
 
@@ -220,3 +220,60 @@ La condición para mostrar el segundo recuadro es únicamente que la jornada est
 - `useMatchesByMatchday` se puede llamar con `''` sin efectos secundarios (el hook retorna `[]` si el id está vacío).
 - No hay cambios en Firestore rules ni en Cloud Functions — la condición es puramente de UI basada en `matchday.status`.
 - El segundo recuadro debe verse clickeable aunque muestre una jornada que el jugador aún no ha tocado (filled = 0 → botón "Hacer pronósticos").
+
+---
+
+## T16 — Historial de todos
+**Estado:** Pendiente 🔲
+
+En el tab de Historial (móvil), agregar un selector de jugador para que cualquier participante pueda ver cómo les fue a los demás en los partidos ya jugados. Actualmente el tab solo muestra el historial propio.
+
+### Comportamiento esperado
+
+- Al abrir el tab "Historial" en móvil, aparece un selector horizontal de jugadores encima del contenido.
+- El jugador propio aparece primero, con la etiqueta "Yo", y está seleccionado por default.
+- Al tocar otro jugador, el historial (gráfica + acordeón de jornadas) se reemplaza con el del jugador seleccionado.
+- Los stats de cabecera (Puntos / Aciertos / Enviados) también cambian para mostrar los del jugador seleccionado.
+- En desktop esta funcionalidad ya existe: click en cualquier fila del leaderboard abre el `PlayerHistoryModal`. El mismo modal debe mostrar el historial completo también para jugadores ajenos (actualmente muestra un candado). Aprovechar este cambio para desbloquearlo.
+
+### Implementación
+
+**`src/pages/Dashboard/Dashboard.tsx`**
+
+- Agregar estado `const [historyUserId, setHistoryUserId] = useState<string>(user?.uid ?? '')`, inicializado al uid del usuario activo.
+- En `historySection`, añadir encima de los stats un selector horizontal scrolleable tipo pill-list con todos los jugadores del array `players` (ya disponible en el componente). El pill del jugador propio muestra "Yo"; los demás muestran su `displayName` truncado + avatar pequeño (`Avatar` component, `size="sm"`).
+- Reemplazar `user.uid` en `<HistoryContent userId={user.uid} />` por `historyUserId`.
+- Los stats (Puntos / Aciertos / Enviados) deben leer de `players.find(p => p.uid === historyUserId)` en lugar de `user` para que reflejen al jugador seleccionado.
+
+**`src/pages/Dashboard/PlayerHistoryModal.tsx`**
+
+- Eliminar la condición `isOwnProfile ? ... : <lock>` y mostrar siempre `<HistoryContent userId={player.uid} teamsMap={teamsMap} />`.
+- La prop `isOwnProfile` puede mantenerse para el badge "TÚ" en el header, pero no para bloquear el contenido.
+
+### Firestore rules
+
+Sin cambios. La regla actual ya permite leer predicciones ajenas cuando `matchday.status in ['closed', 'finished']`:
+
+```
+allow read: if isAllowedUser() && (
+  resource.data.userId == request.auth.uid ||
+  isAdmin() ||
+  get(...matchdays/...).data.status in ['closed', 'finished'] ||
+  ...
+);
+```
+
+`usePlayerHistory` usa `getUserPredictions(userId)` que hace una query collection. Firestore filtra silenciosamente los documentos que no pasan la regla, así que solo devolverá predicciones de jornadas cerradas — que es exactamente lo que el historial debe mostrar.
+
+### Archivos afectados
+
+- `src/pages/Dashboard/Dashboard.tsx` — estado `historyUserId`, pill-list de jugadores, stats dinámicos
+- `src/pages/Dashboard/PlayerHistoryModal.tsx` — remover bloqueo de historial ajeno
+
+### Consideraciones
+
+- El pill-list debe ser horizontalmente scrolleable sin barra visible (`overflow-x-auto scrollbar-none`) para no ocupar demasiado espacio vertical.
+- `Avatar` ya acepta `size="sm"` — usar ese tamaño en los pills.
+- Cuando se cambia de jugador, `usePlayerHistory` re-ejecuta con el nuevo `userId` — la carga es automática.
+- Si `players` está vacío (cargando leaderboard), mostrar solo el pill del usuario actual.
+- No mostrar el pill-list si hay un solo jugador.

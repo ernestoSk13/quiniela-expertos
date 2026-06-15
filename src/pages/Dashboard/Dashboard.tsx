@@ -16,11 +16,13 @@ import ThemeSelector from '@/components/ThemeSelector'
 import LeaderboardTable from './LeaderboardTable'
 import BonusSummary from './BonusSummary'
 import TournamentCountdown from './TournamentCountdown'
-import PlayerHistoryModal, { HistoryContent } from './PlayerHistoryModal'
+import PlayerHistoryModal from './PlayerHistoryModal'
+import AllPlayersGrid from './AllPlayersGrid'
 import LeaderboardShareCard from './LeaderboardShareCard'
 import LiveBand from './LiveBand'
 import { PreferencesContent } from '@/pages/Preferences/Preferences'
 import { useTheme } from '@/context/ThemeContext'
+import { useAllPlayersGrid } from '@/hooks/useAllPlayersGrid'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import { useUserTimezone } from '@/hooks/useUserTimezone'
 import type { BonusPredictions } from '@/types/User'
@@ -103,6 +105,7 @@ export default function Dashboard() {
   const { matchdays, loading: matchdaysLoading } = useMatchdays()
   const { players, loading: leaderboardLoading } = useLeaderboard()
   const { teamsMap } = useTeamsMap()
+  const { data: gridData, loading: gridLoading } = useAllPlayersGrid()
   const navigate = useNavigate()
   const [selectedPlayer, setSelectedPlayer] = useState<{ player: User; position: number } | null>(null)
   const isObserver = user?.role === 'observer'
@@ -354,26 +357,16 @@ export default function Dashboard() {
     </>
   )
 
-  const historySection = user ? (
+  const historySection = (
     <>
-      <h2 className="text-lg font-bold mb-4">Mi historial</h2>
-      <div className="grid grid-cols-4 gap-2 mb-2">
-        {[
-          { label: 'Puntos',    value: user.stats.totalPoints,         accent: true  },
-          { label: 'Aciertos',  value: user.stats.correctPredictions,  accent: false },
-          { label: 'Enviados',  value: user.stats.totalPredictions,    accent: false },
-        ].map(({ label, value, accent }) => (
-          <div key={label} className="bg-gray-900/60 rounded-xl px-2 py-3 text-center">
-            <p className={`text-xl font-black tabular-nums ${accent ? 'text-[var(--accent-light)]' : 'text-white'}`}>
-              {value}
-            </p>
-            <p className="text-[10px] text-gray-500 mt-0.5">{label}</p>
-          </div>
-        ))}
-      </div>
-      <HistoryContent userId={user.uid} teamsMap={teamsMap} />
+      <h2 className="text-lg font-bold mb-4">Historial de todos</h2>
+      {gridLoading ? (
+        <p className="text-sm text-gray-500">Cargando...</p>
+      ) : gridData ? (
+        <AllPlayersGrid players={players} data={gridData} teamsMap={teamsMap} />
+      ) : null}
     </>
-  ) : null
+  )
 
   return (
     <div className="min-h-screen app-bg text-white">
