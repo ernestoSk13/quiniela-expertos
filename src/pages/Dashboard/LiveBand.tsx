@@ -156,7 +156,7 @@ export default function LiveBand({ matches, players, teamsMap }: Props) {
                     {player.displayName.split(' ')[0]}
                   </span>
                   {pred?.homeGoals != null && pred.awayGoals != null ? (
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full leading-none tabular-nums ${RESULT_STYLE[pred.result]}`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full leading-none tabular-nums ${pred.result ? RESULT_STYLE[pred.result] : ''}`}>
                       {pred.homeGoals}–{pred.awayGoals}
                     </span>
                   ) : pred?.result ? (
