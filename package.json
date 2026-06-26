@@ -10,6 +10,7 @@
     "emulators": "firebase emulators:start",
     "seed": "FIRESTORE_EMULATOR_HOST=localhost:8080 tsx scripts/seed.ts",
     "seed:r32": "FIRESTORE_EMULATOR_HOST=localhost:8080 tsx scripts/seed-r32.ts",
+    "seed:r32:prod": "dotenv -e .env.local -- tsx scripts/seed-r32.ts",
     "push-to-prod": "dotenv -e .env.local -- tsx scripts/push-to-prod.ts",
     "pull-from-prod": "dotenv -e .env.local -- tsx scripts/pull-from-prod.ts",
     "fix-timestamps": "dotenv -e .env.local -- tsx scripts/fix-timestamps.ts"

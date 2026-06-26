@@ -2,18 +2,40 @@
 /**
  * Seed script — carga la jornada de 16vos de final (Round of 32) y sus 16 partidos.
  *
- * Requiere emuladores corriendo: npm run emulators
- * Uso: npm run seed:r32
+ * Emulador:    npm run seed:r32
+ * Producción:  npm run seed:r32:prod   (requiere service-account.json o FIREBASE_SERVICE_ACCOUNT)
  *
  * Los equipos marcados como 'TBD' se actualizan desde el admin una vez que
  * terminé la fase de grupos y se conozcan los clasificados.
- * Los equipos confirmados ya existen en la colección `teams` del seed principal.
  */
 
-import { initializeApp } from 'firebase-admin/app'
+import { readFileSync, existsSync } from 'fs'
+import { join } from 'path'
+import { cert, initializeApp } from 'firebase-admin/app'
 import { getFirestore, Timestamp } from 'firebase-admin/firestore'
 
-initializeApp({ projectId: 'quinielaexpertos26' })
+const PROJECT_ID = 'quinielaexpertos26'
+const isProd = !process.env.FIRESTORE_EMULATOR_HOST
+
+if (isProd) {
+  const SA_FILE = join(process.cwd(), 'service-account.json')
+  let serviceAccount: object
+  if (existsSync(SA_FILE)) {
+    serviceAccount = JSON.parse(readFileSync(SA_FILE, 'utf8'))
+    console.log('🔑 Usando service-account.json')
+  } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+  } else {
+    console.error('❌ No se encontró service-account.json ni FIREBASE_SERVICE_ACCOUNT.')
+    process.exit(1)
+  }
+  initializeApp({ credential: cert(serviceAccount as Parameters<typeof cert>[0]), projectId: PROJECT_ID })
+  console.log('🌐 Apuntando a producción\n')
+} else {
+  initializeApp({ projectId: PROJECT_ID })
+  console.log('🧪 Apuntando al emulador\n')
+}
+
 const db = getFirestore()
 
 // ─── JORNADA ─────────────────────────────────────────────────────────────────
