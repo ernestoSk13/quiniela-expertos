@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { collection, getDocs, query, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import type { User, Matchday, Match, Prediction } from '@/types'
+import Avatar from '@/components/Avatar'
+import { useAdminMetrics, type MetricCard, type MetricIcon } from '@/hooks/useAdminMetrics'
 
 // ── Aggregated types ───────────────────────────────────────────────────────────
 
@@ -117,6 +119,7 @@ export default function AdminMetrics() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const { metrics: playerMetrics, loading: playerMetricsLoading } = useAdminMetrics()
 
   async function load(showRefreshing = false) {
     if (showRefreshing) setRefreshing(true)
@@ -214,6 +217,29 @@ export default function AdminMetrics() {
             </>
           )}
         </>
+      )}
+
+      {/* ── Player records ── */}
+      <SectionHeader title="RÉCORDS DE JUGADORES" subtitle="basado en pronósticos puntuados" />
+      {playerMetricsLoading ? (
+        <div className="met-grid-records">
+          {[0,1,2,3,4,5,6,7].map(i => (
+            <div key={i} className="met-shimmer" style={{ height: 128, borderRadius: 12 }} />
+          ))}
+        </div>
+      ) : playerMetrics.length === 0 ? (
+        <div className="met-empty">
+          <span style={{ fontSize: 28 }}>📈</span>
+          <div style={{ marginTop: 10, color: 'rgba(255,255,255,0.35)', fontSize: '0.8rem' }}>
+            Se necesitan al menos 2 jugadores con pronósticos puntuados
+          </div>
+        </div>
+      ) : (
+        <div className="met-grid-records">
+          {playerMetrics.map(card => (
+            <PlayerRecordCard key={card.id} card={card} />
+          ))}
+        </div>
       )}
     </>
   )
@@ -333,6 +359,71 @@ function Pill({
     <div className="met-pill">
       <span className="met-pill-label">{label}</span>
       <span className={`met-pill-value ${green ? 'met-pill-green' : ''}`}>{value}</span>
+    </div>
+  )
+}
+
+// ── Player record card ─────────────────────────────────────────────────────────
+
+const ICON_PATHS: Record<MetricIcon, JSX.Element> = {
+  streak_correct: (
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+  ),
+  streak_wrong: (
+    <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm4 6-8 8M8 8l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+  ),
+  drop: (
+    <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+  ),
+  rise: (
+    <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+  ),
+  consistent: (
+    <>
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <line x1="12" y1="2" x2="12" y2="5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="12" y1="19" x2="12" y2="22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    </>
+  ),
+  best: (
+    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+  ),
+  worst: (
+    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+  ),
+  bold: (
+    <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+  ),
+}
+
+function PlayerRecordCard({ card }: { card: MetricCard }) {
+  return (
+    <div className="met-record-card">
+      <div className="met-record-icon-bg">
+        <svg width="28" height="28" viewBox="0 0 24 24">
+          {ICON_PATHS[card.icon]}
+        </svg>
+      </div>
+      <div className="met-record-title">{card.title}</div>
+
+      {card.winner ? (
+        <div className="met-record-player">
+          <Avatar
+            url={card.winner.avatarUrl ?? ''}
+            name={card.winner.displayName}
+            size="sm"
+          />
+          <span className="met-record-player-name">{card.winner.displayName}</span>
+        </div>
+      ) : (
+        <div className="met-record-player">
+          <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.7rem' }}>Sin datos</span>
+        </div>
+      )}
+
+      <div className="met-record-value">{card.value}</div>
+      {card.subtitle && <div className="met-record-sub">{card.subtitle}</div>}
     </div>
   )
 }
@@ -672,5 +763,69 @@ const styles = `
     background-size: 800px 100%;
     animation: met-shimmer 1.4s infinite linear;
     border-radius: 12px;
+  }
+
+  /* ── Player records grid ── */
+  .met-grid-records {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .met-record-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 14px 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+  .met-record-icon-bg {
+    color: var(--accent-light);
+    opacity: 0.18;
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    pointer-events: none;
+  }
+  .met-record-title {
+    font-size: 0.67rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    padding-right: 36px;
+    line-height: 1.3;
+  }
+  .met-record-player {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+    margin-top: 2px;
+  }
+  .met-record-player-name {
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.8);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .met-record-value {
+    font-family: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+    font-size: 2.2rem;
+    letter-spacing: 0.04em;
+    color: var(--accent-light);
+    line-height: 1;
+    margin-top: 4px;
+  }
+  .met-record-sub {
+    font-size: 0.67rem;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 0.04em;
+    margin-top: -2px;
   }
 `
