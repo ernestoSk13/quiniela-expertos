@@ -47,6 +47,8 @@ export interface PredictionDraft {
   matchdayId: string
   result: PredictionResult
   tieWinner: string | null
+  homeGoals: number | null
+  awayGoals: number | null
 }
 
 export async function savePredictions(
@@ -73,6 +75,8 @@ export async function savePredictions(
         matchdayId: draft.matchdayId,
         result: draft.result,
         tieWinner: draft.tieWinner,
+        homeGoals: draft.homeGoals,
+        awayGoals: draft.awayGoals,
         submittedAt: isNew ? serverTimestamp() : existing[draft.matchId].submittedAt,
         updatedAt: serverTimestamp(),
         points: null,

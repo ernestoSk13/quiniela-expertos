@@ -9,11 +9,23 @@ import { savePredictions } from '@/services/firestorePredictions'
 import PostMatchdayView from './PostMatchdayView'
 import JornadaShareCard from './JornadaShareCard'
 import ResultPicker from './ResultPicker'
+import ScorePicker from './ScorePicker'
 import { useTheme } from '@/context/ThemeContext'
 import { useUserTimezone } from '@/hooks/useUserTimezone'
 import type { PredictionResult } from '@/types'
 
-type LocalPred = { result: PredictionResult | null; tieWinner: string | null }
+type LocalPred = {
+  result: PredictionResult | null
+  tieWinner: string | null
+  homeGoals: number | null
+  awayGoals: number | null
+}
+
+function deriveResult(home: number, away: number): PredictionResult {
+  if (home > away) return 'home'
+  if (away > home) return 'away'
+  return 'draw'
+}
 
 function formatDeadline(ts: any, timezone: string) {
   return ts?.toDate().toLocaleString('es-MX', {
@@ -29,7 +41,7 @@ function formatMatchTime(ts: any, timezone: string) {
   }) ?? null
 }
 
-const PREDICTION_CUTOFF_MS = 10 * 60 * 1000 // 10 min antes del partido
+const PREDICTION_CUTOFF_MS = 10 * 60 * 1000
 
 function matchDeadlineDate(ts: any): Date | null {
   if (!ts) return null
@@ -54,6 +66,7 @@ export default function MatchdayPredictions() {
   const { themeId } = useTheme()
   const timezone = useUserTimezone()
 
+  const isExactMode = matchday?.predictionMode === 'exact_score'
   const isOpen = matchday?.status === 'open'
   const deadlinePassed = matchday?.predictionDeadline
     ? new Date() > matchday.predictionDeadline.toDate()
@@ -61,12 +74,16 @@ export default function MatchdayPredictions() {
   const readOnly = !isOpen || deadlinePassed
   const canViewAll = matchday?.status === 'closed' || matchday?.status === 'finished'
 
-  // Initialize local state from saved predictions
   useEffect(() => {
     if (predsLoading) return
     const init: Record<string, LocalPred> = {}
     for (const [matchId, p] of Object.entries(predictions)) {
-      init[matchId] = { result: p.result, tieWinner: p.tieWinner }
+      init[matchId] = {
+        result: p.result,
+        tieWinner: p.tieWinner,
+        homeGoals: p.homeGoals ?? null,
+        awayGoals: p.awayGoals ?? null,
+      }
     }
     setPreds(init)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -74,21 +91,34 @@ export default function MatchdayPredictions() {
 
   const doSave = useCallback(async (matchId: string, updated: LocalPred) => {
     if (!user || readOnly) return
-    if (!updated.result) return
     const match = matches.find(m => m.id === matchId)
     if (!match) return
     if (match.scheduledAt && matchDeadlineDate(match.scheduledAt)! <= new Date()) return
     const isKnockout = match.phase !== 'group_stage'
-    if (isKnockout && updated.result === 'draw' && !updated.tieWinner) return
+
+    if (isExactMode) {
+      if (updated.homeGoals === null || updated.awayGoals === null) return
+      if (isKnockout && updated.result === 'draw' && !updated.tieWinner) return
+    } else {
+      if (!updated.result) return
+      if (isKnockout && updated.result === 'draw' && !updated.tieWinner) return
+    }
 
     setSavingMatchId(matchId)
     try {
-      await savePredictions(user.uid, [{ matchId, matchdayId, result: updated.result, tieWinner: updated.tieWinner }], predictions)
+      await savePredictions(user.uid, [{
+        matchId,
+        matchdayId,
+        result: updated.result!,
+        tieWinner: updated.tieWinner,
+        homeGoals: updated.homeGoals,
+        awayGoals: updated.awayGoals,
+      }], predictions)
       await refreshPredictions()
     } finally {
       setSavingMatchId(null)
     }
-  }, [user, readOnly, matches, matchdayId, predictions, refreshPredictions])
+  }, [user, readOnly, matches, matchdayId, predictions, refreshPredictions, isExactMode])
 
   function scheduleSave(matchId: string, updated: LocalPred) {
     clearTimeout(debounceTimers.current[matchId])
@@ -96,7 +126,24 @@ export default function MatchdayPredictions() {
   }
 
   function handleResult(matchId: string, result: PredictionResult) {
-    const updated: LocalPred = { result, tieWinner: preds[matchId]?.tieWinner ?? null }
+    const updated: LocalPred = {
+      result,
+      tieWinner: preds[matchId]?.tieWinner ?? null,
+      homeGoals: null,
+      awayGoals: null,
+    }
+    setPreds(prev => ({ ...prev, [matchId]: updated }))
+    scheduleSave(matchId, updated)
+  }
+
+  function handleScore(matchId: string, homeGoals: number, awayGoals: number) {
+    const result = deriveResult(homeGoals, awayGoals)
+    const updated: LocalPred = {
+      result,
+      tieWinner: preds[matchId]?.tieWinner ?? null,
+      homeGoals,
+      awayGoals,
+    }
     setPreds(prev => ({ ...prev, [matchId]: updated }))
     scheduleSave(matchId, updated)
   }
@@ -111,13 +158,21 @@ export default function MatchdayPredictions() {
     return matches
       .filter(m => {
         const s = preds[m.id]
-        if (!s?.result) return false
         const p = predictions[m.id]
-        if (!p) return true
-        return s.result !== p.result || s.tieWinner !== p.tieWinner
+        if (isExactMode) {
+          if (s?.homeGoals == null || s?.awayGoals == null) return false
+          if (!p) return true
+          return s.homeGoals !== (p.homeGoals ?? null) ||
+                 s.awayGoals !== (p.awayGoals ?? null) ||
+                 s.tieWinner !== p.tieWinner
+        } else {
+          if (!s?.result) return false
+          if (!p) return true
+          return s.result !== p.result || s.tieWinner !== p.tieWinner
+        }
       })
       .map(m => m.id)
-  }, [preds, predictions, matches])
+  }, [preds, predictions, matches, isExactMode])
 
   const isObserver = user?.role === 'observer'
   const loading = mdLoading || matchesLoading || predsLoading
@@ -158,7 +213,12 @@ export default function MatchdayPredictions() {
     )
   }
 
-  const savedCount = matches.filter(m => predictions[m.id]).length
+  const savedCount = matches.filter(m => {
+    const p = predictions[m.id]
+    if (!p) return false
+    if (isExactMode) return p.homeGoals != null && p.awayGoals != null
+    return p.result != null
+  }).length
 
   return (
     <div className="min-h-screen app-bg text-white">
@@ -179,6 +239,18 @@ export default function MatchdayPredictions() {
               </p>
             )}
           </div>
+          {isExactMode && (
+            <span className="text-xs shrink-0" style={{
+              background: 'rgba(250,204,21,0.08)',
+              border: '1px solid rgba(250,204,21,0.2)',
+              borderRadius: 99,
+              padding: '2px 8px',
+              color: 'rgba(250,204,21,0.7)',
+              letterSpacing: '0.06em',
+            }}>
+              Marcador exacto
+            </span>
+          )}
           {readOnly && (
             <span className="text-xs text-gray-500 bg-gray-800 px-2.5 py-1 rounded-full shrink-0">
               {deadlinePassed ? 'Cerrado' : matchday.status === 'upcoming' ? 'No disponible' : 'Finalizado'}
@@ -241,7 +313,12 @@ export default function MatchdayPredictions() {
       {/* Body */}
       <div className="max-w-5xl mx-auto px-3 py-3 md:px-4 md:py-4">
         {viewMode === 'all' ? (
-          <PostMatchdayView matchdayId={matchdayId} matches={matches} teamsMap={teamsMap} />
+          <PostMatchdayView
+            matchdayId={matchdayId}
+            matches={matches}
+            teamsMap={teamsMap}
+            predictionMode={matchday.predictionMode}
+          />
         ) : (
           <div className="flex flex-col gap-2">
             {matches.length === 0 && (
@@ -300,15 +377,26 @@ export default function MatchdayPredictions() {
                     )}
                   </div>
 
-                  {/* Result picker */}
-                  <ResultPicker
-                    value={s?.result ?? null}
-                    savedValue={saved?.result ?? null}
-                    disabled={matchReadOnly}
-                    onChange={result => handleResult(match.id, result)}
-                  />
+                  {/* Picker — result mode or exact score mode */}
+                  {isExactMode ? (
+                    <ScorePicker
+                      homeGoals={s?.homeGoals ?? null}
+                      awayGoals={s?.awayGoals ?? null}
+                      savedHomeGoals={saved?.homeGoals ?? null}
+                      savedAwayGoals={saved?.awayGoals ?? null}
+                      disabled={matchReadOnly}
+                      onChange={(h, a) => handleScore(match.id, h, a)}
+                    />
+                  ) : (
+                    <ResultPicker
+                      value={s?.result ?? null}
+                      savedValue={saved?.result ?? null}
+                      disabled={matchReadOnly}
+                      onChange={result => handleResult(match.id, result)}
+                    />
+                  )}
 
-                  {/* Tie winner — knockout + draw selected */}
+                  {/* Tie winner — knockout + draw */}
                   {isKnockout && s?.result === 'draw' && !matchReadOnly && (
                     <div className="px-3 pb-3">
                       <p className="text-xs text-white/40 mb-2">¿Quién pasa?</p>

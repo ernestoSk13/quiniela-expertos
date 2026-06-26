@@ -2,10 +2,15 @@ import { doc, setDoc, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
 export interface ScoringConfig {
+  // Modo resultado (fase de grupos)
   correctPrediction: number
   correctTieWinner: number
   groupBonus: number
   bonusPrediction: number
+  // Modo marcador exacto (fases eliminatorias)
+  exactScore: number
+  correctResult: number
+  correctGoals: number
 }
 
 export const DEFAULT_SCORING: ScoringConfig = {
@@ -13,6 +18,9 @@ export const DEFAULT_SCORING: ScoringConfig = {
   correctTieWinner: 1,
   groupBonus: 5,
   bonusPrediction: 5,
+  exactScore: 5,
+  correctResult: 2,
+  correctGoals: 1,
 }
 
 export function subscribeScoringConfig(callback: (config: ScoringConfig) => void): () => void {

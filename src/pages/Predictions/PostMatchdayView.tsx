@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import Avatar from '@/components/Avatar'
 import { useAllMatchdayPredictions } from '@/hooks/useAllMatchdayPredictions'
 import { useLeaderboard } from '@/hooks/useLeaderboard'
-import type { Match, Prediction, PredictionResult, Team } from '@/types'
+import type { Match, Prediction, PredictionResult, PredictionMode, Team } from '@/types'
 
 function resultLabel(r: PredictionResult | null): string {
   if (r === 'home') return 'LOCAL'
@@ -15,6 +15,7 @@ interface Props {
   matchdayId: string
   matches: Match[]
   teamsMap: Record<string, Team>
+  predictionMode?: PredictionMode
 }
 
 // ── Points badge ───────────────────────────────────────────────────────────────
@@ -27,7 +28,7 @@ function PointsBadge({ points, isCorrect }: { points: number | null; isCorrect: 
       </span>
     )
   }
-  if (isCorrect) {
+  if (points > 0 && isCorrect) {
     return (
       <span style={{
         display: 'inline-flex',
@@ -45,11 +46,11 @@ function PointsBadge({ points, isCorrect }: { points: number | null; isCorrect: 
         boxShadow: '0 0 8px rgba(0,200,83,0.2)',
         flexShrink: 0,
       }}>
-        +3
+        +{points}
       </span>
     )
   }
-  if (points === 1) {
+  if (points > 0) {
     return (
       <span style={{
         display: 'inline-flex',
@@ -66,7 +67,7 @@ function PointsBadge({ points, isCorrect }: { points: number | null; isCorrect: 
         letterSpacing: '0.04em',
         flexShrink: 0,
       }}>
-        +1
+        +{points}
       </span>
     )
   }
@@ -113,7 +114,8 @@ function SkeletonCard() {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function PostMatchdayView({ matchdayId, matches, teamsMap }: Props) {
+export default function PostMatchdayView({ matchdayId, matches, teamsMap, predictionMode }: Props) {
+  const isExactMode = predictionMode === 'exact_score'
   const { predictions, loading: predsLoading } = useAllMatchdayPredictions(matchdayId, true)
   const { players, loading: playersLoading } = useLeaderboard()
 
@@ -314,7 +316,9 @@ export default function PostMatchdayView({ matchdayId, matches, teamsMap }: Prop
                             color: scoreColor,
                             flexShrink: 0,
                           }}>
-                            {resultLabel(pred.result)}
+                            {isExactMode && pred.homeGoals != null && pred.awayGoals != null
+                              ? `${pred.homeGoals}–${pred.awayGoals}`
+                              : resultLabel(pred.result)}
                           </span>
                           <PointsBadge points={pred.points} isCorrect={pred.isCorrect} />
                         </>
