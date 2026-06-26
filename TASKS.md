@@ -442,7 +442,7 @@ Horarios en **UTC**:
 ---
 
 ## T18 — Historial: segmented control "Fase de Grupos / Playoffs"
-**Estado:** Pendiente 🔲
+**Estado:** Completada ✅ (PR #28, deploy 2026-06-26)
 
 El tab de Historial (en `PlayerHistoryModal` y en el tab inline de Dashboard) mostrará un segmented control de dos opciones para filtrar por fase del torneo. La vista de Playoffs mostrará los marcadores exactos predichos en lugar del badge de resultado (LOCAL/EMP/VISIT).
 
@@ -497,7 +497,7 @@ Sin cambios de interfaz. `MatchdayHistory.matchday` ya expone `phase` y `predict
 ---
 
 ## T19 — Admin: dashboard analítico de métricas
-**Estado:** Pendiente 🔲
+**Estado:** Completada ✅ (PR #30, deploy 2026-06-26)
 
 Nueva sección en el panel de admin con tarjetas de métricas calculadas a partir del historial de predicciones. El objetivo es mostrar datos curiosos y competitivos sobre el desempeño de los jugadores a lo largo del torneo.
 
@@ -604,7 +604,7 @@ interface MetricCard {
 ---
 
 ## T20 — Bonus: ver predicciones de todos
-**Estado:** Pendiente 🔲
+**Estado:** Completada ✅ (PR #29, deploy 2026-06-26)
 
 En el recuadro "Mis bonus" del Dashboard, agregar un botón "Ver predicciones de los demás" que abra un modal con una matriz comparativa de los bonus de todos los jugadores.
 
