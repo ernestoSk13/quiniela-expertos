@@ -438,3 +438,165 @@ Horarios en **UTC**:
 - El deadline de 10 minutos antes del partido (T14) aplica igual en modo `exact_score` — las Firestore rules no requieren cambios.
 - `checkAndAwardGroupBonus` no aplica a jornadas de eliminatoria — asegurarse de que la condición `group_stage` lo excluya (ya existe en el código).
 - Probar especialmente en móvil: los inputs numéricos con +/- deben ser grandes y cómodos de tocar.
+
+---
+
+## T18 — Historial: segmented control "Fase de Grupos / Playoffs"
+**Estado:** Pendiente 🔲
+
+El tab de Historial (en `PlayerHistoryModal` y en el tab inline de Dashboard) mostrará un segmented control de dos opciones para filtrar por fase del torneo. La vista de Playoffs mostrará los marcadores exactos predichos en lugar del badge de resultado (LOCAL/EMP/VISIT).
+
+### Comportamiento esperado
+
+- Encima del gráfico de puntos aparece un segmented control con dos pills: **"Fase de Grupos"** y **"Playoffs"**.
+- **Fase de Grupos** (default inicial si hay jornadas de grupos): filtra a jornadas con `matchday.phase === 'group_stage'`. Las filas de predicción muestran el badge de resultado (LOCAL / EMPATE / VISITANTE) como actualmente.
+- **Playoffs**: filtra a jornadas con cualquier otra `phase` (`round_of_32`, `round_of_16`, etc.). Las filas de predicción muestran el **marcador predicho** (`homeGoals-awayGoals`, ej. `2-1`) en lugar del badge de resultado. El marcador real ya se muestra en la columna central — al lado de él se mostrará en qué se equivocó/acertó el jugador.
+- El gráfico SVG de evolución de puntos se recalcula para reflejar solo las jornadas del segmento activo.
+- Si no hay jornadas en uno de los segmentos (ej. playoffs aún no empezaron), ese pill aparece en gris deshabilitado.
+- El segmented control selecciona automáticamente el segmento que tiene la jornada más reciente con datos al cargar.
+
+### Cambios en componentes
+
+**`src/pages/Dashboard/PlayerHistoryModal.tsx`**
+
+- Agregar estado `const [phase, setPhase] = useState<'groups' | 'playoffs'>('groups')` en `HistoryContent`.
+- Filtrar `history` antes de renderizar: grupos → `mh.matchday.phase === 'group_stage'`; playoffs → cualquier otra.
+- Agregar componente `SegmentedControl` inline con dos pills estilizados con `var(--accent)` cuando están activos.
+- En `PredRow`, recibir una prop `predictionMode: PredictionMode` (propagada desde `MatchdayItem` → `HistoryContent`). Cuando `predictionMode === 'exact_score'`, mostrar `${p.homeGoals ?? '?'}–${p.awayGoals ?? '?'}` en lugar de `resultLabel(p.result)`.
+- `PointsChart` recibe el array ya filtrado — sin cambios internos.
+
+**`src/hooks/usePlayerHistory.ts`**
+
+Sin cambios de interfaz. `MatchdayHistory.matchday` ya expone `phase` y `predictionMode`.
+
+### Diseño del segmented control
+
+```
+┌─────────────────────────────────────────┐
+│  ◉ Fase de Grupos    ○ Playoffs         │
+└─────────────────────────────────────────┘
+```
+
+- Fondo del contenedor: `rgba(0,0,0,0.25)` con `border-radius: 0.5rem`
+- Pill activo: `background: var(--accent)`, texto blanco
+- Pill inactivo: texto `rgba(255,255,255,0.4)`, sin fondo
+- Tamaño mínimo de pill: 44px de alto (touch target)
+- Fuente: Bebas Neue, `tracking-widest`
+
+### Archivos afectados
+
+- `src/pages/Dashboard/PlayerHistoryModal.tsx` — segmented control, filtrado, prop `predictionMode` en `PredRow`
+
+### Consideraciones
+
+- Cuando el segmento activo no tiene datos, mostrar el estado vacío actual ("Sin partidos calificados") en lugar de un error.
+- Si solo hay jornadas de grupos (aún no hay playoffs), el segmented control no aparece — mostrar directamente el acordeón actual sin cambios.
+- La prop `isOwnProfile` no afecta el segmented control — funciona igual para historial propio y ajeno.
+- No cambiar la estructura de datos de `usePlayerHistory` — todo el filtrado es en UI.
+
+---
+
+## T19 — Admin: dashboard analítico de métricas
+**Estado:** Pendiente 🔲
+
+Nueva sección en el panel de admin con tarjetas de métricas calculadas a partir del historial de predicciones. El objetivo es mostrar datos curiosos y competitivos sobre el desempeño de los jugadores a lo largo del torneo.
+
+### Ubicación
+
+- Nueva ruta `/admin/metricas` vinculada desde el sidebar de admin bajo la sección **REPORTES** (junto a `/admin/tabla`).
+- Nuevo archivo: `src/pages/Admin/AdminMetrics.tsx`.
+- Registrar la ruta en `App.tsx` o donde estén las rutas admin.
+- Agregar item "Métricas" al `MOBILE_NAV` del admin y al sidebar desktop en `AdminLayout.tsx`.
+
+### Tarjetas de métricas
+
+Cada tarjeta es un cuadro compacto con: ícono decorativo, título de la métrica, nombre del jugador ganador (con avatar pequeño), y el valor numérico destacado en Bebas Neue.
+
+| # | Título | Descripción de cálculo |
+|---|--------|------------------------|
+| 1 | **Racha de aciertos** | Jugador con la racha más larga de predicciones correctas consecutivas (`isCorrect === true`) entre todos los partidos calificados, ordenados por `scheduledAt`. |
+| 2 | **Racha de errores** | Jugador con la racha más larga de predicciones incorrectas consecutivas (`isCorrect === false` o `points === 0`). |
+| 3 | **Mayor caída** | Jugador que más posiciones cayó entre su mejor posición histórica (tras cualquier jornada) y su posición actual. Requiere calcular el leaderboard acumulado tras cada jornada. |
+| 4 | **Mayor remontada** | Jugador que más posiciones subió entre su peor posición histórica y la actual. |
+| 5 | **Más consistente** | Jugador con la menor desviación estándar de puntos por jornada (mínimo 2 jornadas). Indica quien siempre saca puntos similares. |
+| 6 | **Mejor jornada** | Jugador que más puntos acumuló en una sola jornada. Mostrar también el nombre de la jornada. |
+| 7 | **Peor jornada** | Jugador con menos puntos (0) en una jornada donde todos los demás sacaron al menos 1. |
+| 8 | **Más arriesgado** | Jugador con mayor proporción de predicciones de **empate** en fase de grupos (la predicción más difícil de acertar estadísticamente). |
+
+### Cálculo client-side
+
+Todos los cálculos se hacen en el cliente — el grupo es pequeño (< 30 jugadores, < 700 predicciones totales), no hay necesidad de Cloud Functions.
+
+Datos necesarios (todos ya disponibles o accesibles con queries existentes):
+
+```typescript
+// 1. Todos los usuarios con onboardingCompleted
+const users = await getDocs(query(collection(db, 'users'), where('onboardingCompleted', '==', true)))
+
+// 2. Todas las predicciones calificadas (points != null)
+// Hacer query por usuario en paralelo — reutilizar getUserPredictions(userId) por cada jugador
+// O agregar una función getAllScoredPredictions() en firestorePredictions.ts
+
+// 3. Todos los partidos finalizados (ya existe getFinishedMatches())
+
+// 4. Todas las jornadas (ya se consultan en usePlayerHistory)
+```
+
+Crear un hook `useAdminMetrics()` en `src/hooks/useAdminMetrics.ts` que:
+1. Cargue todos los datos en paralelo con `Promise.all`
+2. Compute cada métrica como función pura
+3. Retorne `{ metrics: MetricCard[], loading: boolean }`
+
+```typescript
+interface MetricCard {
+  id: string
+  title: string
+  winner: User        // jugador ganador de la métrica
+  value: string       // valor destacado ej. "7 seguidas", "12 pts", "+5 puestos"
+  subtitle?: string   // contexto adicional ej. "Jornada R32"
+  icon: 'streak' | 'drop' | 'rise' | 'consistent' | 'bold' | 'best' | 'worst'
+}
+```
+
+### Diseño de la página
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  MÉTRICAS DEL TORNEO                                        │
+│  Calculado sobre N partidos calificados                     │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │ 🔥 Racha de  │  │ 💀 Racha de  │  │ 📉 Mayor     │     │
+│  │    aciertos  │  │    errores   │  │    caída     │     │
+│  │              │  │              │  │              │     │
+│  │ [Avatar] Ana │  │ [Avatar] Bob │  │ [Avatar] Clo │     │
+│  │   7 seguidas │  │   5 seguidas │  │   -4 puestos │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+│  ...más tarjetas en grid...                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- Grid: 2 columnas en móvil, 3-4 en desktop (`grid-cols-2 md:grid-cols-3 lg:grid-cols-4`)
+- Cada tarjeta: `surface-card` con `border: 1px solid rgba(255,255,255,0.06)`, padding 16px, border-radius 12px
+- Valor numérico: Bebas Neue, `font-size: 2rem`, `color: var(--accent-light)`
+- Ícono decorativo: SVG pequeño (24px) en esquina superior derecha, `opacity: 0.2`
+- Avatar del jugador: `Avatar` component, `size="sm"` (ya existe)
+- Estado de carga: skeleton placeholders con `animate-pulse`
+- Si hay empate en una métrica (dos jugadores con el mismo valor), mostrar "Varios" con los avatares apilados
+
+### Archivos afectados
+
+- `src/pages/Admin/AdminMetrics.tsx` — **nuevo componente** con grid de tarjetas
+- `src/hooks/useAdminMetrics.ts` — **nuevo hook** con carga y cálculo de métricas
+- `src/services/firestorePredictions.ts` — posiblemente agregar `getAllScoredPredictions()` si la carga por usuario es lenta
+- `src/pages/Admin/AdminLayout.tsx` — agregar item "Métricas" en sidebar y mobile nav
+- `src/App.tsx` (o donde estén las rutas admin) — registrar `/admin/metricas`
+
+### Consideraciones
+
+- Hacer todas las queries de predicciones en paralelo (`Promise.allSettled`) para no bloquear la carga.
+- Memoizar el cálculo de métricas con `useMemo` — los datos no cambian mientras el admin está en la página.
+- Si no hay suficientes datos para una métrica (ej. menos de 2 jornadas calificadas), mostrar la tarjeta en gris con texto "Insuficientes datos".
+- El cálculo de posiciones históricas requiere reconstruir el leaderboard tras cada jornada: agrupar predicciones por jornada, calcular puntos acumulados hasta cada jornada, ordenar usuarios y asignar posición. Es O(n·m) donde n = jugadores y m = jornadas — perfectamente eficiente para el tamaño de este torneo.
+- No mostrar la métrica "Peor jornada" si todos los jugadores tuvieron 0 en alguna jornada (no es informativo).
+- Las métricas de racha deben ordenar predicciones por `match.scheduledAt` dentro de cada jornada y luego por `matchday.order` entre jornadas — para que la racha sea cronológicamente correcta.
