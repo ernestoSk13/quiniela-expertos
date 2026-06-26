@@ -281,7 +281,7 @@ allow read: if isAllowedUser() && (
 ---
 
 ## T17 — Modo de marcador exacto para fases eliminatorias
-**Estado:** Pendiente ⏳
+**Estado:** Completada ✅ (PR #27, deploy 2026-06-26)
 
 La fase de grupos está terminando. Para la fase de 16vos de final (Round of 32, del 28 de junio al 4 de julio de 2026) y el resto de la eliminatoria, los jugadores ya no solo predicen el resultado (LOCAL/EMPATE/VISITANTE) sino el **marcador exacto** (ej. 2-1). La puntuación cambia completamente.
 
