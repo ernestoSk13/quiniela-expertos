@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import type { User, Team, PredictionResult } from '@/types'
+import { useState, useEffect, useRef } from 'react'
+import type { User, Team, PredictionResult, PredictionMode } from '@/types'
 import { usePlayerHistory, type MatchdayHistory, type PredictionWithMatch } from '@/hooks/usePlayerHistory'
 
 function resultLabel(r: PredictionResult | null): string {
@@ -146,7 +146,15 @@ function PointsChart({ history }: { history: MatchdayHistory[] }) {
   )
 }
 
-function PredRow({ pwm, teamsMap }: { pwm: PredictionWithMatch; teamsMap: Record<string, Team> }) {
+function PredRow({
+  pwm,
+  teamsMap,
+  predictionMode,
+}: {
+  pwm: PredictionWithMatch
+  teamsMap: Record<string, Team>
+  predictionMode: PredictionMode
+}) {
   const { prediction: p, match: m } = pwm
   const hFlag = teamsMap[m.homeTeamCode]?.flag ?? ''
   const aFlag = teamsMap[m.awayTeamCode]?.flag ?? ''
@@ -217,7 +225,10 @@ function PredRow({ pwm, teamsMap }: { pwm: PredictionWithMatch; teamsMap: Record
             letterSpacing: '0.03em',
           }}
         >
-          {resultLabel(p.result)}
+          {predictionMode === 'exact_score'
+            ? `${p.homeGoals ?? '?'}–${p.awayGoals ?? '?'}`
+            : resultLabel(p.result)
+          }
         </span>
       </div>
 
@@ -339,7 +350,12 @@ function MatchdayItem({
           style={{ borderColor: 'rgba(255,255,255,0.05)' }}
         >
           {mh.predictions.map(pwm => (
-            <PredRow key={pwm.prediction.id} pwm={pwm} teamsMap={teamsMap} />
+            <PredRow
+              key={pwm.prediction.id}
+              pwm={pwm}
+              teamsMap={teamsMap}
+              predictionMode={mh.matchday.predictionMode ?? 'result'}
+            />
           ))}
         </div>
       )}
@@ -347,13 +363,56 @@ function MatchdayItem({
   )
 }
 
+type PhaseSegment = 'groups' | 'playoffs'
+
 export function HistoryContent({ userId, teamsMap }: { userId: string; teamsMap: Record<string, Team> }) {
   const { history, loading } = usePlayerHistory(userId)
   const [openIdx, setOpenIdx] = useState<number | null>(null)
+  const [phase, setPhase] = useState<PhaseSegment>('groups')
+  const initializedRef = useRef(false)
 
+  const hasGroups = history.some(mh => mh.matchday.phase === 'group_stage')
+  const hasPlayoffs = history.some(mh => mh.matchday.phase !== 'group_stage')
+  const showControl = hasGroups && hasPlayoffs
+
+  // Auto-select the segment with the most recent data on first load
   useEffect(() => {
-    if (!loading && history.length > 0) setOpenIdx(history.length - 1)
-  }, [loading, history.length])
+    if (!loading && history.length > 0 && !initializedRef.current) {
+      initializedRef.current = true
+      const maxPlayoffOrder = history
+        .filter(mh => mh.matchday.phase !== 'group_stage')
+        .reduce((max, mh) => Math.max(max, mh.matchday.order), -1)
+      const maxGroupOrder = history
+        .filter(mh => mh.matchday.phase === 'group_stage')
+        .reduce((max, mh) => Math.max(max, mh.matchday.order), -1)
+      if (maxPlayoffOrder > maxGroupOrder) setPhase('playoffs')
+    }
+  }, [loading, history])
+
+  const filteredHistory = history.filter(mh =>
+    phase === 'groups'
+      ? mh.matchday.phase === 'group_stage'
+      : mh.matchday.phase !== 'group_stage'
+  )
+
+  // Recompute cumulative points for the filtered subset
+  let cumulative = 0
+  const chartHistory = filteredHistory.map(mh => {
+    cumulative += mh.pointsEarned
+    return { ...mh, cumulativePoints: cumulative }
+  })
+
+  // Open the last item whenever the visible list changes
+  useEffect(() => {
+    if (!loading) {
+      const count = history.filter(mh =>
+        phase === 'groups'
+          ? mh.matchday.phase === 'group_stage'
+          : mh.matchday.phase !== 'group_stage'
+      ).length
+      setOpenIdx(count > 0 ? count - 1 : null)
+    }
+  }, [loading, history, phase])
 
   if (loading) {
     return (
@@ -397,18 +456,57 @@ export function HistoryContent({ userId, teamsMap }: { userId: string; teamsMap:
 
   return (
     <div className="mt-4">
-      <PointsChart history={history} />
-      <div className="mt-4 space-y-2">
-        {history.map((mh, i) => (
-          <MatchdayItem
-            key={mh.matchday.id}
-            mh={mh}
-            isOpen={openIdx === i}
-            onToggle={() => setOpenIdx(openIdx === i ? null : i)}
-            teamsMap={teamsMap}
-          />
-        ))}
-      </div>
+      {/* Segmented control — only shown when both phases have data */}
+      {showControl && (
+        <div
+          className="flex mb-4 p-0.5 rounded-lg"
+          style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          {(['groups', 'playoffs'] as PhaseSegment[]).map(seg => {
+            const isActive = phase === seg
+            return (
+              <button
+                key={seg}
+                onClick={() => setPhase(seg)}
+                className="flex-1 py-2.5 rounded-md transition-all"
+                style={{
+                  background: isActive ? 'var(--accent)' : 'transparent',
+                  color: isActive ? '#fff' : 'rgba(255,255,255,0.38)',
+                  fontFamily: "'Bebas Neue', Impact, sans-serif",
+                  fontSize: '0.82rem',
+                  letterSpacing: '0.12em',
+                  transition: 'background 0.18s ease, color 0.18s ease',
+                  boxShadow: isActive ? '0 1px 6px rgba(0,0,0,0.35)' : 'none',
+                }}
+              >
+                {seg === 'groups' ? 'Fase de Grupos' : 'Playoffs'}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      <PointsChart history={chartHistory} />
+
+      {filteredHistory.length === 0 ? (
+        <div className="py-8 text-center">
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.28)' }}>
+            Sin partidos calificados en esta fase
+          </p>
+        </div>
+      ) : (
+        <div className="mt-4 space-y-2">
+          {filteredHistory.map((mh, i) => (
+            <MatchdayItem
+              key={mh.matchday.id}
+              mh={mh}
+              isOpen={openIdx === i}
+              onToggle={() => setOpenIdx(openIdx === i ? null : i)}
+              teamsMap={teamsMap}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
