@@ -277,3 +277,164 @@ allow read: if isAllowedUser() && (
 - Cuando se cambia de jugador, `usePlayerHistory` re-ejecuta con el nuevo `userId` — la carga es automática.
 - Si `players` está vacío (cargando leaderboard), mostrar solo el pill del usuario actual.
 - No mostrar el pill-list si hay un solo jugador.
+
+---
+
+## T17 — Modo de marcador exacto para fases eliminatorias
+**Estado:** Pendiente ⏳
+
+La fase de grupos está terminando. Para la fase de 16vos de final (Round of 32, del 28 de junio al 4 de julio de 2026) y el resto de la eliminatoria, los jugadores ya no solo predicen el resultado (LOCAL/EMPATE/VISITANTE) sino el **marcador exacto** (ej. 2-1). La puntuación cambia completamente.
+
+### Nueva lógica de puntuación (`exact_score` mode)
+
+| Condición | Puntos |
+|-----------|--------|
+| Marcador exacto (homeGoals y awayGoals correctos) | **5 pts** (total) |
+| Resultado correcto pero marcador incorrecto | **2 pts** |
+| Goles de un equipo adivinados (aunque el resultado sea incorrecto) | **1 pt** por equipo |
+| Nada correcto | 0 pts |
+
+Ejemplos:
+- Predijo 2-1, marcador real 2-1 → 5 pts (marcador exacto)
+- Predijo 2-1, marcador real 3-1 → 2 pts (resultado correcto: local gana) + 1 pt (goles del visitante correctos) = **3 pts**
+- Predijo 2-0, marcador real 1-0 → 2 pts (resultado correcto: local gana, ningún equipo exacto)
+- Predijo 1-2, marcador real 0-2 → 1 pt (goles del visitante correctos, pero resultado incorrecto)
+
+**Nota de configuración:** Los valores de puntos de `exact_score` se agregarán a `config/scoring` en Firestore (mismos que `correctPrediction` actualmente pero con campos nuevos: `exactScore`, `correctResult`, `correctGoals`). El admin puede ajustarlos desde `/admin/config`.
+
+### Cambios en modelo de datos
+
+**`src/types/index.ts` / `src/types/Matchday.ts`**
+```typescript
+// Agregar campo en Matchday
+predictionMode: 'result' | 'exact_score';  // default 'result' para jornadas existentes
+```
+
+**`src/types/index.ts` / Prediction**
+```typescript
+// Campos nuevos en Prediction (opcionales para compatibilidad con jornadas pasadas)
+homeGoals?: number;
+awayGoals?: number;
+// El campo 'result' ('home'|'draw'|'away') se mantiene pero en modo exact_score
+// se deriva de homeGoals/awayGoals al guardar
+```
+
+**`config/scoring` en Firestore** — agregar campos:
+```
+exactScore: 5        // antes llamado exactScore, ya existía pero se eliminó en 14E
+correctResult: 2     // resultado correcto sin marcador exacto
+correctGoals: 1      // goles de un equipo correctos
+```
+
+### Cambios en UI
+
+**`src/pages/Predictions/ResultPicker.tsx`** — solo se usa en modo `result`
+
+**Nuevo componente: `src/pages/Predictions/ScorePicker.tsx`**
+- Dos inputs numéricos (homeGoals | awayGoals) con botones +/- para cambiar el valor
+- Rango 0-20, valor inicial 0
+- Auto-save con debounce 400ms (igual que `ResultPicker`)
+- Bloqueo cuando `matchReadOnly` (mismo criterio: 10 min antes del partido)
+- Diseño mobile-first: grande y táctil (los jugadores lo usan desde el celular)
+- Mostrar el resultado derivado debajo del marcador (ej. "Victoria Local" / "Empate" / "Victoria Visitante") en gris para ayuda visual
+
+**`src/pages/Predictions/MatchdayPredictions.tsx`**
+- Detectar `matchday.predictionMode` para mostrar `ScorePicker` o `ResultPicker`
+- Al guardar en modo `exact_score`, derivar `result` del marcador: `homeGoals > awayGoals → 'home'`, `homeGoals < awayGoals → 'away'`, `homeGoals === awayGoals → 'draw'`
+- El campo `result` se sigue guardando para que Firestore rules no requieran cambios
+
+**`src/pages/Predictions/PostMatchdayView.tsx`**
+- En modo `exact_score`, mostrar el marcador ingresado por cada jugador (ej. "2-1") en lugar del badge LOCAL/EMP/VISIT
+- Mostrar puntos obtenidos por cada predicción si la jornada está cerrada/terminada
+
+**`src/pages/Dashboard/PlayerHistoryModal.tsx` y `HistoryContent`**
+- En jornadas `exact_score`, mostrar el marcador predicho y el real en el acordeón de jornadas
+
+### Cambios en Cloud Functions (`functions/src/index.ts`)
+
+**`onMatchUpdated`** — agregar rama para `matchday.predictionMode === 'exact_score'`:
+
+```typescript
+function computeExactScorePoints(
+  prediction: { homeGoals?: number; awayGoals?: number },
+  match: { homeScore: number; awayScore: number },
+  cfg: ScoringConfig
+): number {
+  const isExact = prediction.homeGoals === match.homeScore && prediction.awayGoals === match.awayScore;
+  if (isExact) return cfg.exactScore ?? 5;
+
+  const predictedResult = deriveResult(prediction.homeGoals, prediction.awayGoals);
+  const actualResult = deriveResult(match.homeScore, match.awayScore);
+  const resultCorrect = predictedResult === actualResult;
+
+  let pts = 0;
+  if (resultCorrect) pts += cfg.correctResult ?? 2;
+  if (prediction.homeGoals === match.homeScore) pts += cfg.correctGoals ?? 1;
+  if (prediction.awayGoals === match.awayScore) pts += cfg.correctGoals ?? 1;
+  return pts;
+}
+```
+
+La función debe leer el `predictionMode` del documento de jornada antes de decidir qué función de puntuación usar.
+
+### Cambios en Admin
+
+**`src/pages/Admin/MatchdayDetail.tsx`**
+- Agregar selector de `predictionMode` ('Resultado' / 'Marcador exacto') al crear o editar una jornada
+- Para jornadas de eliminatorias, el admin selecciona "Marcador exacto"
+
+**`src/pages/Admin/ScoringConfig.tsx`**
+- Agregar sección "Puntuación — Marcador exacto" con campos: Marcador exacto (5), Resultado correcto (2), Goles de equipo (1)
+- Banner informativo: "Activo solo en jornadas con modo Marcador exacto"
+
+**`src/pages/Admin/MatchdayList.tsx`**
+- Badge visual junto al nombre de la jornada indicando el modo: "Resultado" (gris) o "Marcador exacto" (dorado)
+
+### Jornada de 16vos de final — calendario
+
+El admin deberá crear esta jornada manualmente desde `/admin` con `predictionMode: 'exact_score'`. Los equipos TBD se actualizan cuando se conozcan los clasificados (el admin edita el partido desde `MatchdayDetail`).
+
+Horarios en **UTC**:
+
+| Match | Fecha | Hora UTC | Local | Visitante | Sede |
+|-------|-------|----------|-------|-----------|------|
+| 73 | 28 jun | 19:00 | Sudáfrica | Canadá | SoFi Stadium, Inglewood |
+| 76 | 29 jun | 17:00 | Brasil | Japón | NRG Stadium, Houston |
+| 74 | 29 jun | 20:30 | Alemania | 3ro C/D/F | Gillette Stadium, Foxborough |
+| 75 | 29 jun | 21:00 | Países Bajos | Marruecos | Estadio BBVA, Guadalupe |
+| 78 | 30 jun | 17:00 | Costa de Marfil | 2do I | AT&T Stadium, Arlington |
+| 77 | 30 jun | 21:00 | 1ro I | 3ro D/F/G | MetLife Stadium, E. Rutherford |
+| 79 | 30 jun | 21:00 | México | 3ro C/E/H | Estadio Azteca, Ciudad de México |
+| 80 | 1 jul | 16:00 | 1ro L | 3ro E/I/J/K | Mercedes-Benz Stadium, Atlanta |
+| 81 | 1 jul | 20:00 | Estados Unidos | Bosnia-Herzegovina | Levi's Stadium, Santa Clara |
+| 82 | 1 jul | 20:00 | 1ro G | 3ro A/H/I/J | Lumen Field, Seattle |
+| 84 | 2 jul | 19:00 | 1ro H | 2do J | SoFi Stadium, Inglewood |
+| 83 | 2 jul | 23:00 | 2do K | 2do L | BMO Field, Toronto |
+| 85 | 3 jul | 03:00 | Suiza | 3ro E/F/G/I/J | BC Place, Vancouver |
+| 88 | 3 jul | 18:00 | Australia | 2do G | AT&T Stadium, Arlington |
+| 86 | 3 jul | 22:00 | Argentina | 2do H | Hard Rock Stadium, Miami Gardens |
+| 87 | 4 jul | 01:30 | 1ro K | 3ro D/E/I/J/L | Arrowhead Stadium, Kansas City |
+
+> **Nota:** Los equipos marcados como "1ro X", "2do X", "3ro X" son TBD hasta que termine la fase de grupos (26-27 de junio). El admin puede editar los nombres de los equipos en cada partido desde `MatchdayDetail` una vez que se definan los clasificados.
+
+### Archivos afectados
+
+- `src/types/Matchday.ts` (o `index.ts`) — campo `predictionMode`
+- `src/types/index.ts` — campos `homeGoals`, `awayGoals` en `Prediction`
+- `src/pages/Predictions/ScorePicker.tsx` — **nuevo componente**
+- `src/pages/Predictions/MatchdayPredictions.tsx` — branching por `predictionMode`
+- `src/pages/Predictions/PostMatchdayView.tsx` — mostrar marcador en lugar de badge
+- `src/pages/Dashboard/PlayerHistoryModal.tsx` — marcador en acordeón
+- `src/pages/Admin/MatchdayDetail.tsx` — selector de `predictionMode`
+- `src/pages/Admin/MatchdayList.tsx` — badge de modo
+- `src/pages/Admin/ScoringConfig.tsx` — sección exact_score
+- `src/services/firestoreConfig.ts` — campos nuevos en `ScoringConfig` y `DEFAULT_SCORING`
+- `functions/src/index.ts` — `computeExactScorePoints`, branching en `onMatchUpdated`
+
+### Consideraciones
+
+- Las jornadas existentes (fase de grupos) tienen `predictionMode` implícitamente `'result'` — agregar fallback `?? 'result'` en todos los lugares que lean este campo para no romper historial.
+- Los partidos eliminatorios no pueden terminar en empate (excepto al 90', con prórroga y penales). El `ScorePicker` sí permite empate al ingresar marcador — el resultado extra-tiempo/penales va en campo separado (fuera del alcance de T17, se verá en T18 si aplica).
+- El deadline de 10 minutos antes del partido (T14) aplica igual en modo `exact_score` — las Firestore rules no requieren cambios.
+- `checkAndAwardGroupBonus` no aplica a jornadas de eliminatoria — asegurarse de que la condición `group_stage` lo excluya (ya existe en el código).
+- Probar especialmente en móvil: los inputs numéricos con +/- deben ser grandes y cómodos de tocar.

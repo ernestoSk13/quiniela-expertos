@@ -12,17 +12,20 @@ interface FieldDef {
 
 const FIELDS: { group: string; emoji: string; fields: FieldDef[] }[] = [
   {
-    group: 'Predicciones',
+    group: 'Fase de grupos',
     emoji: '⚽',
     fields: [
       { key: 'correctPrediction', label: 'Resultado correcto', description: 'El usuario acierta LOCAL / EMPATE / VISITANTE' },
+      { key: 'correctTieWinner', label: 'Bonus tieWinner', description: 'Equipo que avanza correcto en eliminatoria con empate al 90\'' },
     ],
   },
   {
-    group: 'Eliminatorias',
-    emoji: '⚡',
+    group: 'Marcador exacto',
+    emoji: '🎯',
     fields: [
-      { key: 'correctTieWinner', label: 'Bonus tieWinner', description: 'Equipo que avanza correcto en eliminatoria con empate al 90\'' },
+      { key: 'exactScore',    label: 'Marcador exacto',     description: 'Predijo el marcador exacto (ej. 2-1 correcto)' },
+      { key: 'correctResult', label: 'Resultado correcto',  description: 'Resultado correcto pero marcador incorrecto' },
+      { key: 'correctGoals',  label: 'Goles de un equipo',  description: 'Por cada equipo cuyos goles acertó (máx. 2 por partido)' },
     ],
   },
   {
@@ -91,8 +94,9 @@ export default function ScoringConfig() {
       }}>
         <span style={{ fontSize: '0.85rem', flexShrink: 0, marginTop: 1 }}>ℹ️</span>
         <p style={{ fontSize: '0.75rem', color: 'rgba(147,210,240,0.8)', margin: 0, lineHeight: 1.5 }}>
-          <strong style={{ color: 'rgba(147,210,240,1)' }}>Modo resultado simple.</strong>{' '}
-          Los usuarios solo predicen LOCAL / EMPATE / VISITANTE. No hay marcadores exactos.
+          La app usa dos modos según la jornada.{' '}
+          <strong style={{ color: 'rgba(147,210,240,1)' }}>Fase de grupos:</strong> LOCAL / EMPATE / VISITANTE.{' '}
+          <strong style={{ color: 'rgba(147,210,240,1)' }}>Fases eliminatorias:</strong> marcador exacto (ej. 2-1).
         </p>
       </div>
 

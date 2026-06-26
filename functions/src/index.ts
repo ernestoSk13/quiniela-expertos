@@ -9,6 +9,7 @@ const db = admin.firestore()
 
 interface MatchData {
   id: string
+  matchdayId: string
   phase: string
   homeScore: number | null
   awayScore: number | null
@@ -17,12 +18,15 @@ interface MatchData {
 }
 
 type PredictionResult = 'home' | 'draw' | 'away'
+type PredictionMode = 'result' | 'exact_score'
 
 interface PredictionData {
   userId: string
   matchId: string
   result: PredictionResult | null
   tieWinner: string | null
+  homeGoals: number | null
+  awayGoals: number | null
   points: number | null
   isCorrect: boolean | null
 }
@@ -32,6 +36,9 @@ interface ScoringConfig {
   correctTieWinner: number
   groupBonus: number
   bonusPrediction: number
+  exactScore: number
+  correctResult: number
+  correctGoals: number
 }
 
 const DEFAULT_SCORING: ScoringConfig = {
@@ -39,6 +46,9 @@ const DEFAULT_SCORING: ScoringConfig = {
   correctTieWinner: 1,
   groupBonus: 5,
   bonusPrediction: 5,
+  exactScore: 5,
+  correctResult: 2,
+  correctGoals: 1,
 }
 
 async function getScoringConfig(): Promise<ScoringConfig> {
@@ -58,6 +68,11 @@ function deriveResult(homeScore: number, awayScore: number): PredictionResult {
   return 'draw'
 }
 
+async function getMatchdayPredictionMode(matchdayId: string): Promise<PredictionMode> {
+  const snap = await db.collection('matchdays').doc(matchdayId).get()
+  return (snap.data()?.predictionMode as PredictionMode | undefined) ?? 'result'
+}
+
 function computePoints(
   homeScore: number,
   awayScore: number,
@@ -74,7 +89,6 @@ function computePoints(
   const isCorrect = predResult === matchResult
 
   if (isKnockout && matchResult === 'draw') {
-    // Knockout draw at 90': correct result + tieWinner bonus
     if (!isCorrect) return { points: 0, isCorrect: false }
     const rightTie = winner != null && predTieWinner === winner
     return { points: cfg.correctPrediction + (rightTie ? cfg.correctTieWinner : 0), isCorrect: true }
@@ -84,7 +98,48 @@ function computePoints(
   return { points: 0, isCorrect: false }
 }
 
-async function scoreMatchPredictions(match: MatchData, cfg: ScoringConfig): Promise<void> {
+function computeExactScorePoints(
+  homeScore: number,
+  awayScore: number,
+  winner: string | null,
+  phase: string,
+  predHomeGoals: number | null,
+  predAwayGoals: number | null,
+  predTieWinner: string | null,
+  cfg: ScoringConfig,
+): PointsResult {
+  if (predHomeGoals === null || predAwayGoals === null) return { points: 0, isCorrect: false }
+
+  const isExact = predHomeGoals === homeScore && predAwayGoals === awayScore
+  const isKnockout = phase !== 'group_stage'
+  const actualResult = deriveResult(homeScore, awayScore)
+
+  if (isExact) {
+    let pts = cfg.exactScore
+    if (isKnockout && actualResult === 'draw') {
+      const rightTie = winner != null && predTieWinner === winner
+      if (rightTie) pts += cfg.correctTieWinner
+    }
+    return { points: pts, isCorrect: true }
+  }
+
+  const predictedResult = deriveResult(predHomeGoals, predAwayGoals)
+  let pts = 0
+
+  if (predictedResult === actualResult) {
+    pts += cfg.correctResult
+    if (isKnockout && actualResult === 'draw') {
+      const rightTie = winner != null && predTieWinner === winner
+      if (rightTie) pts += cfg.correctTieWinner
+    }
+  }
+  if (predHomeGoals === homeScore) pts += cfg.correctGoals
+  if (predAwayGoals === awayScore) pts += cfg.correctGoals
+
+  return { points: pts, isCorrect: false }
+}
+
+async function scoreMatchPredictions(match: MatchData, cfg: ScoringConfig, predictionMode: PredictionMode): Promise<void> {
   const { homeScore, awayScore, winner } = match
   if (homeScore == null || awayScore == null) return
 
@@ -97,10 +152,9 @@ async function scoreMatchPredictions(match: MatchData, cfg: ScoringConfig): Prom
   const batch = db.batch()
   for (const predDoc of predsSnap.docs) {
     const pred = predDoc.data() as PredictionData
-    const scored = computePoints(
-      homeScore, awayScore, winner, match.phase,
-      pred.result, pred.tieWinner, cfg,
-    )
+    const scored = predictionMode === 'exact_score'
+      ? computeExactScorePoints(homeScore, awayScore, winner, match.phase, pred.homeGoals, pred.awayGoals, pred.tieWinner, cfg)
+      : computePoints(homeScore, awayScore, winner, match.phase, pred.result, pred.tieWinner, cfg)
     batch.update(predDoc.ref, {
       points: scored.points,
       isCorrect: scored.isCorrect,
@@ -134,7 +188,7 @@ async function resetMatchPredictions(matchId: string): Promise<void> {
   await batch.commit()
 }
 
-async function rescoreMatchPredictions(oldMatch: MatchData, newMatch: MatchData, cfg: ScoringConfig): Promise<void> {
+async function rescoreMatchPredictions(oldMatch: MatchData, newMatch: MatchData, cfg: ScoringConfig, predictionMode: PredictionMode): Promise<void> {
   const { homeScore: newHome, awayScore: newAway, winner: newWinner } = newMatch
   if (newHome == null || newAway == null) return
 
@@ -147,10 +201,9 @@ async function rescoreMatchPredictions(oldMatch: MatchData, newMatch: MatchData,
   const batch = db.batch()
   for (const predDoc of predsSnap.docs) {
     const pred = predDoc.data() as PredictionData
-    const newScored = computePoints(
-      newHome, newAway, newWinner, newMatch.phase,
-      pred.result, pred.tieWinner, cfg,
-    )
+    const newScored = predictionMode === 'exact_score'
+      ? computeExactScorePoints(newHome, newAway, newWinner, newMatch.phase, pred.homeGoals, pred.awayGoals, pred.tieWinner, cfg)
+      : computePoints(newHome, newAway, newWinner, newMatch.phase, pred.result, pred.tieWinner, cfg)
     const oldPts = pred.points ?? 0
     const ptsDelta = newScored.points - oldPts
     const correctDelta = (newScored.isCorrect ? 1 : 0) - (pred.isCorrect ? 1 : 0)
@@ -230,8 +283,8 @@ export const onMatchUpdated = onDocumentUpdated('matches/{matchId}', async event
   const afterData = event.data?.after.data()
   if (!beforeData || !afterData) return
 
-  const oldMatch: MatchData = { ...(beforeData as Omit<MatchData, 'id'>), id: matchId }
-  const newMatch: MatchData = { ...(afterData as Omit<MatchData, 'id'>), id: matchId }
+  const oldMatch: MatchData = { ...(beforeData as Omit<MatchData, 'id'>), id: matchId, matchdayId: beforeData.matchdayId ?? '' }
+  const newMatch: MatchData = { ...(afterData as Omit<MatchData, 'id'>), id: matchId, matchdayId: afterData.matchdayId ?? '' }
 
   const wasFinished = oldMatch.status === 'finished' &&
     oldMatch.homeScore != null && oldMatch.awayScore != null
@@ -240,10 +293,13 @@ export const onMatchUpdated = onDocumentUpdated('matches/{matchId}', async event
 
   if (!wasFinished && !isFinished) return
 
-  const cfg = await getScoringConfig()
+  const [cfg, predictionMode] = await Promise.all([
+    getScoringConfig(),
+    getMatchdayPredictionMode(newMatch.matchdayId),
+  ])
 
   if (!wasFinished && isFinished) {
-    await scoreMatchPredictions(newMatch, cfg)
+    await scoreMatchPredictions(newMatch, cfg, predictionMode)
     if (newMatch.phase === 'group_stage') {
       await checkAndAwardGroupBonus(cfg.groupBonus)
     }
@@ -255,7 +311,7 @@ export const onMatchUpdated = onDocumentUpdated('matches/{matchId}', async event
       oldMatch.awayScore !== newMatch.awayScore ||
       oldMatch.winner !== newMatch.winner
     if (scoresChanged) {
-      await rescoreMatchPredictions(oldMatch, newMatch, cfg)
+      await rescoreMatchPredictions(oldMatch, newMatch, cfg, predictionMode)
     }
   }
 })

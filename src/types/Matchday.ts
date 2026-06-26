@@ -11,6 +11,8 @@ export type TournamentPhase =
 
 export type MatchdayStatus = 'upcoming' | 'open' | 'closed' | 'finished'
 
+export type PredictionMode = 'result' | 'exact_score'
+
 export interface Matchday {
   id: string
   name: string
@@ -20,4 +22,5 @@ export interface Matchday {
   endDate: Timestamp
   predictionDeadline: Timestamp
   status: MatchdayStatus
+  predictionMode?: PredictionMode
 }

@@ -216,11 +216,26 @@ export default function MatchdayList() {
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span style={{ fontFamily: BEBAS, fontSize: '1.1rem', letterSpacing: '0.06em', color: '#fff' }}>
                       {md.name}
                     </span>
                     <StatusBadge status={md.status} type="matchday" />
+                    {md.predictionMode === 'exact_score' && (
+                      <span style={{
+                        background: 'rgba(250,204,21,0.08)',
+                        border: '1px solid rgba(250,204,21,0.22)',
+                        borderRadius: 99,
+                        padding: '1px 7px',
+                        fontSize: '0.58rem',
+                        letterSpacing: '0.1em',
+                        color: 'rgba(250,204,21,0.65)',
+                        textTransform: 'uppercase' as const,
+                        whiteSpace: 'nowrap' as const,
+                      }}>
+                        Marcador exacto
+                      </span>
+                    )}
                   </div>
 
                   {editingDeadline === md.id ? (

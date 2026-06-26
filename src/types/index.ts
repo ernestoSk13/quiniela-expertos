@@ -1,5 +1,5 @@
 export type { User, UserRole, BonusPredictions, UserStats } from './User'
-export type { Matchday, TournamentPhase, MatchdayStatus } from './Matchday'
+export type { Matchday, TournamentPhase, MatchdayStatus, PredictionMode } from './Matchday'
 export type { Match, MatchStatus } from './Match'
 export type { Prediction, PredictionResult } from './Prediction'
 export type { Team } from './Team'
