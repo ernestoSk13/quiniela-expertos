@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { collection, getDocs, query, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import type { User, Matchday, Match, Prediction } from '@/types'
@@ -365,7 +365,7 @@ function Pill({
 
 // ── Player record card ─────────────────────────────────────────────────────────
 
-const ICON_PATHS: Record<MetricIcon, JSX.Element> = {
+const ICON_PATHS: Record<MetricIcon, React.ReactNode> = {
   streak_correct: (
     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
   ),
