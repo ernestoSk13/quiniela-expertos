@@ -600,3 +600,63 @@ interface MetricCard {
 - El cálculo de posiciones históricas requiere reconstruir el leaderboard tras cada jornada: agrupar predicciones por jornada, calcular puntos acumulados hasta cada jornada, ordenar usuarios y asignar posición. Es O(n·m) donde n = jugadores y m = jornadas — perfectamente eficiente para el tamaño de este torneo.
 - No mostrar la métrica "Peor jornada" si todos los jugadores tuvieron 0 en alguna jornada (no es informativo).
 - Las métricas de racha deben ordenar predicciones por `match.scheduledAt` dentro de cada jornada y luego por `matchday.order` entre jornadas — para que la racha sea cronológicamente correcta.
+
+---
+
+## T20 — Bonus: ver predicciones de todos
+**Estado:** Pendiente 🔲
+
+En el recuadro "Mis bonus" del Dashboard, agregar un botón "Ver predicciones de los demás" que abra un modal con una matriz comparativa de los bonus de todos los jugadores.
+
+### Comportamiento esperado
+
+- El botón aparece **solo después del deadline** (`2026-06-11T13:00:00Z`) — antes del cierre nadie debe poder ver las predicciones ajenas para no copiar.
+- Al hacer click, se abre un modal/bottom-sheet con una tabla donde:
+  - **Columnas** = las 4 preguntas bonus: Goleador · Balón de Oro · México llega a · Campeón
+  - **Filas** = todos los jugadores con `onboardingCompleted === true`, ordenados por posición en la tabla general (mismo orden que el leaderboard)
+  - **Intersección** = el valor que ese jugador escribió/seleccionó
+- Si un jugador no completó algún campo, mostrar "—".
+- Para la columna **Campeón**, mostrar `flag + name` del equipo (mismo formato que `BonusSummary`).
+- Para la columna **México llega a**, traducir el valor interno al label legible (usando `MEXICO_PHASE_LABELS`, ya definido en `BonusSummary.tsx`).
+- Resaltar visualmente la fila del jugador actual (el usuario logueado).
+- Si `bonusPredictions.pointsAwarded === true`, mostrar al lado del nombre un badge "✓ Pts" indicando que ya se evaluaron sus bonus.
+
+### Datos disponibles sin queries adicionales
+
+El array `players` de `useLeaderboard` en `Dashboard.tsx` ya incluye el campo `bonusPredictions` de cada usuario. No se necesita ninguna consulta extra a Firestore — los datos están en memoria.
+
+### Archivos afectados
+
+- `src/pages/Dashboard/BonusSummary.tsx` — agregar botón "Ver predicciones de los demás" + recibir `players` como prop nueva
+- `src/pages/Dashboard/BonusAllModal.tsx` — **nuevo componente** modal con la matriz
+- `src/pages/Dashboard/Dashboard.tsx` — pasar `players` a `BonusSummary`
+
+### Diseño del modal
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  Bonus de todos                                         [×]          │
+│  ─────────────────────────────────────────────────────────────────── │
+│  JUGADOR         │ GOLEADOR    │ BALÓN ORO   │ MÉXICO  │ CAMPEÓN    │
+│  ─────────────────────────────────────────────────────────────────── │
+│  1 Ana ★ TÚ      │ Messi       │ Messi       │ Semis   │ 🇦🇷 ARG    │
+│  2 Bob            │ Mbappé      │ Vinicius    │ Cuartos │ 🇧🇷 BRA    │
+│  ...                                                                  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+- Bottom-sheet en móvil (igual que `PlayerHistoryModal`), modal centrado en desktop
+- Columna de jugador: sticky left, con número de posición + nombre truncado
+- Las 4 columnas de respuestas: ancho fijo, texto truncado con `text-overflow: ellipsis`
+- La fila del usuario logueado: fondo `var(--accent-deep)` con borde izquierdo `var(--accent)`
+- Header fijo mientras el body hace scroll horizontal
+
+### Firestore rules
+
+Sin cambios. `bonusPredictions` es parte del documento `users/{uid}` que ya es legible por cualquier `isAllowedUser()`.
+
+### Consideraciones
+
+- La columna "Campeón" puede ser larga (flag + nombre completo) — truncar en móvil o usar el código del equipo como fallback si el nombre no cabe.
+- No mostrar el botón si `players` está vacío o cargando.
+- El modal debe cerrarse con Escape y con click en el overlay (igual que `PlayerHistoryModal`).

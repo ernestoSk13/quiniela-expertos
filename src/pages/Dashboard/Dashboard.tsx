@@ -541,6 +541,8 @@ export default function Dashboard() {
                 teams={teams}
                 teamsMap={teamsMap}
                 onSave={handleSaveBonus}
+                players={players}
+                currentUserId={user.uid}
               />
             )}
             {pastMatchdays.length > 0 && (
@@ -584,6 +586,8 @@ export default function Dashboard() {
                   teams={teams}
                   teamsMap={teamsMap}
                   onSave={handleSaveBonus}
+                  players={players}
+                  currentUserId={user.uid}
                 />
               )}
             </div>
