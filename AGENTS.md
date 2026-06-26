@@ -46,6 +46,9 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 - [x] Dashboard card "Próximos partidos" — reemplaza línea "Deadline" por lista de partidos del día más cercano agrupados por hora de cierre (bandera + nombre completo de equipo); fallback a "Deadline:" cuando todos están bloqueados
 - [x] Banda En Vivo — `LiveBand.tsx` aparece en el dashboard cuando `match.scheduledAt <= now && match.status !== 'finished'`; fila horizontal scrolleable con avatar, nombre y badge LOCAL/EMP/VISIT (o marcador exacto `N–M` en modo `exact_score`) por jugador; selector de tabs con banderas si hay varios partidos en vivo simultáneos
 - [x] Modo marcador exacto para fases eliminatorias (T17) — `predictionMode: 'exact_score'` en la jornada activa el `ScorePicker` (+/– botones 44px) en lugar de `ResultPicker`; puntuación escalonada: marcador exacto 5pts / resultado correcto 2pts / goles de un equipo 1pt c/u; Cloud Functions actualizado con `computeExactScorePoints`; seed `npm run seed:r32` carga la jornada de 16vos con 16 partidos; las jornadas sin `predictionMode` usan fallback `'result'` para compatibilidad con fase de grupos
+- [x] Historial de todos: Fase de Grupos/Playoffs (T18) — `AllPlayersGrid.tsx` reescrito con segmented control (auto-selecciona la fase más reciente); celdas muestran puntos numéricos con color (verde=correcto, amarillo=parcial, gris=0, "–"=sin pronóstico); columna Total al final de cada jornada con suma de puntos; banner de puntuación playoffs encima de la tabla (5/2/1/1 pts); en `PlayerHistoryModal` el segmented control filtra el gráfico SVG y el acordeón, mostrando `homeGoals–awayGoals` en jornadas `exact_score`
+- [x] Bonus: ver predicciones de los demás (T20) — botón "Ver predicciones de los demás" en `BonusSummary` visible solo después del deadline (`2026-06-11T13:00:00Z`); abre `BonusAllModal` con matriz sticky 4 columnas (Goleador/Balón de Oro/México/Campeón) × N jugadores ordenados por posición; fila propia con `--accent-deep` y borde accent; badge "✓ pts" si `pointsAwarded`; cierra con Escape o click en overlay
+- [x] Admin: Récords de Jugadores (T19) — sección "RÉCORDS DE JUGADORES" en `/admin/metricas` con 8 tarjetas: racha de aciertos/errores, mayor caída/remontada en tabla, más consistente (menor σ pts/jornada), mejor jornada, "cero cuando otros no", más arriesgado (% empates en grupos); hook `useAdminMetrics` carga todos los datos en paralelo, reconstruye posiciones históricas tras cada jornada, computa desviación estándar; grid `auto-fill minmax(152px)` responsivo con íconos SVG decorativos y `Avatar` component
 - [ ] **PENDIENTE**: Modo claro (T8) — rama `feat/T8-light-mode`, pausado por diseño
 
 ---
@@ -122,6 +125,7 @@ src/
 │   ├── AuthContext.tsx              # onSnapshot en tiempo real del user doc
 │   └── ThemeContext.tsx             # Aplica clase de tema en <html>
 ├── hooks/
+│   ├── useAdminMetrics.ts           # Carga todos los usuarios+jornadas+partidos+pronósticos; computa 8 MetricCards (rachas, posiciones históricas, σ, empates)
 │   ├── useAllMatchdayPredictions.ts # getDocs lazy: todos los pronósticos de una jornada
 │   ├── useLeaderboard.ts
 │   ├── useMatchdayProgress.ts       # Cuenta predicciones enviadas vs total para barra de progreso
@@ -140,6 +144,7 @@ src/
 │   ├── Admin/
 │   │   ├── AdminLayout.tsx          # Sidebar 224px desktop (GESTIÓN/REPORTES/CONFIG) + MOBILE_NAV + switch admin↔jugador
 │   │   ├── AdminLeaderboard.tsx     # /admin/tabla — reutiliza LeaderboardTable + PlayerHistoryModal + LeaderboardPNGCard
+│   │   ├── AdminMetrics.tsx         # /admin/metricas — stats globales (participación, partidos difíciles) + 8 tarjetas de Récords de Jugadores
 │   │   ├── AdminPremios.tsx         # /admin/premios — generador tarjeta Panini (formulario + preview + PNG export)
 │   │   ├── AllowedUsers.tsx         # + botón "Invitar" que genera token y copia link
 │   │   ├── BonusEvaluation.tsx      # Evalúa bonus predictions via Cloud Function
@@ -150,12 +155,14 @@ src/
 │   │   ├── ScoringConfig.tsx        # /admin/config — 3 grupos: Fase de grupos / Marcador exacto / Bonos (7 campos)
 │   │   └── UserProfiles.tsx         # Lista jugadores con conteo de pronósticos y estado onboarding
 │   ├── Dashboard/
-│   │   ├── BonusSummary.tsx
+│   │   ├── AllPlayersGrid.tsx       # Tab Historial: matriz jugadores×partidos con PhaseFilter segmented control, CellPoints numéricos, columna Total por jornada, banner puntuación playoffs
+│   │   ├── BonusAllModal.tsx        # Modal/bottom-sheet: matriz 4-col bonus de todos los jugadores; sticky col izquierda; fila propia resaltada
+│   │   ├── BonusSummary.tsx         # Recuadro "Mis Bonus"; botón "Ver predicciones de los demás" post-deadline
 │   │   ├── Dashboard.tsx
 │   │   ├── LiveBand.tsx             # Banda En Vivo: fila scrolleable de predicciones cuando scheduledAt <= now
 │   │   ├── LeaderboardShareCard.tsx # Botón "Compartir mi posición" → PNG con LeaderboardRow del usuario
 │   │   ├── LeaderboardTable.tsx     # Lista de LeaderboardRow con onClick → PlayerHistoryModal
-│   │   ├── PlayerHistoryModal.tsx   # Bottom-sheet/modal con historial y gráfica SVG
+│   │   ├── PlayerHistoryModal.tsx   # Bottom-sheet/modal con segmented control Grupos/Playoffs, historial filtrado y gráfica SVG
 │   │   └── TournamentCountdown.tsx  # Countdown al 2026-06-11T13:00:00Z (se oculta al iniciar)
 │   ├── Invite/
 │   │   └── InvitePage.tsx           # /invite/:token — pública; llama getInvite, muestra bienvenida
