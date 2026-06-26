@@ -10,7 +10,7 @@ export function useMatchdays() {
   useEffect(() => {
     const q = query(collection(db, 'matchdays'), orderBy('order'))
     return onSnapshot(q, (snap) => {
-      setMatchdays(snap.docs.map(d => d.data() as Matchday))
+      setMatchdays(snap.docs.map(d => ({ id: d.id, ...d.data() }) as Matchday))
       setLoading(false)
     })
   }, [])
@@ -25,7 +25,7 @@ export function useMatchday(matchdayId: string) {
   useEffect(() => {
     if (!matchdayId) return
     return onSnapshot(doc(db, 'matchdays', matchdayId), (snap) => {
-      setMatchday(snap.exists() ? (snap.data() as Matchday) : null)
+      setMatchday(snap.exists() ? ({ id: snap.id, ...snap.data() }) as Matchday : null)
       setLoading(false)
     })
   }, [matchdayId])

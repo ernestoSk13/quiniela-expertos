@@ -186,9 +186,8 @@ const MATCHES = [
 // ─── SEED ─────────────────────────────────────────────────────────────────────
 
 async function seedMatchday() {
-  const { id, ...data } = MATCHDAY
-  await db.doc(`matchdays/${id}`).set(data)
-  console.log(`  ✓ jornada "${MATCHDAY.name}" (${id})`)
+  await db.doc(`matchdays/${MATCHDAY.id}`).set(MATCHDAY)
+  console.log(`  ✓ jornada "${MATCHDAY.name}" (${MATCHDAY.id})`)
 }
 
 async function seedMatches() {
