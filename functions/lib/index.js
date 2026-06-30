@@ -42,12 +42,13 @@ const firestore_2 = require("firebase-admin/firestore");
 admin.initializeApp();
 const db = admin.firestore();
 const DEFAULT_SCORING = {
-    exactScore: 3,
-    correctResult: 1,
-    exactKnockoutWithTie: 3,
+    correctPrediction: 3,
     correctTieWinner: 1,
     groupBonus: 5,
     bonusPrediction: 5,
+    exactScore: 5,
+    correctResult: 2,
+    correctGoals: 1,
 };
 async function getScoringConfig() {
     const snap = await db.collection('config').doc('scoring').get();
@@ -55,36 +56,66 @@ async function getScoringConfig() {
         return DEFAULT_SCORING;
     return Object.assign(Object.assign({}, DEFAULT_SCORING), snap.data());
 }
-function computePoints(homeScore, awayScore, winner, phase, predHome, predAway, predTieWinner, cfg) {
-    const isKnockout = phase !== 'group_stage';
-    const isDraw = homeScore === awayScore;
-    // Knockout draw at 90': exact = score + tieWinner, correct = tieWinner only
-    if (isKnockout && isDraw) {
-        const rightTie = winner != null && predTieWinner === winner;
-        const rightScore = predHome === homeScore && predAway === awayScore;
-        if (rightScore && rightTie)
-            return { points: cfg.exactKnockoutWithTie, isExact: true, isCorrectResult: true };
-        if (rightTie)
-            return { points: cfg.correctTieWinner, isExact: false, isCorrectResult: true };
-        return { points: 0, isExact: false, isCorrectResult: false };
-    }
-    // Group stage or knockout non-draw: exact = score, correct = result (G/E/P or winner)
-    if (predHome === homeScore && predAway === awayScore) {
-        return { points: cfg.exactScore, isExact: true, isCorrectResult: true };
-    }
-    let rightResult;
-    if (isDraw) {
-        rightResult = predHome === predAway;
-    }
-    else {
-        const homeWon = homeScore > awayScore;
-        rightResult = homeWon ? predHome > predAway : predHome < predAway;
-    }
-    if (rightResult)
-        return { points: cfg.correctResult, isExact: false, isCorrectResult: true };
-    return { points: 0, isExact: false, isCorrectResult: false };
+function deriveResult(homeScore, awayScore) {
+    if (homeScore > awayScore)
+        return 'home';
+    if (awayScore > homeScore)
+        return 'away';
+    return 'draw';
 }
-async function scoreMatchPredictions(match, cfg) {
+async function getMatchdayPredictionMode(matchdayId) {
+    var _a, _b;
+    const snap = await db.collection('matchdays').doc(matchdayId).get();
+    return (_b = (_a = snap.data()) === null || _a === void 0 ? void 0 : _a.predictionMode) !== null && _b !== void 0 ? _b : 'result';
+}
+function computePoints(homeScore, awayScore, winner, phase, predResult, predTieWinner, cfg) {
+    if (!predResult)
+        return { points: 0, isCorrect: false };
+    const matchResult = deriveResult(homeScore, awayScore);
+    const isKnockout = phase !== 'group_stage';
+    const isCorrect = predResult === matchResult;
+    if (isKnockout && matchResult === 'draw') {
+        if (!isCorrect)
+            return { points: 0, isCorrect: false };
+        const rightTie = winner != null && predTieWinner === winner;
+        return { points: cfg.correctPrediction + (rightTie ? cfg.correctTieWinner : 0), isCorrect: true };
+    }
+    if (isCorrect)
+        return { points: cfg.correctPrediction, isCorrect: true };
+    return { points: 0, isCorrect: false };
+}
+function computeExactScorePoints(homeScore, awayScore, winner, phase, predHomeGoals, predAwayGoals, predTieWinner, cfg) {
+    if (predHomeGoals === null || predAwayGoals === null)
+        return { points: 0, isCorrect: false };
+    const isExact = predHomeGoals === homeScore && predAwayGoals === awayScore;
+    const isKnockout = phase !== 'group_stage';
+    const actualResult = deriveResult(homeScore, awayScore);
+    if (isExact) {
+        let pts = cfg.exactScore;
+        if (isKnockout && actualResult === 'draw') {
+            const rightTie = winner != null && predTieWinner === winner;
+            if (rightTie)
+                pts += cfg.correctTieWinner;
+        }
+        return { points: pts, isCorrect: true };
+    }
+    const predictedResult = deriveResult(predHomeGoals, predAwayGoals);
+    let pts = 0;
+    if (predictedResult === actualResult) {
+        pts += cfg.correctResult;
+        if (isKnockout && actualResult === 'draw') {
+            const rightTie = winner != null && predTieWinner === winner;
+            if (rightTie)
+                pts += cfg.correctTieWinner;
+        }
+    }
+    if (predHomeGoals === homeScore)
+        pts += cfg.correctGoals;
+    if (predAwayGoals === awayScore)
+        pts += cfg.correctGoals;
+    return { points: pts, isCorrect: false };
+}
+async function scoreMatchPredictions(match, cfg, predictionMode) {
     const { homeScore, awayScore, winner } = match;
     if (homeScore == null || awayScore == null)
         return;
@@ -96,16 +127,16 @@ async function scoreMatchPredictions(match, cfg) {
     const batch = db.batch();
     for (const predDoc of predsSnap.docs) {
         const pred = predDoc.data();
-        const result = computePoints(homeScore, awayScore, winner, match.phase, pred.homeScore, pred.awayScore, pred.tieWinner, cfg);
+        const scored = predictionMode === 'exact_score'
+            ? computeExactScorePoints(homeScore, awayScore, winner, match.phase, pred.homeGoals, pred.awayGoals, pred.tieWinner, cfg)
+            : computePoints(homeScore, awayScore, winner, match.phase, pred.result, pred.tieWinner, cfg);
         batch.update(predDoc.ref, {
-            points: result.points,
-            isExact: result.isExact,
-            isCorrectResult: result.isCorrectResult,
+            points: scored.points,
+            isCorrect: scored.isCorrect,
         });
         batch.update(db.collection('users').doc(pred.userId), {
-            'stats.totalPoints': firestore_2.FieldValue.increment(result.points),
-            'stats.exactPredictions': firestore_2.FieldValue.increment(result.isExact ? 1 : 0),
-            'stats.correctPredictions': firestore_2.FieldValue.increment(result.isCorrectResult ? 1 : 0),
+            'stats.totalPoints': firestore_2.FieldValue.increment(scored.points),
+            'stats.correctPredictions': firestore_2.FieldValue.increment(scored.isCorrect ? 1 : 0),
         });
     }
     await batch.commit();
@@ -122,16 +153,15 @@ async function resetMatchPredictions(matchId) {
     for (const predDoc of scored) {
         const pred = predDoc.data();
         const pts = (_a = pred.points) !== null && _a !== void 0 ? _a : 0;
-        batch.update(predDoc.ref, { points: null, isExact: null, isCorrectResult: null });
+        batch.update(predDoc.ref, { points: null, isCorrect: null });
         batch.update(db.collection('users').doc(pred.userId), {
             'stats.totalPoints': firestore_2.FieldValue.increment(-pts),
-            'stats.exactPredictions': firestore_2.FieldValue.increment(pred.isExact ? -1 : 0),
-            'stats.correctPredictions': firestore_2.FieldValue.increment(pred.isCorrectResult ? -1 : 0),
+            'stats.correctPredictions': firestore_2.FieldValue.increment(pred.isCorrect ? -1 : 0),
         });
     }
     await batch.commit();
 }
-async function rescoreMatchPredictions(oldMatch, newMatch, cfg) {
+async function rescoreMatchPredictions(oldMatch, newMatch, cfg, predictionMode) {
     var _a;
     const { homeScore: newHome, awayScore: newAway, winner: newWinner } = newMatch;
     if (newHome == null || newAway == null)
@@ -144,20 +174,19 @@ async function rescoreMatchPredictions(oldMatch, newMatch, cfg) {
     const batch = db.batch();
     for (const predDoc of predsSnap.docs) {
         const pred = predDoc.data();
-        const newResult = computePoints(newHome, newAway, newWinner, newMatch.phase, pred.homeScore, pred.awayScore, pred.tieWinner, cfg);
+        const newScored = predictionMode === 'exact_score'
+            ? computeExactScorePoints(newHome, newAway, newWinner, newMatch.phase, pred.homeGoals, pred.awayGoals, pred.tieWinner, cfg)
+            : computePoints(newHome, newAway, newWinner, newMatch.phase, pred.result, pred.tieWinner, cfg);
         const oldPts = (_a = pred.points) !== null && _a !== void 0 ? _a : 0;
-        const ptsDelta = newResult.points - oldPts;
-        const exactDelta = (newResult.isExact ? 1 : 0) - (pred.isExact ? 1 : 0);
-        const correctDelta = (newResult.isCorrectResult ? 1 : 0) - (pred.isCorrectResult ? 1 : 0);
+        const ptsDelta = newScored.points - oldPts;
+        const correctDelta = (newScored.isCorrect ? 1 : 0) - (pred.isCorrect ? 1 : 0);
         batch.update(predDoc.ref, {
-            points: newResult.points,
-            isExact: newResult.isExact,
-            isCorrectResult: newResult.isCorrectResult,
+            points: newScored.points,
+            isCorrect: newScored.isCorrect,
         });
-        if (ptsDelta !== 0 || exactDelta !== 0 || correctDelta !== 0) {
+        if (ptsDelta !== 0 || correctDelta !== 0) {
             batch.update(db.collection('users').doc(pred.userId), {
                 'stats.totalPoints': firestore_2.FieldValue.increment(ptsDelta),
-                'stats.exactPredictions': firestore_2.FieldValue.increment(exactDelta),
                 'stats.correctPredictions': firestore_2.FieldValue.increment(correctDelta),
             });
         }
@@ -191,25 +220,25 @@ async function checkAndAwardGroupBonus(bonusPts) {
     if (!claimed)
         return;
     const matchIds = matchesSnap.docs.map(d => d.id);
-    const exactCountsByUser = {};
+    const correctCountsByUser = {};
     const CHUNK = 30;
     for (let i = 0; i < matchIds.length; i += CHUNK) {
         const chunk = matchIds.slice(i, i + CHUNK);
         const predsSnap = await db.collection('predictions')
             .where('matchId', 'in', chunk)
-            .where('isExact', '==', true)
+            .where('isCorrect', '==', true)
             .get();
         predsSnap.docs.forEach(d => {
             var _a;
             const uid = d.data().userId;
-            exactCountsByUser[uid] = ((_a = exactCountsByUser[uid]) !== null && _a !== void 0 ? _a : 0) + 1;
+            correctCountsByUser[uid] = ((_a = correctCountsByUser[uid]) !== null && _a !== void 0 ? _a : 0) + 1;
         });
     }
-    if (Object.keys(exactCountsByUser).length === 0)
+    if (Object.keys(correctCountsByUser).length === 0)
         return;
-    const maxExact = Math.max(...Object.values(exactCountsByUser));
-    const winners = Object.entries(exactCountsByUser)
-        .filter(([, count]) => count === maxExact)
+    const maxCorrect = Math.max(...Object.values(correctCountsByUser));
+    const winners = Object.entries(correctCountsByUser)
+        .filter(([, count]) => count === maxCorrect)
         .map(([uid]) => uid);
     const batch = db.batch();
     for (const uid of winners) {
@@ -220,23 +249,26 @@ async function checkAndAwardGroupBonus(bonusPts) {
     await batch.commit();
 }
 exports.onMatchUpdated = (0, firestore_1.onDocumentUpdated)('matches/{matchId}', async (event) => {
-    var _a, _b;
+    var _a, _b, _c, _d;
     const matchId = event.params.matchId;
     const beforeData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
     const afterData = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
     if (!beforeData || !afterData)
         return;
-    const oldMatch = Object.assign(Object.assign({}, beforeData), { id: matchId });
-    const newMatch = Object.assign(Object.assign({}, afterData), { id: matchId });
+    const oldMatch = Object.assign(Object.assign({}, beforeData), { id: matchId, matchdayId: (_c = beforeData.matchdayId) !== null && _c !== void 0 ? _c : '' });
+    const newMatch = Object.assign(Object.assign({}, afterData), { id: matchId, matchdayId: (_d = afterData.matchdayId) !== null && _d !== void 0 ? _d : '' });
     const wasFinished = oldMatch.status === 'finished' &&
         oldMatch.homeScore != null && oldMatch.awayScore != null;
     const isFinished = newMatch.status === 'finished' &&
         newMatch.homeScore != null && newMatch.awayScore != null;
     if (!wasFinished && !isFinished)
         return;
-    const cfg = await getScoringConfig();
+    const [cfg, predictionMode] = await Promise.all([
+        getScoringConfig(),
+        getMatchdayPredictionMode(newMatch.matchdayId),
+    ]);
     if (!wasFinished && isFinished) {
-        await scoreMatchPredictions(newMatch, cfg);
+        await scoreMatchPredictions(newMatch, cfg, predictionMode);
         if (newMatch.phase === 'group_stage') {
             await checkAndAwardGroupBonus(cfg.groupBonus);
         }
@@ -249,7 +281,7 @@ exports.onMatchUpdated = (0, firestore_1.onDocumentUpdated)('matches/{matchId}',
             oldMatch.awayScore !== newMatch.awayScore ||
             oldMatch.winner !== newMatch.winner;
         if (scoresChanged) {
-            await rescoreMatchPredictions(oldMatch, newMatch, cfg);
+            await rescoreMatchPredictions(oldMatch, newMatch, cfg, predictionMode);
         }
     }
 });
