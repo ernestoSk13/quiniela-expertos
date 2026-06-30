@@ -49,6 +49,8 @@ Lee el `README.md` completo para entender las reglas del negocio y los modelos d
 - [x] Historial de todos: Fase de Grupos/Playoffs (T18) — `AllPlayersGrid.tsx` reescrito con segmented control (auto-selecciona la fase más reciente); celdas muestran puntos numéricos con color (verde=correcto, amarillo=parcial, gris=0, "–"=sin pronóstico); columna Total al final de cada jornada con suma de puntos; banner de puntuación playoffs encima de la tabla (5/2/1/1 pts); en `PlayerHistoryModal` el segmented control filtra el gráfico SVG y el acordeón, mostrando `homeGoals–awayGoals` en jornadas `exact_score`
 - [x] Bonus: ver predicciones de los demás (T20) — botón "Ver predicciones de los demás" en `BonusSummary` visible solo después del deadline (`2026-06-11T13:00:00Z`); abre `BonusAllModal` con matriz sticky 4 columnas (Goleador/Balón de Oro/México/Campeón) × N jugadores ordenados por posición; fila propia con `--accent-deep` y borde accent; badge "✓ pts" si `pointsAwarded`; cierra con Escape o click en overlay
 - [x] Admin: Récords de Jugadores (T19) — sección "RÉCORDS DE JUGADORES" en `/admin/metricas` con 8 tarjetas: racha de aciertos/errores, mayor caída/remontada en tabla, más consistente (menor σ pts/jornada), mejor jornada, "cero cuando otros no", más arriesgado (% empates en grupos); hook `useAdminMetrics` carga todos los datos en paralelo, reconstruye posiciones históricas tras cada jornada, computa desviación estándar; grid `auto-fill minmax(152px)` responsivo con íconos SVG decorativos y `Avatar` component
+- [x] Criterios de desempate + estadísticas de fase eliminatoria (T21) — nuevo orden en `useLeaderboard.ts`: puntos → aciertos → marcadores exactos → menos fallos; dos nuevos campos en `UserStats`: `exactScoreCount?` (marcadores exactos en modo `exact_score`) e `incorrectPredictions?` (predicciones con 0 pts); `LeaderboardRow` muestra los stats debajo del nombre; `onMatchUpdated` incrementa ambos campos y usa `isExact: boolean | null` como sentinel (`null` = pre-T21, no cuenta para nuevos campos); leyenda de desempate visible sobre la tabla general en el Dashboard; script `backfill-exact-scores.ts` para rellenar stats de predicciones calificadas antes del deploy
+- [x] Seeds fases eliminatorias (T22) — 4 scripts nuevos: `seed-r16.ts` (8 partidos Octavos, `r32_stage→r16_stage`, deadline 2026-07-04), `seed-qf.ts` (4 Cuartos, deadline 2026-07-09), `seed-sf.ts` (2 Semis, deadline 2026-07-14), `seed-final.ts` (3er Lugar + Final, deadline 2026-07-18); 8 comandos npm (`seed:r16`, `seed:r16:prod`, `seed:qf`, `seed:qf:prod`, `seed:sf`, `seed:sf:prod`, `seed:final`, `seed:final:prod`)
 - [ ] **PENDIENTE**: Modo claro (T8) — rama `feat/T8-light-mode`, pausado por diseño
 
 ---
@@ -117,7 +119,7 @@ src/
 ├── components/
 │   ├── Avatar.tsx
 │   ├── AuthGuard.tsx
-│   ├── LeaderboardRow.tsx           # Fila estilo carta FIFA (avatar + nombre + pts); compartida dashboard/admin/PNG
+│   ├── LeaderboardRow.tsx           # Fila estilo carta FIFA (avatar + nombre + pts + stats); compartida dashboard/admin/PNG
 │   ├── LoadingScreen.tsx
 │   ├── StatusBadge.tsx
 │   └── ThemeSelector.tsx            # Selector de tema en el Dashboard
@@ -198,7 +200,19 @@ src/
     ├── Matchday.ts                  # Incluye PredictionMode = 'result' | 'exact_score'; Matchday.predictionMode?
     ├── Prediction.ts                # Incluye homeGoals: number|null, awayGoals: number|null
     ├── Team.ts
-    └── User.ts                     # Incluye theme?: ThemeId
+    └── User.ts                     # Incluye theme?: ThemeId; UserStats con exactScoreCount? e incorrectPredictions?
+
+scripts/                             # Scripts Admin SDK (tsx, Node.js)
+├── seed.ts                          # Datos iniciales (equipos, jornadas, fase de grupos)
+├── seed-r32.ts                      # Jornada Dieciseisavos (r32_stage, 16 partidos)
+├── seed-r16.ts                      # Jornada Octavos de final (r16_stage, 8 partidos, desde 2026-07-05)
+├── seed-qf.ts                       # Cuartos de final (4 partidos, desde 2026-07-09)
+├── seed-sf.ts                       # Semifinales (2 partidos, desde 2026-07-14)
+├── seed-final.ts                    # 3er Lugar + Final (desde 2026-07-18)
+├── backfill-exact-scores.ts         # Rellena exactScoreCount/incorrectPredictions para preds pre-T21 (idempotente)
+├── pull-from-prod.ts                # Importa collections al emulador (teams/matchdays/matches/allowedUsers/users/config/predictions)
+├── push-to-prod.ts                  # Exporta collections al prod
+└── fix-timestamps.ts                # Corrige timestamps ingresados como hora local
 ```
 
 ---
@@ -210,9 +224,11 @@ Las funciones viven en `functions/src/index.ts` y se despliegan en `us-central1`
 ### `onMatchUpdated` — Trigger de Firestore
 Se dispara en cualquier actualización a `matches/{matchId}`. Detecta tres casos:
 
-- **Score nuevo** (`!wasFinished && isFinished`): lee `predictionMode` de la jornada; en modo `result` compara `prediction.result`; en modo `exact_score` usa `computeExactScorePoints` con `homeGoals`/`awayGoals`. Escribe `points` e `isCorrect` en cada predicción, incrementa `stats.totalPoints` y `stats.correctPredictions`. Si es `group_stage`, llama a `checkAndAwardGroupBonus()`.
-- **Corrección de score** (ambos `finished` con scores distintos): recalcula y aplica el delta de puntos.
-- **Revert** (`wasFinished && !isFinished`): borra puntos de predicciones y los resta de stats.
+- **Score nuevo** (`!wasFinished && isFinished`): lee `predictionMode` de la jornada; en modo `result` compara `prediction.result`; en modo `exact_score` usa `computeExactScorePoints` con `homeGoals`/`awayGoals`. Escribe `points`, `isCorrect` e `isExact` en cada predicción; incrementa `stats.totalPoints`, `stats.correctPredictions`, `stats.exactScoreCount` y `stats.incorrectPredictions` (pts === 0). Si es `group_stage`, llama a `checkAndAwardGroupBonus()`.
+- **Corrección de score** (ambos `finished` con scores distintos): recalcula y aplica el delta de puntos, incluyendo deltas de `exactScoreCount` e `incorrectPredictions` con backward-compat (`pred.isExact == null` = pre-T21, no descuenta los nuevos campos).
+- **Revert** (`wasFinished && !isFinished`): borra puntos de predicciones y los resta de stats. Solo descuenta `exactScoreCount`/`incorrectPredictions` si la predicción tiene `isExact != null` (sentinel post-T21).
+
+**Sentinel `isExact: boolean | null`** — Predicciones calificadas antes del deploy de T21 tienen `isExact: null`. Permite backward-compat en reset/rescore sin corromper contadores nuevos.
 
 ### `evaluateBonusPredictions` — Callable HTTP
 Solo admins. Recibe `{ topScorer, goldenBall, mexicoPhase, champion }` y otorga puntos por cada acierto comparando contra `bonusPredictions` de cada usuario. Puntos por acierto = `cfg.bonusPrediction` (default 5). Marca `bonusPredictions.pointsAwarded = true` para evitar doble puntuación.
@@ -272,7 +288,7 @@ El campo `theme?: ThemeId` se guarda en el documento `users/{uid}` de Firestore.
 1. **Auth guard** — Sin auth → `/login`. Auth pero sin onboarding → `/onboarding`.
 2. **Onboarding** — Escribe `onboardingCompleted: true` **antes** de redirigir. `AuthContext` lo detecta via `onSnapshot` y `OnboardingRoute` redirige.
 3. **Predicciones** — Solo guardar si `matchday.status === 'open'` y `Date.now() < predictionDeadline`. Adicionalmente, cada partido se bloquea **10 minutos antes** de `match.scheduledAt` (`PREDICTION_CUTOFF_MS = 10 * 60 * 1000`). Enforcement doble: cliente (`matchReadOnly` en `MatchdayPredictions.tsx`) + Firestore rules (`request.time.toMillis() + 600000 < match.scheduledAt.toMillis()`). El segundo es inmune a manipulación del reloj del cliente. **No usar `duration.seconds()` en rules — compila pero falla en runtime bloqueando todos los writes.**
-4. **Leaderboard** — Lee la colección `users` filtrada por `onboardingCompleted === true`, ordenada por `stats.totalPoints` desc. Los puntos son escritos server-side por `onMatchUpdated`. La regla de Firestore permite `read` a cualquier `isAllowedUser()` — sin este permiso el query de colección falla.
+4. **Leaderboard** — Lee la colección `users` filtrada por `onboardingCompleted === true`. Orden client-side en `useLeaderboard.ts` con 4 criterios: puntos desc → aciertos (`correctPredictions`) desc → exactos (`exactScoreCount`) desc → fallos (`incorrectPredictions`) asc. Los puntos son escritos server-side por `onMatchUpdated`. La regla de Firestore permite `read` a cualquier `isAllowedUser()` — sin este permiso el query de colección falla.
 5. **Scoring** — Siempre server-side (Cloud Functions). El cliente solo lee `stats` y `prediction.points`. Nunca calcular puntos en el cliente.
 
 ---
@@ -332,10 +348,20 @@ No ejecutar `firebase deploy` ni `git commit` hasta que el desarrollador confirm
 npm run dev              # Dev server localhost:5173
 npm run build            # Build de producción (tsc + vite)
 npm run emulators        # Firebase Emulators (Auth/Firestore/Storage/Functions)
-npm run seed             # Seed de datos iniciales (equipos, jornadas, partidos de grupos) en emulador
-npm run seed:r32         # Seed de jornada de 16vos de final (r32_stage) en emulador
-npm run seed:r32:prod    # Idem, apuntando a producción (requiere service-account.json)
-npm run pull-from-prod   # Importa teams/matchdays/matches de producción al emulador
+npm run seed                      # Seed datos iniciales (equipos, jornadas, partidos grupos) en emulador
+npm run seed:r32                  # Seed jornada Dieciseisavos de final (r32_stage) en emulador
+npm run seed:r32:prod             # Idem, apuntando a producción
+npm run seed:r16                  # Seed jornada Octavos de final (r16_stage) en emulador
+npm run seed:r16:prod             # Idem, apuntando a producción
+npm run seed:qf                   # Seed Cuartos de final en emulador
+npm run seed:qf:prod              # Idem, apuntando a producción
+npm run seed:sf                   # Seed Semifinales en emulador
+npm run seed:sf:prod              # Idem, apuntando a producción
+npm run seed:final                # Seed 3er Lugar + Final en emulador
+npm run seed:final:prod           # Idem, apuntando a producción
+npm run backfill:exact-scores     # Backfill exactScoreCount/incorrectPredictions en emulador (idempotente)
+npm run backfill:exact-scores:prod # Idem, apuntando a producción
+npm run pull-from-prod            # Importa teams/matchdays/matches/predictions de producción al emulador
 firebase deploy --only hosting          # Deploy frontend a producción
 firebase deploy --only functions        # Deploy Cloud Functions a producción
 firebase deploy --only firestore:rules  # Deploy reglas de Firestore
