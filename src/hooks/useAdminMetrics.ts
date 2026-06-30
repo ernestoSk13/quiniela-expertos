@@ -13,6 +13,11 @@ export type MetricIcon =
   | 'best'
   | 'worst'
   | 'bold'
+  | 'target'
+  | 'eye'
+  | 'ruler'
+  | 'offensive'
+  | 'cautious'
 
 export interface MetricCard {
   id: string
@@ -25,6 +30,8 @@ export interface MetricCard {
 }
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
+
+const MIN_EXACT_MODE_PREDS = 5
 
 function stdDev(values: number[]): number {
   if (values.length < 2) return Infinity
@@ -203,6 +210,59 @@ export function useAdminMetrics() {
         drawCountMap[u.uid] = draws
       }
 
+      // ── 9-13: Exact-score metrics (predictionMode === 'exact_score' only) ────
+      const exactModeScoredByUser: Record<string, Prediction[]> = {}
+      for (const u of users) {
+        exactModeScoredByUser[u.uid] = scoredByUser[u.uid].filter(p => {
+          const md = matchdayById[matchById[p.matchId].matchdayId]
+          return md?.predictionMode === 'exact_score' && p.homeGoals != null && p.awayGoals != null
+        })
+      }
+
+      // 9: Francotirador — más marcadores exactos totales (ya acumulado server-side)
+      const exactScoreCountMap: Record<string, number> = {}
+      for (const u of users) exactScoreCountMap[u.uid] = u.stats.exactScoreCount ?? 0
+
+      // 10: Ojo de águila — mejor proporción de exactos, mínimo de predicciones para calificar
+      const exactRatioMap: Record<string, number> = {}
+      for (const u of users) {
+        const preds = exactModeScoredByUser[u.uid]
+        if (preds.length < MIN_EXACT_MODE_PREDS) continue
+        const exactCount = preds.filter(p => {
+          const m = matchById[p.matchId]
+          return p.homeGoals === m.homeScore && p.awayGoals === m.awayScore
+        }).length
+        exactRatioMap[u.uid] = exactCount / preds.length
+      }
+
+      // 11: Mayor error de marcador — la predicción individual más alejada del resultado real
+      let worstErrUser: User | null = null
+      let worstErrValue = -1
+      let worstErrPred: Prediction | null = null
+      let worstErrMatch: Match | null = null
+      for (const u of users) {
+        for (const p of exactModeScoredByUser[u.uid]) {
+          const m = matchById[p.matchId]
+          if (m.homeScore == null || m.awayScore == null) continue
+          const err = Math.abs((p.homeGoals as number) - m.homeScore) + Math.abs((p.awayGoals as number) - m.awayScore)
+          if (err > worstErrValue) {
+            worstErrValue = err
+            worstErrUser = u
+            worstErrPred = p
+            worstErrMatch = m
+          }
+        }
+      }
+
+      // 12 & 13: Más ofensivo / Más cauteloso — promedio de goles totales pronosticados
+      const avgGoalsMap: Record<string, number> = {}
+      for (const u of users) {
+        const preds = exactModeScoredByUser[u.uid]
+        if (preds.length === 0) continue
+        const totalGoals = preds.reduce((s, p) => s + (p.homeGoals as number) + (p.awayGoals as number), 0)
+        avgGoalsMap[u.uid] = totalGoals / preds.length
+      }
+
       // ── Build cards ───────────────────────────────────────────────────────────
       const w1 = findWinner(users, longestCorrect, 'highest')
       const w2 = findWinner(users, longestWrong, 'highest')
@@ -211,6 +271,10 @@ export function useAdminMetrics() {
       const w5 = findWinner(users, consistencyMap, 'lowest')
       const w7 = findWinner(users, badMdCount, 'highest')
       const w8 = findWinner(users, drawPctMap, 'highest')
+      const w9 = findWinner(users, exactScoreCountMap, 'highest')
+      const w10 = findWinner(users, exactRatioMap, 'highest')
+      const w12 = findWinner(users, avgGoalsMap, 'highest')
+      const w13 = findWinner(users, avgGoalsMap, 'lowest')
 
       const cards: MetricCard[] = [
         {
@@ -284,6 +348,53 @@ export function useAdminMetrics() {
           value: w8 ? `${Math.round(w8.score * 100)}%` : '—',
           subtitle: w8 ? `${drawCountMap[w8.user.uid]} empates en grupos` : undefined,
           empty: !w8,
+        },
+        {
+          id: 'target',
+          title: 'Francotirador',
+          icon: 'target',
+          winner: w9 && w9.score > 0 ? w9.user : null,
+          value: w9 && w9.score > 0 ? String(w9.score) : '—',
+          subtitle: w9 && w9.score > 0 ? 'marcadores exactos' : undefined,
+          empty: !w9 || w9.score === 0,
+        },
+        {
+          id: 'eye',
+          title: 'Ojo de águila',
+          icon: 'eye',
+          winner: w10 ? w10.user : null,
+          value: w10 ? `${Math.round(w10.score * 100)}%` : '—',
+          subtitle: w10 ? 'de marcadores exactos' : undefined,
+          empty: !w10,
+        },
+        {
+          id: 'ruler',
+          title: 'Mayor error de marcador',
+          icon: 'ruler',
+          winner: worstErrValue > 0 ? worstErrUser : null,
+          value: worstErrValue > 0 ? String(worstErrValue) : '—',
+          subtitle: worstErrValue > 0 && worstErrPred && worstErrMatch
+            ? `Predijo ${worstErrPred.homeGoals}–${worstErrPred.awayGoals}, fue ${worstErrMatch.homeScore}–${worstErrMatch.awayScore}`
+            : undefined,
+          empty: worstErrValue <= 0,
+        },
+        {
+          id: 'offensive',
+          title: 'Más ofensivo',
+          icon: 'offensive',
+          winner: w12 ? w12.user : null,
+          value: w12 ? w12.score.toFixed(1) : '—',
+          subtitle: w12 ? 'goles promedio/partido' : undefined,
+          empty: !w12,
+        },
+        {
+          id: 'cautious',
+          title: 'Más cauteloso',
+          icon: 'cautious',
+          winner: w13 ? w13.user : null,
+          value: w13 ? w13.score.toFixed(1) : '—',
+          subtitle: w13 ? 'goles promedio/partido' : undefined,
+          empty: !w13,
         },
       ]
 
