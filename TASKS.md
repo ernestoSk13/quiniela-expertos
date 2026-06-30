@@ -660,3 +660,171 @@ Sin cambios. `bonusPredictions` es parte del documento `users/{uid}` que ya es l
 - La columna "Campeón" puede ser larga (flag + nombre completo) — truncar en móvil o usar el código del equipo como fallback si el nombre no cabe.
 - No mostrar el botón si `players` está vacío o cargando.
 - El modal debe cerrarse con Escape y con click en el overlay (igual que `PlayerHistoryModal`).
+
+---
+
+## T21 — Criterio de desempate y stats de exactitud
+**Estado:** Completada ✅ (PR #32, deploy pendiente)
+
+Con la fase eliminatoria en modo `exact_score`, el criterio de desempate actual (solo por puntos) ya no distingue suficientemente entre jugadores. El nuevo criterio es:
+
+1. **Puntos totales** (mayor gana) — ya implementado
+2. **Marcadores exactos** (mayor gana) — nuevo: `stats.exactScoreCount`
+3. **Fallos** (menor gana) — nuevo: `stats.incorrectPredictions`
+
+Además, en cada fila del leaderboard, después de "N aciertos" mostrar también los exactos y fallos.
+
+### Cambios en modelo de datos
+
+**`src/types/User.ts`** — agregar campos en la interfaz `UserStats`:
+```typescript
+exactScoreCount: number      // predicciones con marcador exacto (isExact === true)
+incorrectPredictions: number // predicciones incorrectas (isCorrect === false, match finished)
+```
+
+### Cambios en Cloud Functions (`functions/src/index.ts`)
+
+**`computeExactScorePoints`** — extender el valor de retorno para exponer `isExact`:
+```typescript
+return { points, isCorrect, isExact }  // isExact: boolean
+```
+
+**`onMatchUpdated`** — al actualizar stats de cada predicción:
+- Cuando `isExact === true`: `stats.exactScoreCount += 1`
+- Cuando `isCorrect === false`: `stats.incorrectPredictions += 1`
+
+Los tres casos ya manejados (nuevo score, corrección, revert) deben actualizar estos campos con el mismo patrón delta que se usa para `stats.totalPoints` y `stats.correctPredictions`.
+
+En modo `result`, `isExact` siempre es `false` — no afecta `exactScoreCount`.
+
+### Cambios en leaderboard — ordenamiento
+
+**`src/hooks/useLeaderboard.ts`** — aplicar ordenamiento secundario y terciario client-side (los datos ya están cargados):
+
+```typescript
+players.sort((a, b) => {
+  if (b.stats.totalPoints !== a.stats.totalPoints)
+    return b.stats.totalPoints - a.stats.totalPoints
+  if ((b.stats.exactScoreCount ?? 0) !== (a.stats.exactScoreCount ?? 0))
+    return (b.stats.exactScoreCount ?? 0) - (a.stats.exactScoreCount ?? 0)
+  return (a.stats.incorrectPredictions ?? 0) - (b.stats.incorrectPredictions ?? 0)
+})
+```
+
+Firestore sigue ordenando por `stats.totalPoints desc` — el sort extra se hace sobre el array ya cargado.
+
+### Cambios en UI — display de stats
+
+**`src/components/LeaderboardRow.tsx`** (o donde se muestren los stats en la fila):
+
+Actualmente muestra algo como `14 aciertos`. Cambiar a:
+
+```
+14 aciertos · 3 exactos 🎯 · 8 fallos ❌
+```
+
+Verificar también si `LeaderboardPNGCard.tsx` muestra esta línea — si es así, actualizar también allí (con valores hardcodeados del `COLORS` record, sin `var(--accent)`).
+
+### Archivos afectados
+
+- `src/types/User.ts` — `exactScoreCount`, `incorrectPredictions` en `UserStats`
+- `functions/src/index.ts` — `computeExactScorePoints` retorna `isExact`; `onMatchUpdated` actualiza los dos campos nuevos
+- `src/hooks/useLeaderboard.ts` — sort secundario/terciario client-side
+- `src/components/LeaderboardRow.tsx` — mostrar exactos 🎯 y fallos ❌ tras los aciertos
+- `src/pages/Admin/LeaderboardPNGCard.tsx` — si muestra la línea de stats, actualizar también
+
+### Consideraciones
+
+- `exactScoreCount` y `incorrectPredictions` no existen en documentos de usuarios ya escritos — usar `?? 0` como fallback en todos los lugares que los lean para evitar `NaN`.
+- El sort client-side se aplica sobre el array ya cargado por `useLeaderboard`, sin queries adicionales.
+- La lógica de corrección de score y revert en `onMatchUpdated` ya maneja deltas para `totalPoints`/`correctPredictions` — seguir el mismo patrón para los nuevos campos.
+- Al revertir un score, restar los contadores solo si el valor previo era positivo (evitar negativos).
+- Los datos de `LeaderboardPNGCard` se renderizan off-screen para html2canvas — no usar `var(--accent)` para los emojis/texto si se agrega color; los emojis son seguros.
+
+---
+
+## T22 — Seeds para rondas eliminatorias restantes (R16, QF, SF, Final)
+**Estado:** Pendiente ⏳
+
+Crear los scripts de seed para las cuatro rondas que siguen al Round of 32. Todos usan `predictionMode: 'exact_score'`. Los equipos son TBD hasta que se definan los clasificados; el admin los edita desde `/admin/jornada/{id}`.
+
+### Scripts a crear
+
+| Script | Matchday ID | Fase | Partidos | `order` |
+|--------|-------------|------|----------|---------|
+| `scripts/seed-r16.ts` | `r16_stage` | `round_of_16` | 8 (M89–M96) | 5 |
+| `scripts/seed-qf.ts` | `qf_stage` | `quarter_finals` | 4 (M97–M100) | 6 |
+| `scripts/seed-sf.ts` | `sf_stage` | `semi_finals` | 2 (M101–M102) | 7 |
+| `scripts/seed-final.ts` | `final_stage` | `final` | 2 (M103–M104) | 8 |
+
+Seguir exactamente el mismo patrón de `scripts/seed-r32.ts`: boilerplate de Firebase Admin, `MATCHDAY`, `MATCHES`, `seedMatchday()`, `seedMatches()`, `main()`.
+
+### Comandos en `package.json`
+
+Agregar los siguientes scripts (mismo patrón que `seed:r32` / `seed:r32:prod`):
+```json
+"seed:r16":        "tsx scripts/seed-r16.ts",
+"seed:r16:prod":   "FIRESTORE_EMULATOR_HOST='' tsx scripts/seed-r16.ts",
+"seed:qf":         "tsx scripts/seed-qf.ts",
+"seed:qf:prod":    "FIRESTORE_EMULATOR_HOST='' tsx scripts/seed-qf.ts",
+"seed:sf":         "tsx scripts/seed-sf.ts",
+"seed:sf:prod":    "FIRESTORE_EMULATOR_HOST='' tsx scripts/seed-sf.ts",
+"seed:final":      "tsx scripts/seed-final.ts",
+"seed:final:prod": "FIRESTORE_EMULATOR_HOST='' tsx scripts/seed-final.ts"
+```
+
+### Calendario completo (UTC) — fuente: worldcupwiki.com
+
+#### R16 — Octavos de Final (4–7 jul)
+`predictionDeadline`: `2026-07-04T16:50:00Z` (10 min antes del primer partido)
+
+| ID | Fecha UTC | Hora UTC | Local | Visitante | Sede |
+|----|-----------|----------|-------|-----------|------|
+| `r16_m90` | 2026-07-04 | 17:00 | Canadá | Marruecos | NRG Stadium, Houston |
+| `r16_m89` | 2026-07-04 | 21:00 | Paraguay | Gan. M77 | Lincoln Financial Field, Philadelphia |
+| `r16_m91` | 2026-07-05 | 20:00 | Brasil | Noruega | MetLife Stadium, East Rutherford |
+| `r16_m92` | 2026-07-06 | 00:00 | Gan. M79 | Gan. M80 | Estadio Azteca, Ciudad de México |
+| `r16_m93` | 2026-07-06 | 19:00 | Gan. M83 | Gan. M84 | AT&T Stadium, Arlington |
+| `r16_m94` | 2026-07-07 | 00:00 | Gan. M81 | Gan. M82 | Lumen Field, Seattle |
+| `r16_m95` | 2026-07-07 | 16:00 | Gan. M86 | Gan. M88 | Mercedes-Benz Stadium, Atlanta |
+| `r16_m96` | 2026-07-07 | 20:00 | Gan. M85 | Gan. M87 | BC Place, Vancouver |
+
+> Nota: Canadá, Marruecos, Paraguay, Brasil y Noruega ya están confirmados. El resto son TBD.
+
+#### QF — Cuartos de Final (9–11 jul)
+`predictionDeadline`: `2026-07-09T19:50:00Z`
+
+| ID | Fecha UTC | Hora UTC | Local | Visitante | Sede |
+|----|-----------|----------|-------|-----------|------|
+| `qf_m97` | 2026-07-09 | 20:00 | Gan. M89 | Gan. M90 | Gillette Stadium, Foxborough |
+| `qf_m98` | 2026-07-10 | 19:00 | Gan. M93 | Gan. M94 | SoFi Stadium, Inglewood |
+| `qf_m99` | 2026-07-11 | 21:00 | Gan. M91 | Gan. M92 | Hard Rock Stadium, Miami Gardens |
+| `qf_m100` | 2026-07-12 | 01:00 | Gan. M95 | Gan. M96 | Arrowhead Stadium, Kansas City |
+
+#### SF — Semifinales (14–15 jul)
+`predictionDeadline`: `2026-07-14T18:50:00Z`
+
+| ID | Fecha UTC | Hora UTC | Local | Visitante | Sede |
+|----|-----------|----------|-------|-----------|------|
+| `sf_m101` | 2026-07-14 | 19:00 | Gan. M97 | Gan. M98 | AT&T Stadium, Arlington |
+| `sf_m102` | 2026-07-15 | 19:00 | Gan. M99 | Gan. M100 | Mercedes-Benz Stadium, Atlanta |
+
+#### Final (18–19 jul)
+`predictionDeadline`: `2026-07-18T20:50:00Z` (10 min antes del Tercer Lugar)
+
+Un solo matchday `final_stage` con los dos partidos finales:
+
+| ID | Fecha UTC | Hora UTC | Local | Visitante | Sede |
+|----|-----------|----------|-------|-----------|------|
+| `final_m103` | 2026-07-18 | 21:00 | Per. M101 | Per. M102 | Hard Rock Stadium, Miami Gardens |
+| `final_m104` | 2026-07-19 | 19:00 | Gan. M101 | Gan. M102 | MetLife Stadium, East Rutherford |
+
+> `Per.` = Perdedor de. El M103 es el partido por el Tercer Lugar. Ambos van en el mismo matchday `final_stage`.
+
+### Consideraciones
+
+- Todos los matchdays: `status: 'upcoming'`, `predictionMode: 'exact_score'`.
+- `startDate` / `endDate` del matchday deben abarcar todos sus partidos.
+- Todos los equipos son `TBD` excepto los ya confirmados en R16 (Canadá, Marruecos, Paraguay, Brasil, Noruega). Usar `homeTeamCode: 'TBD'` como en `seed-r32.ts`.
+- El M103 (tercer lugar) y M104 (final) comparten matchday `final_stage` — el `predictionDeadline` es 10 min antes del partido más temprano (M103 el 18 jul).
+- Verificar los horarios contra el calendario oficial de FIFA antes de ejecutar en producción — la fuente usada aquí es worldcupwiki.com; pueden ajustarse horarios menores.
