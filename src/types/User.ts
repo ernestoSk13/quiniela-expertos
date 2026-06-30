@@ -15,6 +15,8 @@ export interface UserStats {
   totalPoints: number
   correctPredictions: number
   totalPredictions: number
+  exactScoreCount?: number      // predicciones con marcador exacto (exact_score mode)
+  incorrectPredictions?: number // predicciones calificadas con 0 puntos
 }
 
 export interface User {

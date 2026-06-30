@@ -29,6 +29,7 @@ interface PredictionData {
   awayGoals: number | null
   points: number | null
   isCorrect: boolean | null
+  isExact: boolean | null // null = scored before T21 (exactScoreCount/incorrectPredictions not tracked)
 }
 
 interface ScoringConfig {
@@ -60,6 +61,7 @@ async function getScoringConfig(): Promise<ScoringConfig> {
 interface PointsResult {
   points: number
   isCorrect: boolean
+  isExact: boolean
 }
 
 function deriveResult(homeScore: number, awayScore: number): PredictionResult {
@@ -82,20 +84,20 @@ function computePoints(
   predTieWinner: string | null,
   cfg: ScoringConfig,
 ): PointsResult {
-  if (!predResult) return { points: 0, isCorrect: false }
+  if (!predResult) return { points: 0, isCorrect: false, isExact: false }
 
   const matchResult = deriveResult(homeScore, awayScore)
   const isKnockout = phase !== 'group_stage'
   const isCorrect = predResult === matchResult
 
   if (isKnockout && matchResult === 'draw') {
-    if (!isCorrect) return { points: 0, isCorrect: false }
+    if (!isCorrect) return { points: 0, isCorrect: false, isExact: false }
     const rightTie = winner != null && predTieWinner === winner
-    return { points: cfg.correctPrediction + (rightTie ? cfg.correctTieWinner : 0), isCorrect: true }
+    return { points: cfg.correctPrediction + (rightTie ? cfg.correctTieWinner : 0), isCorrect: true, isExact: false }
   }
 
-  if (isCorrect) return { points: cfg.correctPrediction, isCorrect: true }
-  return { points: 0, isCorrect: false }
+  if (isCorrect) return { points: cfg.correctPrediction, isCorrect: true, isExact: false }
+  return { points: 0, isCorrect: false, isExact: false }
 }
 
 function computeExactScorePoints(
@@ -108,7 +110,7 @@ function computeExactScorePoints(
   predTieWinner: string | null,
   cfg: ScoringConfig,
 ): PointsResult {
-  if (predHomeGoals === null || predAwayGoals === null) return { points: 0, isCorrect: false }
+  if (predHomeGoals === null || predAwayGoals === null) return { points: 0, isCorrect: false, isExact: false }
 
   const isExact = predHomeGoals === homeScore && predAwayGoals === awayScore
   const isKnockout = phase !== 'group_stage'
@@ -120,7 +122,7 @@ function computeExactScorePoints(
       const rightTie = winner != null && predTieWinner === winner
       if (rightTie) pts += cfg.correctTieWinner
     }
-    return { points: pts, isCorrect: true }
+    return { points: pts, isCorrect: true, isExact: true }
   }
 
   const predictedResult = deriveResult(predHomeGoals, predAwayGoals)
@@ -136,7 +138,7 @@ function computeExactScorePoints(
   if (predHomeGoals === homeScore) pts += cfg.correctGoals
   if (predAwayGoals === awayScore) pts += cfg.correctGoals
 
-  return { points: pts, isCorrect: false }
+  return { points: pts, isCorrect: false, isExact: false }
 }
 
 async function scoreMatchPredictions(match: MatchData, cfg: ScoringConfig, predictionMode: PredictionMode): Promise<void> {
@@ -158,10 +160,13 @@ async function scoreMatchPredictions(match: MatchData, cfg: ScoringConfig, predi
     batch.update(predDoc.ref, {
       points: scored.points,
       isCorrect: scored.isCorrect,
+      isExact: scored.isExact,
     })
     batch.update(db.collection('users').doc(pred.userId), {
       'stats.totalPoints': FieldValue.increment(scored.points),
       'stats.correctPredictions': FieldValue.increment(scored.isCorrect ? 1 : 0),
+      'stats.exactScoreCount': FieldValue.increment(scored.isExact ? 1 : 0),
+      'stats.incorrectPredictions': FieldValue.increment(scored.points === 0 ? 1 : 0),
     })
   }
   await batch.commit()
@@ -179,10 +184,16 @@ async function resetMatchPredictions(matchId: string): Promise<void> {
   for (const predDoc of scored) {
     const pred = predDoc.data() as PredictionData
     const pts = pred.points ?? 0
-    batch.update(predDoc.ref, { points: null, isCorrect: null })
+    // isExact === null means scored before T21 — new stat fields weren't tracked, skip them
+    const isT21 = pred.isExact != null
+    batch.update(predDoc.ref, { points: null, isCorrect: null, isExact: null })
     batch.update(db.collection('users').doc(pred.userId), {
       'stats.totalPoints': FieldValue.increment(-pts),
       'stats.correctPredictions': FieldValue.increment(pred.isCorrect ? -1 : 0),
+      ...(isT21 && {
+        'stats.exactScoreCount': FieldValue.increment(pred.isExact ? -1 : 0),
+        'stats.incorrectPredictions': FieldValue.increment(pts === 0 ? -1 : 0),
+      }),
     })
   }
   await batch.commit()
@@ -207,15 +218,22 @@ async function rescoreMatchPredictions(oldMatch: MatchData, newMatch: MatchData,
     const oldPts = pred.points ?? 0
     const ptsDelta = newScored.points - oldPts
     const correctDelta = (newScored.isCorrect ? 1 : 0) - (pred.isCorrect ? 1 : 0)
+    // For pre-T21 predictions (isExact === null), treat old value as 0 (wasn't tracked)
+    const oldIsT21 = pred.isExact != null
+    const exactDelta = (newScored.isExact ? 1 : 0) - (oldIsT21 && pred.isExact ? 1 : 0)
+    const incorrectDelta = (newScored.points === 0 ? 1 : 0) - (oldIsT21 && oldPts === 0 ? 1 : 0)
 
     batch.update(predDoc.ref, {
       points: newScored.points,
       isCorrect: newScored.isCorrect,
+      isExact: newScored.isExact,
     })
-    if (ptsDelta !== 0 || correctDelta !== 0) {
+    if (ptsDelta !== 0 || correctDelta !== 0 || exactDelta !== 0 || incorrectDelta !== 0) {
       batch.update(db.collection('users').doc(pred.userId), {
         'stats.totalPoints': FieldValue.increment(ptsDelta),
         'stats.correctPredictions': FieldValue.increment(correctDelta),
+        'stats.exactScoreCount': FieldValue.increment(exactDelta),
+        'stats.incorrectPredictions': FieldValue.increment(incorrectDelta),
       })
     }
   }
