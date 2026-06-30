@@ -15,7 +15,9 @@ export function useLeaderboard() {
         .sort((a, b) => {
           const byPoints = b.stats.totalPoints - a.stats.totalPoints
           if (byPoints !== 0) return byPoints
-          return b.stats.correctPredictions - a.stats.correctPredictions
+          const byExact = (b.stats.exactScoreCount ?? 0) - (a.stats.exactScoreCount ?? 0)
+          if (byExact !== 0) return byExact
+          return (a.stats.incorrectPredictions ?? 0) - (b.stats.incorrectPredictions ?? 0)
         })
       setPlayers(list)
       setLoading(false)

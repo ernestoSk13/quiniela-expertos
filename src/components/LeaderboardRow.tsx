@@ -166,8 +166,11 @@ export default function LeaderboardRow({ player, position, themeId, isCurrentUse
           fontWeight: 500,
           lineHeight: 1.3,
           marginTop: 2,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
         }}>
-          {player.stats.correctPredictions} {player.stats.correctPredictions === 1 ? 'acierto' : 'aciertos'}
+          {player.stats.correctPredictions} {player.stats.correctPredictions === 1 ? 'acierto' : 'aciertos'} · {player.stats.exactScoreCount ?? 0} exactos 🎯 | {player.stats.incorrectPredictions ?? 0} fallos ❌
         </div>
       </div>
 
