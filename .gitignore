@@ -78,3 +78,12 @@ dist
 IDEAS.md
 
 # Claude sessions notes (local-only)
+.claude/agent-memory/
+.claude/agents/
+
+# TypeScript build info (build artifact)
+*.tsbuildinfo
+
+# Temporary env files
+*.env.tmp
+.env.local.tmp

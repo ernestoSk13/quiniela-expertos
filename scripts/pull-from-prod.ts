@@ -18,7 +18,7 @@ import { getFirestore, WriteBatch } from 'firebase-admin/firestore'
 
 const PROJECT_ID = 'quinielaexpertos26'
 
-const ALL_COLLECTIONS = ['teams', 'matchdays', 'matches']
+const ALL_COLLECTIONS = ['teams', 'matchdays', 'matches', 'allowedUsers', 'users', 'config', 'predictions']
 
 // ── Parse CLI args ──────────────────────────────────────────────────────────
 const collectionsArg = process.argv.find(a => a.startsWith('--collections='))
