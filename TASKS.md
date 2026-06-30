@@ -828,3 +828,65 @@ Un solo matchday `final_stage` con los dos partidos finales:
 - Todos los equipos son `TBD` excepto los ya confirmados en R16 (Canadá, Marruecos, Paraguay, Brasil, Noruega). Usar `homeTeamCode: 'TBD'` como en `seed-r32.ts`.
 - El M103 (tercer lugar) y M104 (final) comparten matchday `final_stage` — el `predictionDeadline` es 10 min antes del partido más temprano (M103 el 18 jul).
 - Verificar los horarios contra el calendario oficial de FIFA antes de ejecutar en producción — la fuente usada aquí es worldcupwiki.com; pueden ajustarse horarios menores.
+
+---
+
+## T23 — Admin/Métricas: nuevas métricas de marcador exacto + quitar "Participación por jornada"
+
+**Estado:** Pendiente
+
+Con la fase eliminatoria en modo `exact_score`, ahora hay datos de goles pronosticados (`homeGoals`/`awayGoals`) que T19 no aprovechaba. Reemplazar la sección "PARTICIPACIÓN POR JORNADA" (poco útil, redundante con el progreso que ya se ve en el Dashboard) por métricas nuevas basadas en marcador exacto.
+
+### Quitar: sección "Participación por jornada"
+
+En `src/pages/Admin/AdminMetrics.tsx`:
+- Eliminar el bloque JSX `{/* ── Participación por jornada ── */}` (la llamada a `SectionHeader title="PARTICIPACIÓN POR JORNADA"` + `met-section-body` con `MatchdayMetricsRow`).
+- Eliminar la interfaz `MatchdayRow`, el cálculo de `matchdayRows` dentro de `loadMetrics()`, y el componente `MatchdayMetricsRow`.
+- `noData` actualmente se basa en `metrics.matchdayRows.length === 0` — cambiar la condición a algo que siga teniendo sentido sin esa data (ej. `metrics.totalPredictions === 0`).
+- Revisar si las clases CSS `.met-jornada-*` quedan sin uso tras el cambio y eliminarlas del bloque `styles`.
+- La sección "PARTIDOS MÁS DIFÍCILES" (`hardestMatches`) **se mantiene** — no depende de `matchdayRows`.
+
+### Agregar: nuevas tarjetas de métricas (`useAdminMetrics.ts`)
+
+Mismo patrón que las 8 tarjetas existentes (`MetricCard`, grid `met-grid-records`). Todas requieren predicciones de jornadas `predictionMode === 'exact_score'` con `homeGoals`/`awayGoals` no nulos.
+
+| # | Título | Ícono | Cálculo |
+|---|--------|-------|---------|
+| 9 | **Francotirador** | 🎯 (`target`, nuevo) | Jugador con más `stats.exactScoreCount` total. Ya viene acumulado server-side desde T21 — solo iterar `users`, sin recalcular desde predicciones. |
+| 10 | **Ojo de águila** | 👁️ (`eye`, nuevo) | Mejor proporción `exactScoreCount / total de predicciones en jornadas exact_score`, con mínimo de predicciones calificadas (ej. ≥5) para calificar y evitar que un jugador con 1 sola predicción gane. |
+| 11 | **Mayor error de marcador** | 📏 (`ruler`, nuevo) | La predicción individual (cualquier jugador, cualquier partido `exact_score` calificado) con mayor error absoluto: `\|homeGoals_pred - homeScore\| + \|awayGoals_pred - awayScore\|`. Mostrar `subtitle` con "Predijo X–Y, fue Z–W" y el partido. |
+| 12 | **Más ofensivo** | ⚔️ (`offensive`, nuevo) | Jugador con el promedio más alto de goles totales pronosticados (`homeGoals + awayGoals`) en jornadas `exact_score`. |
+| 13 | **Más cauteloso** | 🛡️ (`cautious`, nuevo) | Igual que #12 pero el promedio más bajo. |
+
+```typescript
+// useAdminMetrics.ts — extender MetricIcon
+export type MetricIcon =
+  | 'streak_correct' | 'streak_wrong' | 'drop' | 'rise'
+  | 'consistent' | 'best' | 'worst' | 'bold'
+  | 'target' | 'eye' | 'ruler' | 'offensive' | 'cautious'   // nuevos
+```
+
+Cálculo de #9–#13 reutiliza `scoredByUser` (ya filtrado a `points != null`) agregando un filtro adicional `matchdayById[matchById[p.matchId].matchdayId]?.predictionMode === 'exact_score' && p.homeGoals != null && p.awayGoals != null`. Para #9 no hace falta iterar predicciones — usar directamente `user.stats.exactScoreCount ?? 0` (ya viene en el doc de `users`).
+
+### Agregar: sección "Marcadores más predichos" (reemplazo de Participación por jornada)
+
+En `src/pages/Admin/AdminMetrics.tsx`, agregar una sección agregada (no por jugador) similar en estructura a "Partidos más difíciles":
+
+- Para cada partido finalizado con `predictionMode === 'exact_score'` y al menos 2 predicciones, calcular el marcador más repetido entre todos los jugadores (`Map<"H-A", count>`) y el % que lo eligió.
+- Mostrar fila: equipos + marcador real + "Marcador más predicho: 2–1 (38%)" + indicador si ese marcador coincidió con el resultado real (✅/❌).
+- Reutilizar el patrón de `MatchRow`/`HardMatchRow` (mismo estilo `met-match-row`) en vez de crear un sistema visual nuevo.
+- Esta sección requiere las predicciones completas por partido (`predsByMatch`, ya calculado en `loadMetrics()`), filtrando a las de jornadas `exact_score`.
+
+### Archivos afectados
+
+- `src/pages/Admin/AdminMetrics.tsx` — quitar sección de participación; agregar sección "Marcadores más predichos"; ajustar `noData`
+- `src/hooks/useAdminMetrics.ts` — 5 tarjetas nuevas (#9–13), extender `MetricIcon`
+- Iconos SVG nuevos en `ICON_PATHS` (`AdminMetrics.tsx`) para `target`, `eye`, `ruler`, `offensive`, `cautious`
+
+### Consideraciones
+
+- Todas las métricas nuevas quedan vacías/"Sin datos" mientras la fase de grupos siga activa (no hay `homeGoals`/`awayGoals` en modo `result`) — comportamiento esperado, no es un bug.
+- `exactScoreCount` ya tiene fallback `?? 0` desde T21 — reutilizar el mismo patrón.
+- Para "Mayor error de marcador", limitar candidatos a predicciones con ambos campos de goles no nulos (evitar `NaN` si una predicción quedó incompleta).
+- "Marcadores más predichos" puede tener empates (dos marcadores con el mismo conteo) — en ese caso mostrar el primero encontrado o "Varios marcadores empatados", igual que el patrón de empate ya usado en T19.
+- No tocar la lógica de puntuación ni Cloud Functions — todo el trabajo es de lectura/agregación en el cliente, igual que T19.

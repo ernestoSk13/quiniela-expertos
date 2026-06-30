@@ -7,21 +7,19 @@ import { useAdminMetrics, type MetricCard, type MetricIcon } from '@/hooks/useAd
 
 // ── Aggregated types ───────────────────────────────────────────────────────────
 
-interface MatchdayRow {
-  matchday: Matchday
-  totalMatches: number
-  finishedMatches: number
-  participants: number
-  totalPredictions: number
-  totalPoints: number
-  exactCount: number
-  correctCount: number
-}
-
 interface MatchRow {
   match: Match
   totalPredictions: number
   exactCount: number
+}
+
+interface PopularScoreRow {
+  match: Match
+  predictedScore: string
+  count: number
+  total: number
+  tied: boolean
+  matchedActual: boolean
 }
 
 interface Metrics {
@@ -29,8 +27,8 @@ interface Metrics {
   totalPredictions: number
   avgPoints: number
   correctRate: number
-  matchdayRows: MatchdayRow[]
   hardestMatches: MatchRow[]
+  popularScores: PopularScoreRow[]
 }
 
 // ── Data loading ───────────────────────────────────────────────────────────────
@@ -50,6 +48,7 @@ async function loadMetrics(): Promise<Metrics> {
   const matchdays = matchdaysSnap.docs.map(d => ({ id: d.id, ...d.data() } as Matchday))
   const matches   = matchesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Match))
   const preds     = predsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Prediction))
+  const matchdayById = new Map(matchdays.map(md => [md.id, md]))
 
   // Global
   const totalPredictions = preds.length
@@ -69,28 +68,6 @@ async function loadMetrics(): Promise<Metrics> {
     predsByMatch.get(p.matchId)!.push(p)
   }
 
-  // Per-matchday rows (only those with at least one prediction)
-  const matchdayRows: MatchdayRow[] = matchdays
-    .map(md => {
-      const mdMatches     = matches.filter(m => m.matchdayId === md.id)
-      const finishedCount = mdMatches.filter(m => m.homeScore !== null).length
-      const mdPreds       = predsByMatchday.get(md.id) ?? []
-      const participants  = new Set(mdPreds.map(p => p.userId)).size
-      const totalPoints   = mdPreds.reduce((s, p) => s + (p.points ?? 0), 0)
-      const correctCount  = mdPreds.filter(p => p.isCorrect).length
-      return {
-        matchday: md,
-        totalMatches: mdMatches.length,
-        finishedMatches: finishedCount,
-        participants,
-        totalPredictions: mdPreds.length,
-        totalPoints,
-        exactCount: 0,
-        correctCount,
-      }
-    })
-    .filter(r => r.totalPredictions > 0)
-
   // Per-match rows: only finished matches with predictions, sorted hardest first
   const hardestMatches: MatchRow[] = matches
     .filter(m => m.homeScore !== null)
@@ -103,13 +80,44 @@ async function loadMetrics(): Promise<Metrics> {
     .sort((a, b) => (a.exactCount / a.totalPredictions) - (b.exactCount / b.totalPredictions))
     .slice(0, 8)
 
+  // Most-predicted scoreline per finished exact_score match, most recent first
+  const popularScores: PopularScoreRow[] = matches
+    .filter(m => m.homeScore !== null && matchdayById.get(m.matchdayId)?.predictionMode === 'exact_score')
+    .map(m => {
+      const mPreds = (predsByMatch.get(m.id) ?? []).filter(p => p.homeGoals != null && p.awayGoals != null)
+      if (mPreds.length === 0) return null
+      const counts = new Map<string, number>()
+      for (const p of mPreds) {
+        const key = `${p.homeGoals}-${p.awayGoals}`
+        counts.set(key, (counts.get(key) ?? 0) + 1)
+      }
+      let bestCount = 0
+      let bestKeys: string[] = []
+      for (const [key, count] of counts) {
+        if (count > bestCount) { bestCount = count; bestKeys = [key] }
+        else if (count === bestCount) bestKeys.push(key)
+      }
+      const actualKey = `${m.homeScore}-${m.awayScore}`
+      return {
+        match: m,
+        predictedScore: bestKeys.map(k => k.replace('-', '–')).join(' / '),
+        count: bestCount,
+        total: mPreds.length,
+        tied: bestKeys.length > 1,
+        matchedActual: bestKeys.includes(actualKey),
+      }
+    })
+    .filter((r): r is PopularScoreRow => r !== null)
+    .sort((a, b) => b.match.scheduledAt.toMillis() - a.match.scheduledAt.toMillis())
+    .slice(0, 10)
+
   return {
     activePlayers: activePlayers.length,
     totalPredictions,
     avgPoints: Math.round(avgPoints * 10) / 10,
     correctRate,
-    matchdayRows,
     hardestMatches,
+    popularScores,
   }
 }
 
@@ -137,7 +145,7 @@ export default function AdminMetrics() {
 
   if (!metrics) return null
 
-  const noData = metrics.matchdayRows.length === 0
+  const noData = metrics.totalPredictions === 0
 
   return (
     <>
@@ -193,17 +201,17 @@ export default function AdminMetrics() {
         </div>
       ) : (
         <>
-          {/* ── Participación por jornada ── */}
-          <SectionHeader title="PARTICIPACIÓN POR JORNADA" />
-          <div className="met-section-body">
-            {metrics.matchdayRows.map(row => (
-              <MatchdayMetricsRow
-                key={row.matchday.id}
-                row={row}
-                totalPlayers={metrics.activePlayers}
-              />
-            ))}
-          </div>
+          {/* ── Marcadores más predichos ── */}
+          {metrics.popularScores.length > 0 && (
+            <>
+              <SectionHeader title="MARCADORES MÁS PREDICHOS" subtitle="jornadas de marcador exacto" />
+              <div className="met-section-body">
+                {metrics.popularScores.map(row => (
+                  <PopularScoreMatchRow key={row.match.id} row={row} />
+                ))}
+              </div>
+            </>
+          )}
 
           {/* ── Partidos más difíciles ── */}
           {metrics.hardestMatches.length > 0 && (
@@ -271,43 +279,29 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
   )
 }
 
-function MatchdayMetricsRow({
-  row, totalPlayers,
-}: { row: MatchdayRow; totalPlayers: number }) {
-  const participationRate = totalPlayers > 0 ? row.participants / totalPlayers : 0
-  const avgPts = row.participants > 0
-    ? (row.totalPoints / row.participants).toFixed(1)
-    : '—'
-  const correctRate = row.totalPredictions > 0
-    ? ((row.correctCount / row.totalPredictions) * 100).toFixed(1)
-    : '—'
+function PopularScoreMatchRow({ row }: { row: PopularScoreRow }) {
+  const { match, predictedScore, count, total, tied, matchedActual } = row
+  const pct = total > 0 ? Math.round((count / total) * 100) : 0
+  const score = match.homeScore !== null
+    ? `${match.homeScore}–${match.awayScore}`
+    : '?–?'
 
   return (
-    <div className="met-jornada-row">
-      {/* Top row: name + participation */}
-      <div className="met-jornada-top">
-        <span className="met-jornada-name">{row.matchday.name}</span>
-        <span className="met-jornada-count">
-          {row.participants}/{totalPlayers} jugadores
+    <div className="met-match-row">
+      <div className="met-match-fixture">
+        <span className="met-match-codes">
+          {match.homeTeamCode} <span className="met-match-vs">vs</span> {match.awayTeamCode}
         </span>
-        <span className="met-jornada-pct">
-          {(participationRate * 100).toFixed(0)}%
-        </span>
+        <span className="met-match-score">{score}</span>
       </div>
 
-      {/* Progress bar */}
-      <div className="met-bar-track">
-        <div
-          className="met-bar-fill"
-          style={{ width: `${participationRate * 100}%` }}
+      <div className="met-match-right">
+        <Pill
+          label={tied ? 'Empate de predicciones' : 'Predicción popular'}
+          value={`${predictedScore} (${pct}%)`}
+          green={matchedActual}
         />
-      </div>
-
-      {/* Bottom stats */}
-      <div className="met-jornada-stats">
-        <Pill label="Pts promedio" value={avgPts} />
-        <Pill label="Aciertos" value={`${row.correctCount} (${correctRate}%)`} green />
-        <Pill label="Partidos" value={`${row.finishedMatches}/${row.totalMatches}`} />
+        <span style={{ fontSize: '0.9rem' }}>{matchedActual ? '✅' : '❌'}</span>
       </div>
     </div>
   )
@@ -394,6 +388,31 @@ const ICON_PATHS: Record<MetricIcon, React.ReactNode> = {
   ),
   bold: (
     <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+  ),
+  target: (
+    <>
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <circle cx="12" cy="12" r="6" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <circle cx="12" cy="12" r="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" fill="none"/>
+    </>
+  ),
+  ruler: (
+    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+  ),
+  offensive: (
+    <>
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <path d="M16 12l-4-4-4 4M12 16V8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    </>
+  ),
+  cautious: (
+    <path d="M12 2 4 5v6c0 5.25 3.4 10.07 8 11 4.6-.93 8-5.75 8-11V5l-8-3z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
   ),
 }
 
@@ -597,42 +616,6 @@ const styles = `
     gap: 8px;
   }
 
-  /* ── Jornada row ── */
-  .met-jornada-row {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 10px;
-    padding: 12px 14px;
-  }
-  .met-jornada-top {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-  .met-jornada-name {
-    font-family: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
-    font-size: 0.95rem;
-    letter-spacing: 0.06em;
-    color: rgba(255,255,255,0.85);
-    flex: 1;
-    min-width: 0;
-  }
-  .met-jornada-count {
-    font-size: 0.7rem;
-    color: rgba(255,255,255,0.35);
-    white-space: nowrap;
-  }
-  .met-jornada-pct {
-    font-family: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
-    font-size: 1.05rem;
-    letter-spacing: 0.04em;
-    color: var(--accent-light);
-    white-space: nowrap;
-    min-width: 36px;
-    text-align: right;
-  }
-
   /* ── Progress bar ── */
   .met-bar-track {
     height: 4px;
@@ -646,12 +629,6 @@ const styles = `
     margin-bottom: 0;
     flex: 1;
   }
-  .met-bar-fill {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 99px;
-    transition: width 0.4s ease;
-  }
   .met-bar-fill-difficulty {
     height: 100%;
     border-radius: 99px;
@@ -659,11 +636,6 @@ const styles = `
   }
 
   /* ── Pills ── */
-  .met-jornada-stats {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
   .met-pill {
     display: flex;
     gap: 4px;
