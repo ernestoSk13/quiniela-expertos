@@ -339,7 +339,10 @@ export default function Dashboard() {
 
   const leaderboardSection = (
     <>
-      <h2 className="text-lg font-bold mb-4">Tabla general</h2>
+      <h2 className="text-lg font-bold mb-2">Tabla general</h2>
+      <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.35)' }}>
+        En caso de empate: más puntos · más aciertos · más marcadores exactos 🎯 · menos fallos ❌
+      </p>
       {leaderboardLoading ? (
         <p className="text-gray-500 text-sm">Cargando tabla...</p>
       ) : (
