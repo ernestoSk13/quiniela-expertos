@@ -21,7 +21,9 @@
     "seed:final:prod": "dotenv -e .env.local -- tsx scripts/seed-final.ts",
     "push-to-prod": "dotenv -e .env.local -- tsx scripts/push-to-prod.ts",
     "pull-from-prod": "dotenv -e .env.local -- tsx scripts/pull-from-prod.ts",
-    "fix-timestamps": "dotenv -e .env.local -- tsx scripts/fix-timestamps.ts"
+    "fix-timestamps": "dotenv -e .env.local -- tsx scripts/fix-timestamps.ts",
+    "backfill:exact-scores": "FIRESTORE_EMULATOR_HOST=localhost:8080 tsx scripts/backfill-exact-scores.ts",
+    "backfill:exact-scores:prod": "dotenv -e .env.local -- tsx scripts/backfill-exact-scores.ts"
   },
   "dependencies": {
     "firebase": "^11.0.0",
